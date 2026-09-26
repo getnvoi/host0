@@ -289,6 +289,12 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	// One tag per build: a tag that exists is not moved, so a rebuild under the same name would leave forks on the old.
 	seed.Actor, seed.Tag = seed.Template, seed.Template+"-"+id()
 	p.Store.Put("seeds", name, seed)
+	// A build that crashed leaves its actor crashed, and a crashed actor never resumes: this build starts over.
+	if state, err := p.Sandboxes.State(ctx, seed.Actor); err == nil && state == "crashed" {
+		if err := p.Sandboxes.Delete(ctx, seed.Actor); err != nil {
+			return fail(err)
+		}
+	}
 	if err := p.Sandboxes.Create(ctx, seed.Actor, seed.Template, ""); err != nil {
 		return fail(err)
 	}
@@ -377,3 +383,8 @@ func with(m map[string]string, k, v string) map[string]string {
 	}
 	return out
 }
+
+// How a browser reaches a host: through the cluster's tunnel, over https, on a cloud cluster as on this machine.
+func origin(host string) string { return "https://" + host }
+
+func Origin(host string) string { return origin(host) }

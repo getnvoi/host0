@@ -12,7 +12,7 @@ import (
 
 func main() {
 	root := &cobra.Command{Use: "nvoi", SilenceUsage: true, SilenceErrors: true}
-	root.AddCommand(local.Cluster())
+	root.AddCommand(local.Cluster(), local.Machine())
 	root.AddCommand(remote.Commands()...)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "nvoi:", err)

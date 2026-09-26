@@ -39,7 +39,7 @@ func (p *Plane) PreviewURL(host string, ttl time.Duration) string {
 	msg := head + "." + b64.EncodeToString(body)
 	mac := hmac.New(sha256.New, p.gateKey())
 	mac.Write([]byte(msg))
-	return "https://" + host + "/?token=" + msg + "." + b64.EncodeToString(mac.Sum(nil))
+	return origin(host) + "/?token=" + msg + "." + b64.EncodeToString(mac.Sum(nil))
 }
 
 var errExpired = errors.New("expired")

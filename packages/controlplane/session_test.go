@@ -541,3 +541,31 @@ func TestAnsweredTurnEnds(t *testing.T) {
 		t.Fatalf("events %s", kinds(s))
 	}
 }
+
+// A turn that ended on a network error goes on after a pause; one that ended on anything else does not.
+func TestTransientTurnRetried(t *testing.T) {
+	retryPause = 10 * time.Millisecond
+	t.Cleanup(func() { retryPause = 10 * time.Second })
+	p, fb := withBoxd(t)
+	for sid, text := range map[string]string{"tr1": "API Error: Can't reach the API server (EAI_AGAIN)", "tr2": "Error: the tests failed"} {
+		fb.hold["turn-1"], fb.logs["turn-1"] = make(chan int, 1), true
+		fb.hold["turn-1"] <- 1
+		fb.lines["turn-1"] = `{"type":"result","is_error":true,"result":"` + text + `"}` + "\n"
+		p.Store.Put("sessions", sid, contract.Session{ID: sid, Env: "web", Actor: "wt-" + sid, State: "running",
+			Forked: true, Turns: 1, Events: []contract.Event{{Kind: "prompt", Content: "go"}}})
+		p.Recover()
+		if sid == "tr1" {
+			rest(t, p, sid, 2)
+			if fb.prompt("turn-2") != again {
+				t.Fatalf("retry prompt %q", fb.prompt("turn-2"))
+			}
+			delete(fb.lines, "turn-1")
+			delete(fb.argv, "turn-2")
+			continue
+		}
+		s := rest(t, p, sid, 1)
+		if fb.count("turn-2") != 0 && s.Turns != 1 {
+			t.Fatalf("a failure of the agent's own was retried: %d turns", s.Turns)
+		}
+	}
+}

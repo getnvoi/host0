@@ -252,7 +252,7 @@ func frameable(res *http.Response, appHost string) {
 	if csp != "" {
 		csp += "; "
 	}
-	res.Header.Set("Content-Security-Policy", csp+"frame-ancestors https://"+appHost)
+	res.Header.Set("Content-Security-Policy", csp+"frame-ancestors "+origin(appHost))
 }
 
 func (p *Plane) preview(appHost string) http.Handler {

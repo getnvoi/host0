@@ -34,7 +34,7 @@ func (p *Plane) terminal(appHost string) http.HandlerFunc {
 		}},
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		if o := r.Header.Get("Origin"); o != "" && o != "https://"+appHost {
+		if o := r.Header.Get("Origin"); o != "" && o != origin(appHost) {
 			http.Error(w, "origin not allowed", http.StatusForbidden)
 			return
 		}

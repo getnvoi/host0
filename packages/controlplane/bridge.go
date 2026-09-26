@@ -42,7 +42,7 @@ addEventListener("message", function (e) {
   if (d.type === "nvoi:ping") post("ping", d.id);
 });
 })();
-`, "https://"+appHost)
+`, origin(appHost))
 }
 
 func serveBridge(w http.ResponseWriter, appHost string) {

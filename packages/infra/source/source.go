@@ -20,6 +20,9 @@ type Repo struct {
 var (
 	Substrate = Repo{"substrate", "https://github.com/agent-substrate/substrate", "31a5e0ba29a525b3587882132fa13bd211653152",
 		[]string{"substrate-ko-platform.patch", "substrate-atelet.patch"}}
+	// On this machine: atelet keeps kind's own registry, which the Hetzner patch replaces; both can remove what a
+	// sandbox's services own (postgres's 0700 data directory) when a sandbox is reset.
+	SubstrateLocal = Repo{"substrate-local", Substrate.URL, Substrate.Commit, []string{"substrate-ko-platform.patch", "substrate-atelet-local.patch"}}
 )
 
 // What ate-setup labels nodes with (git describe --always --dirty); atelet runs only where it is set.

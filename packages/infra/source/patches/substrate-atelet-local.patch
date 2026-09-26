@@ -1,0 +1,14 @@
+diff --git a/manifests/ate-install/kind/atelet/kustomization.yaml b/manifests/ate-install/kind/atelet/kustomization.yaml
+index 77043946..57ea8c3f 100644
+--- a/manifests/ate-install/kind/atelet/kustomization.yaml
++++ b/manifests/ate-install/kind/atelet/kustomization.yaml
+@@ -30,6 +30,9 @@ patches:
+           spec:
+             containers:
+             - name: atelet
++              securityContext:
++                capabilities:
++                  add: ["DAC_OVERRIDE", "FOWNER"]
+               args:
+               - --gcp-auth-for-image-pulls=false
+               - --localhost-registry-replacement=kind-registry:5000

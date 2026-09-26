@@ -72,7 +72,7 @@ func main() {
 	go p.Refresh()
 	go p.Scale(context.Background())
 	go p.Sample(context.Background())
-	log.Printf("plane on :8080, api at https://%s, app at https://%s", api, app)
+	log.Printf("plane on :8080, api at %s, app at %s", controlplane.Origin(api), controlplane.Origin(app))
 	srv := &http.Server{Addr: ":8080", Handler: p.Handler(api, app, must("NVOI_TOKEN_SHA256")),
 		ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
 	log.Fatal(srv.ListenAndServe())

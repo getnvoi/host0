@@ -8,10 +8,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/getnvoi/nvoi/infra"
 	"github.com/getnvoi/nvoi/infra/kube"
@@ -114,12 +116,12 @@ var Install = []infra.Step{
 		return nil
 	}),
 	step("substrate", func(ctx context.Context, e *infra.Env) error {
-		dir, err := source.Substrate.Dir(ctx, e.Cache, e.Out)
+		dir, err := substrate(ctx, e)
 		if err != nil {
 			return err
 		}
 		return source.CmdEnv(ctx, dir, ko(e), nil, e.Out, "go", "run", "./cmd/ate-setup",
-			"--kind", "--kubeconfig", e.Vars["kubeconfig"], "--context", "default",
+			"--kind", "--kubeconfig", e.Vars["kubeconfig"], "--context", kubeContext(e),
 			"--rollout-timeout", "600s", "deploy", "ate-system")
 	}),
 	step("worker pools", func(ctx context.Context, e *infra.Env) error {
@@ -140,7 +142,7 @@ var Install = []infra.Step{
 		if err != nil {
 			return err
 		}
-		dir, err := source.Substrate.Dir(ctx, e.Cache, e.Out)
+		dir, err := substrate(ctx, e)
 		if err != nil {
 			return err
 		}
@@ -187,7 +189,7 @@ var Install = []infra.Step{
 			return err
 		}
 		m, err := manifests.Render("plane.yaml", map[string]string{"Cluster": e.Cluster.Name, "Zone": e.Config.Zone,
-			"Suffix": e.Config.PreviewSuffix,
+			"Suffix": e.Config.PreviewSuffix, "ControlLabel": controlLabel(e),
 			"Secret": hex.EncodeToString(sum[:8])})
 		if err != nil {
 			return err
@@ -210,9 +212,12 @@ var Install = []infra.Step{
 		if err := kube.Rollout(ctx, e.Shell, naming.Namespace, "deployment", "plane", e.Out); err != nil {
 			return err
 		}
-		url := "https://" + naming.Host(e.Cluster, "api", e.Config.Zone)
+		url := origin(e, naming.Host(e.Cluster, "api", e.Config.Zone))
+		if err := reachable(ctx, url, e.Out); err != nil {
+			return err
+		}
 		e.Say("api at %s", url)
-		e.Say("web UI at https://%s: sign in with nvoi open", naming.Host(e.Cluster, "app", e.Config.Zone))
+		e.Say("web UI at %s: sign in with nvoi open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
 		return state.Save(state.State{URL: url, Token: token})
 	}),
 }
@@ -246,9 +251,13 @@ func output(ctx context.Context, e *infra.Env, cmd string) (string, error) {
 	return strings.TrimSpace(b.String()), err
 }
 
-// ko builds for the nodes and pushes through the registry tunnel.
+// ko builds for the nodes and pushes through the registry tunnel: amd64 on Hetzner, this machine's on a local one.
 func ko(e *infra.Env) []string {
-	return []string{"KO_DOCKER_REPO=" + naming.LocalRegistry(), "KO_DEFAULTPLATFORMS=linux/amd64",
+	platform := e.Vars["platform"]
+	if platform == "" {
+		platform = "linux/amd64"
+	}
+	return []string{"KO_DOCKER_REPO=" + naming.LocalRegistry(), "KO_DEFAULTPLATFORMS=" + platform,
 		"KUBECONFIG=" + e.Vars["kubeconfig"], "NO_DEV_ENV=true"}
 }
 
@@ -258,4 +267,57 @@ func resolve(ctx context.Context, e *infra.Env, dir string, stdin string, args .
 		in = strings.NewReader(stdin)
 	}
 	return source.Capture(ctx, dir, ko(e), in, e.Out, "ko", append([]string{"resolve"}, args...)...)
+}
+
+func origin(_ *infra.Env, host string) string { return "https://" + host }
+
+// The value k3s gives node-role.kubernetes.io/control-plane; kind's is empty.
+func controlLabel(e *infra.Env) string {
+	if l, ok := e.Vars["control-label"]; ok {
+		return l
+	}
+	return "true"
+}
+
+func substrate(ctx context.Context, e *infra.Env) (string, error) {
+	if e.Vars["local"] != "" {
+		return source.SubstrateLocal.Dir(ctx, e.Cache, e.Out)
+	}
+	return source.Substrate.Dir(ctx, e.Cache, e.Out)
+}
+
+func kubeContext(e *infra.Env) string {
+	if c := e.Vars["context"]; c != "" {
+		return c
+	}
+	return "default"
+}
+
+// Waits until the plane answers through the tunnel several times in a row: new records reach Cloudflare's edge servers
+// one by one, and one that has not yet answers with an error of its own (1000, a 403 page).
+func reachable(ctx context.Context, url string, out io.Writer) error {
+	client := &http.Client{Timeout: 10 * time.Second}
+	deadline := time.Now().Add(5 * time.Minute)
+	for streak := 0; streak < 5; {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%s does not answer through the tunnel", url)
+		}
+		res, err := client.Get(url + "/approvals")
+		// The plane refuses a request without its token; anything else is not the plane.
+		if err == nil && res.StatusCode == http.StatusUnauthorized && strings.HasPrefix(res.Header.Get("Content-Type"), "text/plain") {
+			streak++
+		} else {
+			streak = 0
+		}
+		if res != nil {
+			res.Body.Close()
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+	fmt.Fprintf(out, "  %s answers through the tunnel\n", url)
+	return nil
 }

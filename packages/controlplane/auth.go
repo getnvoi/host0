@@ -45,7 +45,7 @@ func (p *Plane) LoginLink(appHost, label string) (string, error) {
 	if err := p.Store.Put("links", digest(code), link{Label: label, Until: time.Now().Add(linkTTL)}); err != nil {
 		return "", err
 	}
-	return "https://" + appHost + "/login?code=" + code, nil
+	return origin(appHost) + "/login?code=" + code, nil
 }
 
 func (p *Plane) login(w http.ResponseWriter, r *http.Request) {

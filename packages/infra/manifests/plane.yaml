@@ -49,7 +49,7 @@ spec:
     spec:
       serviceAccountName: plane
       securityContext: { runAsUser: 0 }
-      nodeSelector: { node-role.kubernetes.io/control-plane: "true" }
+      nodeSelector: { node-role.kubernetes.io/control-plane: "[[.ControlLabel]]" }
       containers:
         - name: plane
           image: ko://github.com/getnvoi/nvoi/controlplane/cmd/plane

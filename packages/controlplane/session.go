@@ -265,7 +265,7 @@ func (p *Plane) turn(ctx context.Context, s *contract.Session, prompt string) st
 	}
 	tools, _ := json.Marshal(Tools)
 	argv := claude.Argv(claude.Turn{Prompt: prompt, Session: s.Claude, Resume: s.Turns > 0, Model: "sonnet",
-		Instructions: fmt.Sprintf(instructions, "https://"+s.Preview), MCP: Boxd})
+		Instructions: fmt.Sprintf(instructions, origin(s.Preview)), MCP: Boxd})
 	stops.Delete(stopKey(s.ID, s.Turns+1))
 	p.put(s, func() {
 		s.Turns++
@@ -368,12 +368,67 @@ func (p *Plane) follow(ctx context.Context, s *contract.Session, run box.Run) st
 			s.State, s.Outcomes = "awaiting_approval", outcomes
 		})
 		return ""
+	case code != 0 && transient(s.Events[start:]) && retry(s.ID) <= retryLimit:
+		// Claude could not reach its API (DNS, a reset, an overload): its session goes on after a pause, with what
+		// the tools it did call came to.
+		n, _ := retries.Load(s.ID)
+		p.put(s, func() {
+			add(s, contract.Event{Kind: "notice", Content: fmt.Sprintf("Claude could not reach its API; trying again (%d of %d).", n, retryLimit)})
+		})
+		select {
+		case <-time.After(time.Duration(n.(int)) * retryPause):
+		case <-ctx.Done():
+		}
+		prompt := again
+		if len(outcomes) > 0 {
+			prompt = outcome + "\n" + strings.Join(outcomes, "\n") + "\n\n" + again
+		}
+		p.put(s, func() { s.Pending = prompt })
+		return prompt
 	case len(outcomes) > 0:
+		retries.Delete(s.ID)
 		prompt := outcome + "\n" + strings.Join(outcomes, "\n")
 		p.put(s, func() { s.Pending = prompt })
 		return prompt
 	}
+	retries.Delete(s.ID)
 	return p.drain(s)
+}
+
+// What a turn cut short by the API connection is resumed with; the web UI does not show it as a message.
+const again = "The connection to the API dropped before you finished. Continue where you left off."
+
+var (
+	retries    sync.Map // session id -> attempts in a row
+	retryLimit = 2
+	retryPause = 10 * time.Second
+	flaky      = regexp.MustCompile(`(?i)EAI_AGAIN|ENOTFOUND|ECONNRESET|ETIMEDOUT|ECONNREFUSED|can't reach the API|connection error|overloaded|API Error: 5\d\d`)
+)
+
+// Counts one more attempt at the session's turn.
+func retry(sid string) int {
+	for {
+		v, loaded := retries.LoadOrStore(sid, 1)
+		if !loaded {
+			return 1
+		}
+		if retries.CompareAndSwap(sid, v, v.(int)+1) {
+			return v.(int) + 1
+		}
+	}
+}
+
+// Whether the turn ended on a network error rather than something the agent did.
+func transient(events []contract.Event) bool {
+	for i := len(events) - 1; i >= 0; i-- {
+		switch events[i].Kind {
+		case "error", "result", "message":
+			if flaky.MatchString(events[i].Content) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // The next queued message, saved as the session's intent; with none, the session at rest.
