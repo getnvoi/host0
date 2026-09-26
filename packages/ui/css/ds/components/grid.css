@@ -1,0 +1,8 @@
+.ds-grid { display: grid; grid-template-columns: var(--columns); gap: var(--gap); min-width: 0; }
+.ds-grid.has-width { width: 100%; max-width: var(--width); }
+.ds-grid.is-center { align-items: center; }
+.ds-grid.is-start { align-items: start; }
+.ds-grid.is-end { align-items: end; }
+/* wrap: two columns under 900px, one under 560. */
+@media (max-width: 900px) { .ds-grid.is-wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .ds-grid.is-wrap { grid-template-columns: minmax(0, 1fr); } }

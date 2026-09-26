@@ -1,0 +1,33 @@
+.ds-segmented { display: inline-flex; align-items: center; flex: none; gap: 2px; height: var(--ds-h-control); padding: 1px; border: 1px solid var(--ds-g8); border-radius: var(--ds-round); background: var(--ds-ga3); box-sizing: border-box; }
+.ds-segmented.is-sm { height: var(--ds-h-control-sm); }
+.ds-segmented-item { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 100%; padding: 0 11px; border: 0; border-radius: var(--ds-round); background: none; color: var(--ds-g11); font: 500 var(--ds-fs-13)/1 var(--ds-sans); white-space: nowrap; text-decoration: none; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; transition: transform var(--ds-dur-press) var(--ds-ease-out); }
+.ds-segmented.is-sm .ds-segmented-item { padding: 0 8px; gap: 4px; font-size: var(--ds-fs-12); }
+.ds-segmented.is-glyph .ds-segmented-item { width: 30px; padding: 0; }
+.ds-segmented.is-glyph.is-sm .ds-segmented-item { width: 26px; }
+/* The hit area reaches the track's edge and the gaps, so the whole control answers a press. */
+.ds-segmented-item::after { content: ""; position: absolute; inset: -2px -1px; }
+/* Folded: under 560px of container only the glyph shows, and the label is left to assistive technology. */
+@container (max-width: 560px) {
+  .ds-segmented.is-fold .ds-segmented-item:has(.ds-glyph) { width: 32px; padding: 0; }
+  .ds-segmented.is-fold .ds-segmented-item:has(.ds-glyph) .ds-segmented-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (pointer: coarse) {
+  @container (max-width: 560px) { .ds-segmented.is-fold .ds-segmented-item:has(.ds-glyph) { width: var(--ds-h-control); } }
+}
+@media (hover: hover) and (pointer: fine) {
+  .ds-segmented-item:not(.is-chosen):not(:disabled):not([aria-disabled]):hover { color: var(--ds-g12); }
+}
+/* Chosen: lifted onto white behind a hairline, the track stays grey. */
+.ds-segmented-item.is-chosen { background: var(--ds-surface); color: var(--ds-g12); box-shadow: 0 0 0 1px var(--ds-g6), var(--ds-sh-neutral); }
+.ds-segmented-item:active:not(:disabled):not([aria-disabled]) { transform: scale(0.97); }
+.ds-segmented-item:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ds-segmented-item:disabled, .ds-segmented-item[aria-disabled] { color: var(--ds-g9); cursor: not-allowed; }
+.ds-segmented.is-disabled { opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) { .ds-segmented-item:active { transform: none; } }
+
+/* Glyph items: the ones not chosen are dimmed, full strength on hover and when chosen. */
+.ds-segmented.is-glyph .ds-segmented-item:not(.is-chosen) .ds-glyph { opacity: 0.45; transition: opacity var(--ds-dur-hover) ease; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-segmented.is-glyph .ds-segmented-item:not(.is-chosen):not(:disabled):not([aria-disabled]):hover .ds-glyph { opacity: 1; }
+}
+.ds-segmented.is-glyph .ds-segmented-item:focus-visible .ds-glyph { opacity: 1; }

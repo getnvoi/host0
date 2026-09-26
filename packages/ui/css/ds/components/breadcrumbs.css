@@ -1,0 +1,8 @@
+.ds-breadcrumbs { background: var(--ds-paper) var(--ds-grain); }
+.ds-breadcrumbs-in { max-width: 1120px; margin-inline: auto; padding: 20px 48px 0; display: flex; flex-wrap: wrap; gap: 4px; list-style: none; font-size: var(--ds-fs-13); color: var(--ds-g11); }
+.ds-breadcrumbs-part { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.ds-breadcrumbs-part + .ds-breadcrumbs-part::before { content: "›"; color: var(--ds-g9); }
+.ds-breadcrumbs-part a { color: var(--ds-g11); text-decoration: none; }
+.ds-breadcrumbs-part a:hover { color: var(--ds-g12); text-decoration: underline; text-decoration-color: var(--ds-g8); text-underline-offset: 2px; }
+.ds-breadcrumbs-part [aria-current] { color: var(--ds-g12); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .ds-breadcrumbs-in { padding-inline: 16px; } }

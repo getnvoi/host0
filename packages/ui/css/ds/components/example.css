@@ -1,0 +1,19 @@
+.ds-example { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ds-g6); }
+.ds-example figcaption { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-bottom: 1px solid var(--ds-g6); }
+.ds-example figcaption b { font-weight: 500; }
+.ds-example figcaption span { color: var(--ds-g11); font-size: var(--ds-fs-13); }
+.ds-example-stage { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 40px 24px; min-height: 160px; background: var(--ds-g2); }
+.ds-example-stage.is-center { justify-content: center; }
+.ds-example-stage.is-start { align-items: flex-start; }
+.ds-example-stage.is-fill { display: block; padding: 24px; }
+.ds-example-code { position: relative; border-top: 1px solid var(--ds-g6); background: var(--ds-surface); }
+.ds-example-code pre { padding: 14px 16px; font: var(--ds-fs-12)/1.7 var(--ds-mono); color: var(--ds-g12); overflow: auto; max-height: 5.9em; }
+.ds-example-code.is-open pre, .ds-example-code.is-short pre { max-height: 480px; }
+.ds-example-code:not(.is-open):not(.is-short)::after { content: ""; position: absolute; inset: auto 0 0 0; height: 48px; background: linear-gradient(transparent, var(--ds-surface)); pointer-events: none; }
+.ds-example-toggle { position: absolute; z-index: 1; inset: auto 0 10px 0; display: flex; justify-content: center; pointer-events: none; }
+.ds-example-toggle .ds-button { pointer-events: auto; }
+.ds-example-code.is-open .ds-example-toggle { position: static; padding-bottom: 12px; }
+/* Names of things inside examples: mono 12, no chip. */
+.ds-example-stage code, .ds-rules code { font: 500 var(--ds-fs-12) var(--ds-mono); color: var(--ds-g12); background: none; padding: 0; }
+/* Whatever an example shows can overflow its grey stage, never the card around it. Popovers are fixed and unaffected. */
+.ds-example-stage { overflow: clip; min-width: 0; }

@@ -1,0 +1,23 @@
+.ds-board { overflow-x: auto; }
+.ds-board-lanes { display: grid; grid-template-columns: repeat(var(--lanes), minmax(240px, 1fr)); align-items: start; gap: 16px; padding: 24px 20px; min-width: calc(var(--lanes) * 256px + 24px); }
+.ds-board-lane .ds-section-box { background: var(--ds-g2); }
+.ds-board-lane .ds-section-body { gap: 8px; padding: 8px; min-height: 480px; }
+.ds-board-empty { margin: 0; padding: 4px; color: var(--ds-g9); font-size: var(--ds-fs-12); }
+
+/* A card: the thing's title, what it is doing when it is doing something, then where and when. */
+.ds-board-card { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--ds-g8); background: var(--ds-surface); box-shadow: var(--ds-sh-neutral); color: var(--ds-g12); text-decoration: none; min-width: 0; transition: transform var(--ds-dur-press) var(--ds-ease-out); }
+.ds-board-card:active { transform: scale(0.99); }
+@media (hover: hover) and (pointer: fine) { .ds-board-card:hover { border-color: var(--ds-g11); } }
+.ds-board-card:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ds-board-card-title { font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+.ds-board-card-state { display: flex; align-items: center; gap: 6px; font-size: var(--ds-fs-12); color: var(--ds-g11); }
+.ds-board-card-dot { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--ds-g8); flex: none; }
+.ds-board-card-dot.is-ok { background: var(--ds-ok); }
+.ds-board-card-dot.is-busy { background: var(--ds-busy); }
+.ds-board-card-dot.is-bad { background: var(--ds-bad); }
+.ds-board-card-spin { display: block; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--ds-g6); border-top-color: var(--ds-g11); animation: ds-spin 0.8s linear infinite; flex: none; }
+.ds-board-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; font-size: var(--ds-fs-12); color: var(--ds-g11); }
+.ds-board-card-time { margin-left: auto; color: var(--ds-g9); font-variant-numeric: tabular-nums; }
+.ds-board-card.is-off { background: transparent; box-shadow: none; color: var(--ds-g9); }
+.ds-board-card.is-off .ds-board-card-title { font-weight: 400; }
+@media (prefers-reduced-motion: reduce) { .ds-board-card-spin { animation-duration: 2.4s; } .ds-board-card:active { transform: none; } }

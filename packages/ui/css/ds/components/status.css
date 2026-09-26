@@ -1,0 +1,5 @@
+.ds-status { display: inline-flex; align-items: center; gap: 6px; color: var(--ds-g11); font-size: var(--ds-fs-13); white-space: nowrap; }
+.ds-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ds-g8); flex: none; }
+.ds-status.is-ok .ds-status-dot { background: var(--ds-ok); }
+.ds-status.is-busy .ds-status-dot { background: var(--ds-busy); box-shadow: 0 0 0 1px color-mix(in oklab, var(--ds-amber-i) 45%, transparent); }
+.ds-status.is-bad .ds-status-dot { background: var(--ds-bad); }

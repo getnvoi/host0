@@ -1,0 +1,3 @@
+.ds-step { display: flex; align-items: center; gap: 12px; }
+.ds-step-value { flex: none; width: 24px; font: 400 var(--ds-fs-12)/16px var(--ds-mono); font-variant-numeric: tabular-nums; color: var(--ds-g11); }
+.ds-step-bar { flex: none; width: calc(var(--step) * 4px); height: 12px; background: var(--ds-g12); }

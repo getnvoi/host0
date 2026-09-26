@@ -1,0 +1,17 @@
+/* Equal cells under a dialog's title: one edge between cells, the current one underlined in ink. */
+.ds-steps-list { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin: 0; padding: 0; list-style: none; }
+.ds-steps-list > li { display: flex; min-width: 0; border-right: 1px solid var(--ds-g6); }
+.ds-steps-list > li:last-child { border-right: 0; }
+.ds-steps-step { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; height: 52px; padding: 0 16px; color: var(--ds-g9); font: 400 var(--ds-fs-13)/1.2 var(--ds-sans); text-decoration: none; }
+.ds-steps-mark { display: grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--ds-g8); background: var(--ds-surface); color: var(--ds-g11); font: 400 var(--ds-fs-11)/1 var(--ds-pixel); }
+.ds-steps-words { display: grid; min-width: 0; }
+.ds-steps-words small { font-size: var(--ds-fs-11); color: var(--ds-g9); }
+.ds-steps-value { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ds-steps-step.is-done { color: var(--ds-g12); }
+.ds-steps-step.is-done .ds-steps-mark { background: var(--ds-g12); border-color: var(--ds-g12); color: var(--ds-g1); }
+.ds-steps-step.is-current { color: var(--ds-g12); font-weight: 500; box-shadow: inset 0 -2px 0 var(--ds-g12); }
+.ds-steps-step.is-current .ds-steps-mark { border: 1.5px solid var(--ds-g12); color: var(--ds-g12); }
+a.ds-steps-step:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) { a.ds-steps-step { transition: background-color var(--ds-dur-hover) ease; } a.ds-steps-step:hover { background: var(--ds-ga3); } }
+/* A phone scrolls the band sideways rather than squeezing each answer to nothing. */
+@media (max-width: 640px) { .ds-steps-list { grid-auto-columns: minmax(112px, 1fr); overflow-x: auto; scrollbar-width: none; } .ds-steps-step { padding: 0 12px; } }

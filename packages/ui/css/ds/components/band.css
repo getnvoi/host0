@@ -1,0 +1,11 @@
+.ds-band { padding-block: 72px; }
+.ds-band.is-paper { background: var(--ds-paper) var(--ds-grain); }
+.ds-band.is-white { background: var(--ds-bg); }
+.ds-band.is-slim { padding-block: 48px; }
+.ds-band-in { max-width: 1120px; margin-inline: auto; padding-inline: 48px; display: flex; flex-direction: column; gap: 12px; }
+.ds-band-kicker { font: 500 var(--ds-fs-12) var(--ds-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-g11); }
+.ds-band h2 { font: 600 clamp(28px, 3.6vw, 40px)/1.04 var(--ds-display); letter-spacing: -0.025em; color: var(--ds-g12); text-wrap: balance; }
+.ds-band-lead { max-width: 64ch; font-size: 16px; line-height: 1.5; color: var(--ds-g11); }
+.ds-band-body { margin-top: 16px; }
+.ds-band-body.is-bare { margin-top: 0; }
+@media (max-width: 600px) { .ds-band { padding-block: 48px; } .ds-band.is-slim { padding-block: 32px; } .ds-band-in { padding-inline: 16px; } }

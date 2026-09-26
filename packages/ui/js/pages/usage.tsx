@@ -1,12 +1,21 @@
-import { Link, useSearchParams } from "react-router-dom";
-import { ChartColumn, CircleAlert, UserRound } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslations, type TFunction } from "@/contexts/i18n";
 import { messageFrom } from "@/contexts/api/errors";
 import { useUsage } from "@/contexts/api/sessions";
 import type { Usage, UsageDay } from "@/contexts/api/types";
-import { Alert, Skeleton } from "@/ui/bits";
-import { Face } from "@/ui/marks";
-import { Shell, SideButton } from "@/shell/shell";
+import { Shell } from "@/shell/shell";
+import { Alert } from "@/ds/alert";
+import { Box } from "@/ds/box";
+import { Button } from "@/ds/button";
+import { Head } from "@/ds/head";
+import { List, ListCell, ListName, ListRow } from "@/ds/list";
+import { Menu } from "@/ds/menu";
+import { Page } from "@/ds/page";
+import { Section } from "@/ds/section";
+import { Segmented } from "@/ds/segmented";
+import { Skeleton } from "@/ds/skeleton";
+import { Stack } from "@/ds/stack";
+import { Stats } from "@/ds/stats";
 
 const RANGES = [7, 30, 90] as const;
 const FAMILIES = ["blue", "green", "orange", "purple", "pink", "olive", "yellow"] as const;
@@ -44,46 +53,49 @@ export function UsagePage() {
 
   return (
     <Shell rail={false} place="home">
-      <header className="bar">
-        <div className="bar-lead">
-          <SideButton />
-          <Face icon={ChartColumn} family="orange" size={28} />
-          <h1 className="bar-title">{t("usage.title")}</h1>
-        </div>
-        <span />
-        <div className="bar-end">
-          <label className="picker">
-            <UserRound />
-            <select aria-label={t("usage.person")} value={by} onChange={(e) => {
-                const next = new URLSearchParams(params);
-                if (e.target.value) next.set("by", e.target.value);
-                else next.delete("by");
-                setParams(next);
-              }}>
-              <option value="">{t("usage.everyone")}</option>
-              {(usage.data?.people ?? []).map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-          <nav className="seg" aria-label={t("usage.range")}>
-            {RANGES.map((r) => (
-              <Link key={r} to={set("days", r === 30 ? "" : String(r))} aria-current={days === r ? "page" : undefined}>
-                <span>{t("usage.days", { count: r })}</span>
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
-      <div className="page-scroll">
-        <div className="usage">
-          {usage.isPending && <Skeleton rows={6} />}
-          {usage.isError && <Alert icon={CircleAlert} title={messageFrom(usage.error, t)} />}
-          {usage.data && <Report usage={usage.data} everyone={!by} />}
-        </div>
-      </div>
+      <Page
+        layout="column"
+        width="wide"
+        head={
+          <Head
+            title={t("usage.title")}
+            icon="server"
+            filters={
+              <>
+                <Menu
+                  label={t("usage.person")}
+                  align="end"
+                  value={by}
+                  onPick={(value) => {
+                    const next = new URLSearchParams(params);
+                    if (value) next.set("by", value);
+                    else next.delete("by");
+                    setParams(next);
+                  }}
+                  items={[
+                    { label: t("usage.everyone"), value: "", glyph: "member", current: !by },
+                    ...(usage.data?.people ?? []).map((p) => ({ label: p, value: p, glyph: "member", current: by === p })),
+                  ]}
+                  trigger={
+                    <Button glyph="member" glyphAfter="chevron-down">
+                      {by || t("usage.everyone")}
+                    </Button>
+                  }
+                />
+                <Segmented
+                  label={t("usage.range")}
+                  value={String(days)}
+                  items={RANGES.map((r) => ({ value: String(r), label: t("usage.days", { count: r }), href: set("days", r === 30 ? "" : String(r)) }))}
+                />
+              </>
+            }
+          />
+        }
+      >
+        {usage.isPending && <Skeleton shape="page" />}
+        {usage.isError && <Alert tone="error" title={messageFrom(usage.error, t)} />}
+        {usage.data && <Report usage={usage.data} everyone={!by} />}
+      </Page>
     </Shell>
   );
 }
@@ -92,37 +104,26 @@ function Report({ usage, everyone }: { usage: Usage; everyone: boolean }) {
   const { t } = useTranslations();
   const envs = usage.environments.map((e) => e.name);
   const nodes = usage.days.reduce((n, d) => n + d.nodes, 0);
-  const stats: [string, string, string?][] = [
-    [minutes(usage.totals.compute_minutes, t), t("usage.compute")],
-    [String(usage.totals.sessions), t("usage.sessions")],
-    [String(usage.totals.pull_requests), t("usage.pull_requests")],
-    [count(usage.totals.tokens), t("usage.tokens")],
+  const stats = [
+    { value: minutes(usage.totals.compute_minutes, t), label: t("usage.compute") },
+    { value: String(usage.totals.sessions), label: t("usage.sessions") },
+    { value: String(usage.totals.pull_requests), label: t("usage.pull_requests") },
+    { value: count(usage.totals.tokens), label: t("usage.tokens") },
   ];
-  if (everyone) stats.push([minutes(nodes, t), t("usage.nodes")]);
-  if (usage.totals.approvals > 0) stats.push([minutes(usage.totals.approval_wait_ms / 60000, t), t("usage.wait", { count: usage.totals.approvals })]);
+  if (everyone) stats.push({ value: minutes(nodes, t), label: t("usage.nodes") });
+  if (usage.totals.approvals > 0) stats.push({ value: minutes(usage.totals.approval_wait_ms / 60000, t), label: t("usage.wait", { count: usage.totals.approvals }) });
 
   return (
-    <>
-      <div className="stats">
-        {stats.map(([value, label]) => (
-          <div key={label} className="stat">
-            <b>{value}</b>
-            <span>{label}</span>
-          </div>
-        ))}
-      </div>
-      <section className="day" aria-label={t("usage.compute_title")}>
-        <h2 className="tab">{t("usage.compute_title")}</h2>
-        <div className="rows chart-box">
-          <p className="caption">{t("usage.compute_text")}</p>
+    <Stack gap={24}>
+      <Stats label={t("usage.title")} items={stats} />
+      <Section name={t("usage.compute_title")} text={t("usage.compute_text")}>
+        <Box pad={16}>
           <Bars days={usage.days} keys={envs} family={(i) => FAMILIES[i % FAMILIES.length]} value={(d, k) => d.compute[k] ?? 0} unit={(v) => minutes(v, t)} />
           {usage.totals.compute_minutes > 0 && <Legend items={envs.map((e, i) => [e, FAMILIES[i % FAMILIES.length]])} />}
-        </div>
-      </section>
-      <section className="day" aria-label={t("usage.states_title")}>
-        <h2 className="tab">{t("usage.states_title")}</h2>
-        <div className="rows chart-box">
-          <p className="caption">{t("usage.states_text")}</p>
+        </Box>
+      </Section>
+      <Section name={t("usage.states_title")} text={t("usage.states_text")}>
+        <Box pad={16}>
           <Bars
             days={usage.days}
             keys={STATES.map((s) => s.key)}
@@ -133,35 +134,42 @@ function Report({ usage, everyone }: { usage: Usage; everyone: boolean }) {
           {usage.days.some((d) => d.states.running + d.states.paused + d.states.suspended > 0) && (
             <Legend items={STATES.map((s) => [t(`usage.state.${s.key}`), s.family])} />
           )}
-        </div>
-      </section>
+        </Box>
+      </Section>
       {usage.environments.length > 0 && (
-        <section className="day" aria-label={t("usage.env_title")}>
-          <h2 className="tab">{t("usage.env_title")}</h2>
-          <div className="rows">
-            <div className="erow head">
-              <span>{t("usage.environment")}</span>
-              <span>{t("usage.compute")}</span>
-              <span>{t("usage.sessions")}</span>
-              <span>{t("usage.pull_requests")}</span>
-              <span>{t("usage.tokens")}</span>
-            </div>
+        <Section name={t("usage.env_title")} flush>
+          <List
+            columns={[t("usage.environment"), [t("usage.compute"), "end"], [t("usage.sessions"), "end"], [t("usage.pull_requests"), "end"], [t("usage.tokens"), "end"]]}
+            template="minmax(0, 1fr) 96px 96px 120px 96px"
+            label={t("usage.env_title")}
+          >
             {usage.environments.map((e, i) => (
-              <div key={e.name} className="erow">
-                <span className="env">
-                  <i className={`swatch fam-${FAMILIES[i % FAMILIES.length]}`} />
-                  <span className="mono truncate">{e.name}</span>
-                </span>
-                <span>{minutes(e.compute_minutes, t)}</span>
-                <span>{e.sessions}</span>
-                <span>{e.pull_requests}</span>
-                <span>{count(e.tokens)}</span>
-              </div>
+              <ListRow
+                key={e.name}
+                name={
+                  <ListName
+                    mono
+                    title={
+                      <>
+                        <i className={`swatch fam-${FAMILIES[i % FAMILIES.length]}`} /> {e.name}
+                      </>
+                    }
+                  />
+                }
+                cells={
+                  <>
+                    <ListCell align="end">{minutes(e.compute_minutes, t)}</ListCell>
+                    <ListCell align="end">{e.sessions}</ListCell>
+                    <ListCell align="end">{e.pull_requests}</ListCell>
+                    <ListCell align="end">{count(e.tokens)}</ListCell>
+                  </>
+                }
+              />
             ))}
-          </div>
-        </section>
+          </List>
+        </Section>
       )}
-    </>
+    </Stack>
   );
 }
 

@@ -1,0 +1,14 @@
+/* A renamable title: the button reads as the title, the field takes its place at the same size. */
+.ds-head-name { display: flex; align-items: center; min-width: 0; }
+.ds-head-name .ds-head-title { display: flex; min-width: 0; }
+.ds-head-name .ds-head-title:has(.ds-head-rename[hidden]) { display: none; }
+.ds-head-rename { min-width: 0; margin: 0 -4px; padding: 3px 4px; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
+.ds-head-rename:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 0; }
+.ds-head-form { display: flex; min-width: 0; margin: 0; }
+.ds-head-form[hidden] { display: none; }
+.ds-head-input { width: min(420px, 60cqi); min-width: 0; height: var(--ds-h-control-sm); margin: 0 -5px; padding: 0 4px; border: 1px solid var(--ds-g12); border-radius: 0; background: var(--ds-surface); box-shadow: 0 0 0 2px var(--ds-focus); color: var(--ds-g12); font: 500 var(--ds-fs-15)/1 var(--ds-display); letter-spacing: -0.015em; outline: none; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-head-rename:hover { background: var(--ds-ga3); }
+}
+/* iOS zooms into a field under 16px when it takes focus. */
+@media (pointer: coarse) { .ds-head-input { font-size: 16px; } }

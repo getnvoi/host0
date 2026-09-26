@@ -1,4 +1,4 @@
-import { allSubs, settle, shownPage, subTranscript, transcript } from "@/lib/transcript";
+import { AGAIN, allSubs, settle, shownPage, subTranscript, transcript } from "@/lib/transcript";
 import type { Approval, Event } from "@/contexts/api/types";
 
 const turn: Event[] = [
@@ -113,4 +113,9 @@ test("a sub-agent's call takes its own outcome, not the main agent's", () => {
   const t = transcript(events, false)[1];
   const actions = t.kind === "turn" ? t.turn.actions : [];
   expect(actions.map((a) => a.state)).toEqual(["done"]);
+});
+
+test("the plane's resume after a network error is not shown as your message", () => {
+  const items = transcript([{ kind: "prompt", content: "go" }, { kind: "notice", content: "retrying" }, { kind: "prompt", content: AGAIN }], false);
+  expect(items.filter((i) => i.kind === "you")).toHaveLength(1);
 });

@@ -1,0 +1,26 @@
+.ds-toast { display: contents; }
+
+/* The stack is a manual popover, so it sits above a dialog; it lets clicks through between toasts. */
+.ds-toast-stack { position: fixed; inset: 16px 16px auto auto; margin: 0; padding: 0; border: 0; overflow: visible; background: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; width: 360px; max-width: calc(100vw - 32px); pointer-events: none; }
+.ds-toast-stack.is-still { position: static; width: 100%; max-width: 360px; }
+
+/* A toast: a square white surface that floats, a dot for the kind, one line or two of 500. It enters from
+   the right in 240ms and leaves the same way in 60% of that; siblings glide with the same curve. */
+.ds-toast-item { position: relative; display: flex; align-items: flex-start; gap: 10px; width: fit-content; max-width: 100%; padding: 10px 14px 10px 12px; background: var(--ds-surface); color: var(--ds-g12); box-shadow: var(--ds-sh-float); font: 500 var(--ds-fs-13)/20px var(--ds-sans); cursor: pointer; pointer-events: auto; user-select: none; transition: transform var(--ds-dur-dialog) var(--ds-ease-out), opacity var(--ds-dur-dialog) var(--ds-ease-out); }
+@starting-style { .ds-toast-item { opacity: 0; transform: translateX(calc(100% + 16px)); } }
+.ds-toast-item.is-leaving { opacity: 0; transform: translateX(calc(100% + 16px)); transition-duration: calc(var(--ds-dur-dialog) * 0.6); pointer-events: none; }
+/* Fills the gap under a toast, so moving to the next one never counts as leaving the stack. */
+.ds-toast-item::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 8px; }
+.ds-toast-stack.is-still .ds-toast-item { cursor: default; transition: none; }
+
+.ds-toast-dot { flex: none; width: 6px; height: 6px; margin: 7px 2px 0; border-radius: 50%; background: var(--ds-g8); }
+.ds-toast-item.is-success .ds-toast-dot { background: var(--ds-ok); }
+.ds-toast-item.is-error .ds-toast-dot { background: var(--ds-bad); }
+.ds-toast-text { min-width: 0; overflow-wrap: anywhere; }
+/* The action, most often Undo: a small ghost button on the line, after the words. */
+.ds-toast-item .ds-button { flex: none; margin: -2px -6px -2px 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  @starting-style { .ds-toast-item { transform: none; } }
+  .ds-toast-item.is-leaving { transform: none; }
+}

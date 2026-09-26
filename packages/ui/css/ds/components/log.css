@@ -1,0 +1,8 @@
+/* Mono on g2, one line per span, wrapping long lines instead of scrolling sideways. 320 tall, growing or
+   shrinking to the height a flex column leaves it. */
+.ds-log { flex: 1 1 auto; height: 320px; min-height: 0; margin: 0; padding: 12px 14px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--ds-g6); background: var(--ds-g2); color: var(--ds-g12); font: var(--ds-fs-12)/1.6 var(--ds-mono); white-space: normal; }
+.ds-log.has-height { flex: none; height: var(--height); }
+.ds-log.is-bare { border: 0; }
+.ds-log > span { display: block; min-height: 1lh; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ds-log > .ds-log-empty { color: var(--ds-g9); }
+.ds-log:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }

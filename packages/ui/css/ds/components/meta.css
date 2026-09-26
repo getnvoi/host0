@@ -1,0 +1,3 @@
+.ds-meta { display: inline-block; max-width: 100%; vertical-align: top; font: 400 var(--ds-fs-12)/16px var(--ds-sans); font-variant-numeric: tabular-nums; color: var(--ds-g9); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ds-meta-add { color: var(--ds-ok-text); }
+.ds-meta-del { color: var(--ds-bad-text); }

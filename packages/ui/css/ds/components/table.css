@@ -1,0 +1,7 @@
+/* A section: a g7 edge, g6 dividers. Ink is for what is chosen or signed, which a table is not. */
+.ds-table { overflow-x: auto; border: 1px solid var(--ds-g7); }
+.ds-table table { width: 100%; border-collapse: collapse; background: var(--ds-surface); font-size: var(--ds-fs-13); }
+.ds-table th { text-align: left; font: 500 var(--ds-fs-11) var(--ds-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ds-g11); padding: 10px 14px; border-bottom: 1px solid var(--ds-g6); white-space: nowrap; }
+.ds-table td { padding: 10px 14px; border-bottom: 1px solid var(--ds-g6); vertical-align: top; }
+.ds-table tr:last-child td { border-bottom: 0; }
+.ds-table td code { font: var(--ds-fs-12) var(--ds-mono); white-space: nowrap; }

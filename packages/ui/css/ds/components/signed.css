@@ -1,0 +1,93 @@
+/* The label tab sits on the box it labels, both edged in ink: the tab names who did the work. */
+.ds-signed { display: flex; flex-direction: column; min-width: 0; color: var(--ds-g12); font: 400 var(--ds-fs-13)/1.5 var(--ds-sans); }
+.ds-signed-head { display: flex; align-items: flex-end; gap: 10px; }
+.ds-signed-tab { display: inline-flex; align-items: stretch; height: 26px; border: 1px solid var(--ds-edge-section); border-bottom: 0; background: var(--ds-surface); }
+.ds-signed-face { display: grid; place-items: center; width: 28px; background: var(--f); border-right: 1px solid var(--ds-edge-section); }
+.ds-signed-name { display: flex; align-items: center; padding: 0 10px; background: color-mix(in oklab, var(--f) 30%, var(--ds-surface)); font: 500 var(--ds-fs-12)/1 var(--ds-mono); white-space: nowrap; }
+.ds-signed-meta { padding-bottom: 5px; color: var(--ds-g9); font-size: var(--ds-fs-12); font-variant-numeric: tabular-nums; }
+.ds-signed-box { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ds-edge-section); background: var(--ds-surface); }
+.ds-signed-box > * + * { border-top: 1px solid var(--ds-g6); }
+/* Continued: set 1px over the box above, so its thin rule takes the place of that box's bottom edge. */
+.ds-signed.is-continued .ds-signed-box { position: relative; border-top-color: var(--ds-g6); }
+
+/* A decided gate inside the box or its actions: the rule above it is its edge. */
+.ds-signed-box > .ds-gate, .ds-signed-actions-list > .ds-gate { border: 0; }
+.ds-signed-box > * + .ds-gate, .ds-signed-actions-list > .ds-gate { border-top: 1px solid var(--ds-g6); }
+
+/* Prose: what the agent said. */
+.ds-signed-prose { padding: 12px 14px; }
+
+/* A tool run: face, name, command, then time and tokens at the end. */
+.ds-signed-run { min-width: 0; }
+.ds-signed-row { display: grid; grid-template-columns: 20px auto minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; list-style: none; }
+.ds-signed-row::-webkit-details-marker { display: none; }
+summary.ds-signed-row { cursor: pointer; user-select: none; }
+.ds-signed-tool { font-weight: 500; white-space: nowrap; }
+.ds-signed-command { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--ds-fs-12) var(--ds-mono); color: var(--ds-g11); }
+.ds-signed-end { display: inline-flex; align-items: center; gap: 8px; color: var(--ds-g9); font-size: var(--ds-fs-12); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ds-signed-end .ds-status { font-size: var(--ds-fs-12); color: var(--ds-g12); }
+.ds-signed-chevron { color: var(--ds-g9); transition: transform var(--ds-dur-pop) var(--ds-ease-out); }
+.ds-signed-run[open] .ds-signed-chevron { transform: rotate(90deg); }
+.ds-signed-run.is-running .ds-signed-end { color: var(--ds-g11); }
+.ds-signed-output:empty { display: none; }
+.ds-signed-output { margin: 0; padding: 10px 12px; border-top: 1px solid var(--ds-g6); background: var(--ds-g2); font: var(--ds-fs-12)/1.6 var(--ds-mono); color: var(--ds-g11); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto; }
+@media (hover: hover) and (pointer: fine) {
+  summary.ds-signed-row:hover { background: var(--ds-ga3); }
+  summary.ds-signed-row:hover .ds-signed-chevron { color: var(--ds-g12); }
+}
+summary.ds-signed-row:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+
+/* A run of actions: the counter, then the rows under a rule each. */
+.ds-signed-actions { min-width: 0; }
+.ds-signed-actions-head { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; list-style: none; cursor: pointer; user-select: none; color: var(--ds-g11); font-weight: 500; }
+.ds-signed-actions-head::-webkit-details-marker { display: none; }
+.ds-signed-actions[open] > .ds-signed-actions-head .ds-signed-chevron { transform: rotate(90deg); }
+.ds-signed-actions-time { margin-left: auto; color: var(--ds-g9); font-size: var(--ds-fs-12); font-weight: 400; font-variant-numeric: tabular-nums; }
+.ds-signed-actions-list > * { border-top: 1px solid var(--ds-g6); }
+@media (hover: hover) and (pointer: fine) {
+  .ds-signed-actions-head:hover { background: var(--ds-ga3); }
+  .ds-signed-actions-head:hover .ds-signed-chevron { color: var(--ds-g12); }
+}
+.ds-signed-actions-head:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+
+/* An error: the dot and what failed, the message under it as printed. */
+.ds-signed-error { display: flex; flex-direction: column; }
+.ds-signed-error-head { display: flex; align-items: center; min-height: 36px; padding: 0 12px; }
+.ds-signed-error-head .ds-status { color: var(--ds-g12); font-weight: 500; white-space: normal; }
+.ds-signed-error .ds-signed-output { color: var(--ds-g12); }
+
+/* Sub-agents: a tally, then one row each. */
+.ds-signed-subagents { display: flex; flex-direction: column; }
+.ds-signed-tally { display: flex; align-items: center; height: 32px; padding: 0 12px; color: var(--ds-g11); font-size: var(--ds-fs-12); font-weight: 500; }
+.ds-signed-sub { display: grid; grid-template-columns: 16px 20px auto minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px; border-top: 1px solid var(--ds-g6); color: inherit; text-decoration: none; }
+a.ds-signed-sub { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { a.ds-signed-sub:hover { background: var(--ds-ga3); } }
+a.ds-signed-sub:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.ds-signed-mark { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--ds-g12); color: var(--ds-g12); }
+.ds-signed-sub.is-running .ds-signed-mark, .ds-signed-sub.is-failed .ds-signed-mark { border-color: transparent; }
+.ds-signed-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ds-bad); }
+.ds-signed-subname { font: 500 var(--ds-fs-12) var(--ds-mono); white-space: nowrap; }
+.ds-signed-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ds-g11); }
+.ds-signed-facts { color: var(--ds-g9); font-size: var(--ds-fs-12); white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .ds-signed-facts { display: none; } .ds-signed-sub { grid-template-columns: 16px 20px auto minmax(0, 1fr); } }
+
+/* Pictures the agent took: thumbnails with their names, each opening large. */
+.ds-signed-pictures { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; padding: 12px; list-style: none; max-width: none; }
+.ds-signed-picture { display: flex; flex-direction: column; gap: 6px; width: 160px; padding: 0; border: 0; background: none; color: var(--ds-g11); font: inherit; font-size: var(--ds-fs-12); text-align: left; text-decoration: none; cursor: pointer; }
+.ds-signed-picture img { display: block; width: 160px; height: 100px; object-fit: cover; object-position: top; border: 1px solid var(--ds-g6); background: var(--ds-g2); transition: border-color var(--ds-dur-hover) ease; }
+.ds-signed-picture-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-signed-picture:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ds-signed-picture:active { transform: scale(0.97); }
+.ds-signed-picture { transition: transform var(--ds-dur-press) var(--ds-ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .ds-signed-picture:hover img { border-color: var(--ds-g8); }
+  .ds-signed-picture:hover { color: var(--ds-g12); }
+}
+
+/* Working: a small ring that turns. */
+.ds-signed-spin { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--ds-g6); border-top-color: var(--ds-g11); animation: ds-spin 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ds-signed-chevron { transition: none; }
+  .ds-signed-picture:active { transform: none; }
+  .ds-signed-spin { animation-duration: 2.4s; }
+}

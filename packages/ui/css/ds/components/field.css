@@ -1,0 +1,49 @@
+.ds-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ds-field-label { font: 500 var(--ds-fs-12)/16px var(--ds-sans); color: var(--ds-g11); }
+.ds-field-required { margin-left: 2px; color: var(--ds-g9); }
+.ds-field-box { position: relative; display: flex; align-items: center; min-width: 0; }
+.ds-field-input { width: 100%; min-width: 0; height: var(--ds-h-control); padding: 0 10px; border: 1px solid var(--ds-g8); border-radius: 0; background: var(--ds-surface); color: var(--ds-g12); font: 400 var(--ds-fs-13) var(--ds-sans); outline: none; appearance: none; }
+.ds-field-input::placeholder { color: var(--ds-g9); }
+.ds-field-input.is-mono { font: 400 var(--ds-fs-12) var(--ds-mono); }
+.ds-field-input::-webkit-search-cancel-button, .ds-field-input::-webkit-search-decoration { appearance: none; }
+textarea.ds-field-input { height: auto; min-height: 88px; padding: 6px 10px; line-height: 1.5; resize: vertical; }
+.ds-field.is-sm textarea.ds-field-input { min-height: 52px; padding: 5px 8px; }
+select.ds-field-input { padding-right: 30px; cursor: pointer; }
+.ds-field.is-sm .ds-field-input { height: var(--ds-h-control-sm); padding: 0 8px; font-size: var(--ds-fs-12); }
+.ds-field.is-sm select.ds-field-input { padding-right: 26px; }
+.ds-field-glyph { position: absolute; left: 9px; color: var(--ds-g9); pointer-events: none; }
+.ds-field.has-glyph .ds-field-input { padding-left: 29px; }
+.ds-field-chevron { position: absolute; right: 9px; color: var(--ds-g11); pointer-events: none; }
+.ds-field.is-search .ds-field-input { padding-right: 30px; }
+/* The clear control shows only once there is something to clear. */
+.ds-field-clear { position: absolute; right: 4px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--ds-g11); cursor: pointer; transition: transform var(--ds-dur-press) var(--ds-ease-out); }
+.ds-field-input:placeholder-shown ~ .ds-field-clear { display: none; }
+.ds-field-clear:active { transform: scale(0.97); }
+.ds-field-clear:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 1px; }
+/* The mark stays 20px; the press area is 24px, 40px on touch. */
+.ds-field-clear::before { content: ""; position: absolute; inset: -2px; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-field:not(.is-readonly) .ds-field-input:hover:not(:focus):not(:disabled) { border-color: var(--ds-g9); }
+  .ds-field-clear:hover { background: var(--ds-ga3); color: var(--ds-g12); }
+}
+/* Focus is the ink edge: the control is already square and edged, a second ring would double it. */
+.ds-field-input:focus { border-color: var(--ds-g12); }
+.ds-field.is-error .ds-field-input { border-color: var(--ds-bad); }
+.ds-field-help { font-size: var(--ds-fs-12); line-height: 16px; color: var(--ds-g9); }
+/* An error is a state: a dot and the words, like a status. */
+.ds-field-error { display: flex; align-items: flex-start; gap: 6px; font-size: var(--ds-fs-12); line-height: 16px; color: var(--ds-g12); }
+.ds-field-error::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; background: var(--ds-bad); }
+.ds-field.is-disabled .ds-field-label { color: var(--ds-g9); }
+.ds-field-input:disabled { border-color: var(--ds-g7); background: var(--ds-g2); color: var(--ds-g9); cursor: not-allowed; }
+/* Read-only is a value to read and copy: g2 like disabled, but ink text, a text cursor, and an edge that
+   neither hover nor focus changes. The keyboard still reaches it, so focus shows the ring. */
+.ds-field.is-readonly .ds-field-input { border-color: var(--ds-g7); background: var(--ds-g2); color: var(--ds-g12); cursor: text; user-select: text; }
+.ds-field.is-readonly .ds-field-input:focus { border-color: var(--ds-g7); }
+.ds-field.is-readonly .ds-field-input:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 1px; }
+
+@media (pointer: coarse) {
+  .ds-field-clear::before { inset: -10px; }
+  /* iOS zooms into any field under 16px when it takes focus. */
+  .ds-field-input, .ds-field-input.is-mono, .ds-field.is-sm .ds-field-input { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .ds-field-clear:active { transform: none; } }

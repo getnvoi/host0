@@ -1,0 +1,8 @@
+/* Drawn at a height, the logo keeps its ratio. */
+.ds-brand { width: auto; }
+/* The lockup: the mark 1.2 times the wordmark's height, 0.3 of it away, both on one centre line. */
+.ds-brand-lockup { display: inline-flex; align-items: center; gap: calc(var(--h) * 0.3); }
+.ds-brand-mark { width: calc(var(--h) * 1.2); height: calc(var(--h) * 1.2); display: block; flex: none; }
+.ds-brand-word { height: var(--h); width: auto; display: block; }
+.ds-brand-mark.is-dark, .dark .ds-brand-mark.is-light { display: none; }
+.dark .ds-brand-mark.is-dark { display: block; }

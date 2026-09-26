@@ -1,0 +1,11 @@
+.ds-box { padding: var(--pad); min-width: 0; }
+.ds-box.has-width { width: 100%; max-width: var(--width); }
+.ds-box.is-centered { margin-inline: auto; }
+.ds-box.is-divider { border: 1px solid var(--ds-g6); }
+.ds-box.is-section { border: 1px solid var(--ds-g7); }
+.ds-box.is-control { border: 1px solid var(--ds-g8); }
+.ds-box.is-ink { border: 1px solid var(--ds-g12); }
+.ds-box.is-fill-surface { background: var(--ds-surface); }
+.ds-box.is-fill-muted { background: var(--ds-g2); }
+.ds-box.is-fill-paper { background: var(--ds-paper) var(--ds-grain); }
+.ds-box.is-full { width: 100%; }

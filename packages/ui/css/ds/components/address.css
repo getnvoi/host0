@@ -1,0 +1,9 @@
+.ds-address { display: flex; align-items: center; gap: 4px; flex: none; padding: 6px 12px; border-bottom: 1px solid var(--ds-g7); background: var(--ds-surface); }
+.ds-address-field { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; margin: 0 4px; }
+.ds-address-url { flex: 1; min-width: 0; height: var(--ds-h-control-sm); padding: 0 8px; border: 1px solid var(--ds-g8); border-radius: 0; background: var(--ds-surface); color: var(--ds-g12); font: 400 var(--ds-fs-12) var(--ds-mono); outline: none; }
+.ds-address-url:focus { border-color: var(--ds-g12); }
+@media (hover: hover) and (pointer: fine) {
+  .ds-address-url:hover:not(:focus) { border-color: var(--ds-g9); }
+}
+/* iOS zooms into a field under 16px when it takes focus. */
+@media (pointer: coarse) { .ds-address-url { font-size: 16px; } }

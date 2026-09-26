@@ -1,0 +1,17 @@
+/* Sticky at the foot of whatever scrolls; the page's own ground fades in under it so lines pass beneath
+   the floating parts without showing between them and the window's edge. */
+.ds-dock { position: sticky; bottom: 0; z-index: 3; display: flex; flex-direction: column; gap: 8px; padding: 16px 0 20px; background: linear-gradient(to bottom, transparent, var(--ds-bg) 16px); }
+.ds-page.is-column .ds-page-body:has(> .ds-dock, > * > .ds-dock) { padding-bottom: 0; }
+/* In a page's foot the dock is part of the frame: not sticky, no fade, the scroll area passes above it. */
+.ds-page-foot .ds-dock { position: relative; padding: 0; background: none; }
+/* A workflow's band sits on the composer: no gap, the composer's top edge its bottom one. */
+.ds-dock > :has(> .ds-workflow) { margin-bottom: -8px; }
+/* The arrow stands clear above the composer, 8px from its edge, never on it. */
+.ds-page-foot .ds-dock-jump { top: calc(-1 * var(--ds-h-control) - 8px); }
+.ds-dock:empty { display: none; }
+
+/* Back to the newest line: a round glyph button centred just above the dock. */
+.ds-dock-jump { position: absolute; top: -28px; left: 50%; translate: -50% 0; display: flex; transition: opacity var(--ds-dur-pop) var(--ds-ease-out); }
+.ds-dock-jump > .ds-button { box-shadow: var(--ds-sh-float); }
+.ds-dock-jump[hidden] { display: none; }
+@starting-style { .ds-dock-jump { opacity: 0; } }

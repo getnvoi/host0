@@ -1,0 +1,9 @@
+.ds-level { min-width: 0; padding: var(--pad); background: var(--ds-surface); color: var(--ds-g12); }
+.ds-level.has-width { width: 100%; max-width: var(--width); }
+.ds-level.is-flat { border: 1px solid var(--ds-g6); }
+.ds-level.is-lifted { border: 1px solid var(--ds-g8); box-shadow: var(--ds-sh-neutral); }
+.ds-level.is-floating { box-shadow: var(--ds-sh-float); }
+/* The page behind is striped so the wash and the blur show. */
+.ds-level.is-backdrop { position: relative; display: grid; place-items: center; padding: 24px; border: 1px solid var(--ds-g6); background: repeating-linear-gradient(var(--ds-surface) 0 10px, var(--ds-g4) 10px 12px); }
+.ds-level.is-backdrop::before { content: ""; position: absolute; inset: 0; background: var(--ds-backdrop); backdrop-filter: blur(2px); }
+.ds-level-card { position: relative; padding: var(--pad); background: var(--ds-surface); box-shadow: var(--ds-sh-float); }

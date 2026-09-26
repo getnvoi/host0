@@ -1,0 +1,69 @@
+/* One of the two things that float in the app: a square box, ink-edged while you write in it. */
+.ds-composer { position: relative; display: flex; flex-direction: column; width: 100%; min-width: 0; border: 1px solid var(--ds-g8); background: var(--ds-surface); box-shadow: var(--ds-sh-float); color: var(--ds-g12); font: 400 var(--ds-fs-13)/1.5 var(--ds-sans); transition: border-color var(--ds-dur-hover) ease; }
+.ds-composer:focus-within { border-color: var(--ds-g12); }
+.ds-composer.is-disabled { box-shadow: none; background: var(--ds-g2); }
+.ds-composer-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.ds-composer-input { display: block; width: 100%; min-height: 60px; max-height: 240px; padding: 12px 12px 6px; border: 0; outline: 0; resize: none; background: none; color: var(--ds-g12); font: var(--ds-fs-13)/18px var(--ds-sans); field-sizing: content; overflow-y: auto; }
+.ds-composer-input::placeholder { color: var(--ds-g9); }
+/* flat: part of the surface around it; the text area takes the room a brief needs. */
+.ds-composer.is-flat { flex: 1; border: 0; box-shadow: none; }
+.ds-composer.is-flat .ds-composer-input { flex: 1; min-height: 180px; max-height: none; padding: 16px 20px 8px; font-size: var(--ds-fs-13); line-height: 1.5; }
+.ds-composer.is-flat .ds-composer-foot { padding: 6px 14px 12px; }
+.ds-composer-input:disabled { cursor: not-allowed; }
+
+.ds-composer-foot { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px; }
+/* Pickers in the foot share its width and give way before the send button does. */
+.ds-composer-foot > .ds-menu { flex: 0 1 auto; min-width: 0; }
+.ds-composer-foot .ds-menu-field { width: auto; min-width: 0; max-width: 200px; }
+.ds-composer-attach { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border-radius: var(--ds-round); color: var(--ds-g11); cursor: pointer; transition: transform var(--ds-dur-press) var(--ds-ease-out); }
+.ds-composer-attach:active { transform: scale(0.97); }
+.ds-composer-attach:has(:focus-visible) { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ds-composer-picker { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* Send: round and solid; the glyph says what sending does now. */
+.ds-composer-send { display: grid; place-items: center; width: 28px; height: 28px; flex: none; margin-left: auto; border: 0; border-radius: var(--ds-round); background: var(--ds-g12); color: var(--ds-g1); cursor: pointer; transition: transform var(--ds-dur-press) var(--ds-ease-out), background-color var(--ds-dur-hover) ease; }
+.ds-composer-send:active:not(:disabled) { transform: scale(0.97); }
+.ds-composer-send:disabled { background: var(--ds-g6); color: var(--ds-g9); cursor: not-allowed; }
+/* Empty but busy: the glyph still has to be read, so it keeps a darker ink. */
+.ds-composer-send.is-working:disabled, .ds-composer-send.is-blocked:disabled { color: var(--ds-g11); }
+.ds-composer-send:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ds-composer-spin { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: ds-spin 0.6s linear infinite; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-composer-attach:hover { background: var(--ds-ga3); color: var(--ds-g12); }
+  .ds-composer-send:hover:not(:disabled) { background: color-mix(in oklab, var(--ds-g12) 86%, var(--ds-bg)); }
+  .ds-composer-remove:hover { background: var(--ds-g2); color: var(--ds-g12); }
+}
+
+/* Files picked but not sent: square thumbnails with a round remove mark on the corner. */
+ul.ds-composer-files { display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; margin: 0; padding: 14px 12px 2px; list-style: none; max-width: none; }
+ul.ds-composer-files[hidden] { display: none; }
+.ds-composer-file { position: relative; }
+.ds-composer-thumb { display: grid; place-items: center; width: 56px; height: 56px; overflow: hidden; border: 1px solid var(--ds-g6); background: var(--ds-g2); }
+.ds-composer-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ds-composer-thumb img:not([hidden]) + .ds-composer-ext { display: none; }
+.ds-composer-ext { font: 500 var(--ds-fs-11) var(--ds-mono); text-transform: uppercase; color: var(--ds-g11); }
+.ds-composer-remove { position: absolute; top: -7px; right: -7px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 1px solid var(--ds-g8); border-radius: var(--ds-round); background: var(--ds-surface); color: var(--ds-g11); cursor: pointer; transition: transform var(--ds-dur-press) var(--ds-ease-out); }
+.ds-composer-remove:active { transform: scale(0.97); }
+.ds-composer-remove:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+/* The mark stays 20px; the press area is 24px, 40px on touch. */
+.ds-composer-remove::before { content: ""; position: absolute; inset: -3px; }
+@starting-style { .ds-composer-file { opacity: 0; transform: scale(0.96); } }
+.ds-composer-file { transition: opacity var(--ds-dur-pop) var(--ds-ease-out), transform var(--ds-dur-pop) var(--ds-ease-out); }
+
+/* A message sent while the agent works: it waits here until the turn ends. */
+.ds-composer-queued { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 6px 0 12px; border-bottom: 1px solid var(--ds-g6); }
+.ds-composer-queued-word { flex: none; color: var(--ds-g11); font-size: var(--ds-fs-12); font-weight: 500; }
+.ds-composer-queued-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (pointer: coarse) {
+  .ds-composer-remove::before { inset: -11px; }
+  /* iOS zooms into a field under 16px when it takes focus. */
+  .ds-composer-input { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-composer-send:active:not(:disabled), .ds-composer-attach:active, .ds-composer-remove:active { transform: none; }
+  @starting-style { .ds-composer-file { transform: none; } }
+  .ds-composer-spin { animation-duration: 1.8s; }
+}

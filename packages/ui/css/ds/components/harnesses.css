@@ -1,0 +1,11 @@
+/* Equal cells split by hairlines: the strip's ground shows through a 1px gap, so every seam has one edge.
+   On white the edges are g6; six across, three across on phones. */
+.ds-harnesses { container-type: inline-size; }
+.ds-harnesses-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; background: var(--ds-g6); border: 1px solid var(--ds-g6); }
+.ds-harnesses-cell { display: grid; place-items: center; min-height: 96px; padding: 16px 12px; background: var(--ds-bg); text-align: center; }
+.ds-harnesses-name { font: 500 var(--ds-fs-20)/1.2 var(--ds-display); letter-spacing: -0.01em; color: var(--ds-g12); text-wrap: balance; }
+@container (max-width: 640px) {
+  .ds-harnesses-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ds-harnesses-cell { min-height: 72px; padding: 12px 8px; }
+  .ds-harnesses-name { font-size: var(--ds-fs-15); }
+}

@@ -1,0 +1,10 @@
+.ds-inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap); min-width: 0; }
+.ds-inline.is-nowrap { flex-wrap: nowrap; }
+.ds-inline.is-align-start { align-items: flex-start; }
+.ds-inline.is-align-end { align-items: flex-end; }
+.ds-inline.is-align-baseline { align-items: baseline; }
+.ds-inline.is-align-stretch { align-items: stretch; }
+.ds-inline.is-justify-end { justify-content: flex-end; }
+.ds-inline.is-justify-between { justify-content: space-between; }
+.ds-inline.is-justify-center, .ds-inline.is-justify-middle { justify-content: center; }
+.ds-inline > .is-grow { flex: 1; min-width: 0; }

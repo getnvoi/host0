@@ -1,0 +1,25 @@
+/* A 24px face and a column: the name over the words. Your words sit on a light wash, square, so they read
+   as yours next to the agent's ink-edged boxes. */
+.ds-message { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; color: var(--ds-g12); font: 400 var(--ds-fs-13)/1.5 var(--ds-sans); }
+.ds-message-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ds-message-who { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+.ds-message-name { font-weight: 500; }
+.ds-message-time { color: var(--ds-g9); font-size: var(--ds-fs-12); font-variant-numeric: tabular-nums; }
+.ds-message-queued { font-size: var(--ds-fs-12); }
+.ds-message-action { display: inline-flex; margin-left: auto; }
+.ds-message-action form { display: contents; }
+.ds-message-box { align-self: flex-start; max-width: 100%; padding: 10px 12px; border: 1px solid transparent; background: var(--ds-ga3); }
+/* Queued: the same words, edged in dashes and without the wash, until the turn ends. */
+.ds-message.is-queued .ds-message-box { border: 1px dashed var(--ds-g8); background: var(--ds-surface); color: var(--ds-g11); }
+
+/* Attachments: 56px squares like the composer's, an image or the extension, the name under it. */
+ul.ds-message-files { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 0; padding: 0; list-style: none; max-width: none; }
+.ds-message-file { display: flex; flex-direction: column; gap: 4px; width: 56px; color: var(--ds-g11); text-decoration: none; }
+.ds-message-file > img, .ds-message-ext { display: grid; place-items: center; width: 56px; height: 56px; border: 1px solid var(--ds-g6); background: var(--ds-g2); object-fit: cover; }
+.ds-message-ext { font: 500 var(--ds-fs-11) var(--ds-mono); text-transform: uppercase; color: var(--ds-g11); }
+.ds-message-file-name { font-size: var(--ds-fs-12); line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.ds-message-file:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  a.ds-message-file:hover > img, a.ds-message-file:hover .ds-message-ext { border-color: var(--ds-g8); }
+  a.ds-message-file:hover .ds-message-file-name { color: var(--ds-g12); }
+}

@@ -1,0 +1,30 @@
+/* Two columns: the head on the left, the rows on the right, split by g6. A row opens on a muted fill and
+   its answer fades in from 4px above; the height changes at once, as motion allows only transform and
+   opacity. Under 760px the head sits above the rows. */
+.ds-faq { container-type: inline-size; }
+.ds-faq-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 48px; }
+.ds-faq-head { display: flex; flex-direction: column; gap: 12px; }
+.ds-faq-kicker { font: 500 var(--ds-fs-12) var(--ds-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-g11); }
+.ds-faq-title { font: 600 clamp(28px, 3.6vw, 40px)/1.04 var(--ds-display); letter-spacing: -0.025em; color: var(--ds-g12); text-wrap: balance; }
+.ds-faq-title em { font-family: var(--ds-serif); font-style: italic; font-weight: 400; letter-spacing: 0; }
+.ds-faq-list { border-top: 1px solid var(--ds-g6); }
+.ds-faq-item { border-bottom: 1px solid var(--ds-g6); transition: background-color var(--ds-dur-hover) ease; }
+.ds-faq-item[open] { background: var(--ds-g2); }
+.ds-faq-q { display: flex; align-items: center; gap: 16px; padding: 18px 16px; color: var(--ds-g12); font: 500 var(--ds-fs-15)/1.35 var(--ds-sans); list-style: none; cursor: pointer; }
+.ds-faq-q::-webkit-details-marker { display: none; }
+.ds-faq-q:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.ds-faq-text { flex: 1; min-width: 0; }
+.ds-faq-q .ds-glyph { flex: none; color: var(--ds-g11); }
+.ds-faq-minus, .ds-faq-item[open] .ds-faq-plus { display: none; }
+.ds-faq-item[open] .ds-faq-minus { display: block; }
+.ds-faq-a { padding: 0 48px 20px 16px; color: var(--ds-g11); font-size: var(--ds-fs-15); line-height: 1.6; }
+.ds-faq-a a { color: var(--ds-g12); text-underline-offset: 3px; }
+.ds-faq-item[open] .ds-faq-a { transition: opacity var(--ds-dur-menu) var(--ds-ease-out), transform var(--ds-dur-menu) var(--ds-ease-out); }
+@starting-style { .ds-faq-item[open] .ds-faq-a { opacity: 0; transform: translateY(-4px); } }
+@media (hover: hover) and (pointer: fine) { .ds-faq-item:not([open]):hover { background: var(--ds-g2); } }
+@media (prefers-reduced-motion: reduce) { .ds-faq-item, .ds-faq-item[open] .ds-faq-a { transition: none; } }
+@container (max-width: 700px) {
+  .ds-faq-in { grid-template-columns: 1fr; gap: 24px; }
+  .ds-faq-q { padding: 16px 12px; font-size: var(--ds-fs-15); }
+  .ds-faq-a { padding: 0 12px 16px; }
+}

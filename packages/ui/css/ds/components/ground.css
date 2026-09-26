@@ -1,0 +1,9 @@
+.ds-ground { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--gap); padding: var(--pad); }
+.ds-ground > svg { display: block; flex: none; }
+.ds-ground.is-paper { background: var(--ds-paper); color: var(--ds-ink); }
+.ds-ground.is-ink { background: var(--ds-ink); color: var(--ds-paper); }
+.ds-ground.is-white { background: var(--ds-surface); color: var(--ds-g12); box-shadow: inset 0 0 0 1px var(--ds-g6); }
+.ds-ground.is-family { background: var(--f); color: var(--i); box-shadow: none; }
+.ds-ground.has-grain { background-image: var(--ds-grain); }
+.ds-ground.is-measure { box-shadow: none; outline: 1px dashed var(--ds-g8); outline-offset: -1px; }
+.ds-ground.is-measure > svg { outline: 1px solid var(--ds-g6); }

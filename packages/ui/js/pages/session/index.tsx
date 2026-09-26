@@ -1,14 +1,18 @@
 import { lazy, Suspense } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
-import { CircleAlert, GitBranch, MessagesSquare, Server } from "lucide-react";
 import { useTranslations } from "@/contexts/i18n";
 import { messageFrom } from "@/contexts/api/errors";
 import { useEnvironments, useSession } from "@/contexts/api/sessions";
 import type { Session } from "@/contexts/api/types";
-import { Empty, Skeleton } from "@/ui/bits";
-import { Face } from "@/ui/marks";
-import { Shell, SideButton } from "@/shell/shell";
+import { Shell } from "@/shell/shell";
+import { Button } from "@/ds/button";
+import { Empty } from "@/ds/empty";
+import { Head } from "@/ds/head";
+import { Inline } from "@/ds/inline";
+import { Page } from "@/ds/page";
+import { Segmented } from "@/ds/segmented";
+import { Skeleton } from "@/ds/skeleton";
 import { Chat } from "@/pages/session/chat";
 import { Logs } from "@/pages/session/logs";
 import { Preview } from "@/pages/session/preview";
@@ -18,11 +22,13 @@ const Terminals = lazy(() => import("@/pages/session/terminal").then((m) => ({ d
 
 const VIEWS = ["chat", "preview", "changes", "terminal"] as const;
 type View = (typeof VIEWS)[number];
+const GLYPHS: Record<View, string> = { chat: "chat", preview: "window", changes: "diff", terminal: "terminal" };
 
 export function title(s: Session, fallback: string) {
   return s.title ?? s.events.find((e) => e.kind === "prompt")?.content ?? s.pending ?? fallback;
 }
 
+// A session, as vrcl's: the bar (repository, title over branch, the view switch), then the view.
 export function SessionPage() {
   const { id, view: raw } = useParams() as { id: string; view?: string };
   const view: View = VIEWS.includes(raw as View) ? (raw as View) : "chat";
@@ -41,61 +47,53 @@ export function SessionPage() {
   };
   const missing = session.isError && isAxiosError(session.error) && session.error.response?.status === 404;
 
+  const head = (
+    <Head
+      title={session.data ? title(session.data, t("session.untitled")) : ""}
+      subtitle={session.data?.branch}
+      centre
+      back="/"
+      backLabel={t("session.all")}
+      place={{ name: repo, owner: owner || undefined }}
+      action={
+        <Inline gap={8}>
+          <Button variant="ghost" glyph="server" label={t("logs.title")} title={t("logs.title")} disabled={!session.data} onClick={() => setLogs("setup")} />
+          <Segmented
+            label={t("session.views")}
+            value={view}
+            glyphOnly
+            items={VIEWS.map((v) => ({ value: v, label: t(`views.${v}`), glyph: GLYPHS[v], href: v === "chat" ? `/s/${id}` : `/s/${id}/${v}` }))}
+          />
+        </Inline>
+      }
+    />
+  );
+
   return (
     <Shell rail place="session">
-      <header className="bar">
-        <div className="bar-lead">
-          <SideButton />
-          <Face icon={GitBranch} family="green" size={28} />
-          <span className="repo">
-            {owner && <small>{owner}</small>}
-            <b>{repo}</b>
-          </span>
-        </div>
-        <div className="bar-mid">
-          <h1 className="bar-title">{session.data ? title(session.data, t("session.untitled")) : ""}</h1>
-          {session.data && <small>{session.data.branch}</small>}
-        </div>
-        <div className="bar-end">
-          <button type="button" className="btn ghost logs-btn" title={t("logs.open")} onClick={() => setLogs("setup")} disabled={!session.data}>
-            <Server />
-            <span>{t("logs.title")}</span>
-          </button>
-          <nav className="seg" aria-label={t("session.views")}>
-            {VIEWS.map((v) => (
-              <Link key={v} to={v === "chat" ? `/s/${id}` : `/s/${id}/${v}`} aria-current={view === v ? "page" : undefined}>
-                <span>{t(`views.${v}`)}</span>
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
-      {session.isPending && (
-        <div className="transcript">
-          <Skeleton />
-        </div>
+      {session.data && view === "chat" ? (
+        <Chat session={session.data} env={env} head={head} />
+      ) : (
+        <Page layout="column" width={view === "changes" ? 800 : "narrow"} flush={view === "preview" || view === "terminal"} head={head}>
+          {session.isPending && <Skeleton shape="page" />}
+          {session.isError && (
+            <Empty
+              icon="session"
+              title={missing ? t("session.missing") : messageFrom(session.error, t)}
+              action={
+                <Button href="/" glyph="arrow-left">
+                  {t("session.all")}
+                </Button>
+              }
+            />
+          )}
+          {session.data && view === "preview" && <Preview session={session.data} host={session.data.preview} />}
+          <Suspense fallback={null}>
+            {session.data && view === "changes" && <Changes session={id} />}
+            {session.data && view === "terminal" && <Terminals session={id} />}
+          </Suspense>
+        </Page>
       )}
-      {session.isError && (
-        <div className="center">
-          <Empty
-            icon={missing ? MessagesSquare : CircleAlert}
-            family={missing ? "blue" : "orange"}
-            title={missing ? t("session.missing") : messageFrom(session.error, t)}
-            dashed={false}
-            action={
-              <Link className="btn outline" to="/">
-                {t("session.all")}
-              </Link>
-            }
-          />
-        </div>
-      )}
-      {session.data && view === "chat" && <Chat session={session.data} env={env} />}
-      {session.data && view === "preview" && <Preview session={session.data} host={session.data.preview} />}
-      <Suspense fallback={null}>
-        {session.data && view === "changes" && <Changes session={id} />}
-        {session.data && view === "terminal" && <Terminals session={id} />}
-      </Suspense>
       {session.data && logs && (
         <Logs session={id} name={logs} subtitle={`${session.data.env} · ${session.data.branch}`} onPick={setLogs} onClose={() => setLogs()} />
       )}

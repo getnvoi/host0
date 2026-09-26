@@ -1,0 +1,14 @@
+.ds-tooltip { display: inline-flex; }
+
+/* Ink on the page, square like every surface. It grows from 0.97 at the point nearest the control in
+   160ms and leaves in 100ms; the next ones in a run appear with no transition. */
+.ds-tooltip-tip { position: fixed; inset: auto; margin: 0; display: flex; align-items: center; gap: 8px; max-width: 240px; min-height: 24px; padding: 4px 8px; border: 0; border-radius: 0; overflow: visible; background: var(--ds-g12); color: var(--ds-g1); font: 500 var(--ds-fs-12)/1.35 var(--ds-sans); pointer-events: none; transform-origin: var(--origin, 50% 100%); transition: opacity var(--ds-dur-pop) var(--ds-ease-out), transform var(--ds-dur-pop) var(--ds-ease-out), display var(--ds-dur-pop) allow-discrete, overlay var(--ds-dur-pop) allow-discrete; }
+.ds-tooltip-tip:not(:popover-open) { opacity: 0; transform: scale(0.97); transition-duration: 100ms; }
+@starting-style { .ds-tooltip-tip:popover-open { opacity: 0; transform: scale(0.97); } }
+.ds-tooltip-tip.is-instant { transition: none; }
+.ds-tooltip-keys { font: 400 var(--ds-fs-11)/1 var(--ds-mono); color: var(--ds-g8); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-tooltip-tip, .ds-tooltip-tip:not(:popover-open) { transform: none; }
+  @starting-style { .ds-tooltip-tip:popover-open { transform: none; } }
+}

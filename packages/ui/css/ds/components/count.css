@@ -1,0 +1,1 @@
+.ds-count { display: inline-grid; place-items: center; flex: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--ds-round); background: var(--ds-ga4); color: var(--ds-g11); font: 500 var(--ds-fs-11)/1 var(--ds-sans); font-variant-numeric: tabular-nums; }

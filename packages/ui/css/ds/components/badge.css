@@ -1,0 +1,14 @@
+/* A floor, not a fixed height, so larger text grows the badge; fit-content keeps a row from stretching it. */
+.ds-badge { display: inline-flex; align-items: center; gap: 2px; flex: none; height: fit-content; min-height: 22px; padding: 0 9px; border-radius: var(--ds-round); background: var(--f, var(--ds-g4)); color: var(--i, var(--ds-g12)); font: 500 var(--ds-fs-12)/1 var(--ds-sans); white-space: nowrap; max-width: 100%; min-width: 0; }
+/* A long name is cut with an ellipsis; pass its full text as the title. */
+.ds-badge-text { overflow: hidden; text-overflow: ellipsis; line-height: 16px; }
+.ds-badge.has-icon { padding-left: 3px; }
+.ds-badge.is-kind { background: none; border: 1px solid var(--ds-g7); color: var(--ds-g11); font-weight: 400; padding: 0 8px; }
+.ds-badge.has-glyph { gap: 3px; padding-left: 6px; }
+/* A badge that links: no underline, a wash on hover, the focus ring of every control. */
+.ds-badge.is-link { text-decoration: none; transition: background-color var(--ds-dur-hover) ease, border-color var(--ds-dur-hover) ease; }
+.ds-badge.is-link:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-badge.is-link:hover { background: color-mix(in oklab, var(--f, var(--ds-g4)) 80%, var(--ds-g12)); }
+  .ds-badge.is-kind.is-link:hover { background: var(--ds-ga3); border-color: var(--ds-g8); color: var(--ds-g12); }
+}

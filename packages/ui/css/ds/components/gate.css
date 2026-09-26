@@ -1,0 +1,36 @@
+/* Pending: one of the two things that float in the app. The yellow wash in the head says it waits on you. */
+.ds-gate { min-width: 0; color: var(--ds-g12); font: 400 var(--ds-fs-13)/1.5 var(--ds-sans); }
+.ds-gate.is-pending { display: flex; flex-direction: column; background: var(--ds-surface); box-shadow: var(--ds-sh-float); }
+@starting-style { .ds-gate.is-pending { opacity: 0; transform: translateY(6px) scale(0.98); } }
+.ds-gate.is-pending { transform-origin: bottom center; transition: opacity var(--ds-dur-pop) var(--ds-ease-out), transform var(--ds-dur-pop) var(--ds-ease-out); }
+.ds-gate-head { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; background: color-mix(in oklab, var(--f) 35%, var(--ds-surface)); border-bottom: 1px solid var(--ds-g6); }
+.ds-gate-tool { font-weight: 500; white-space: nowrap; }
+.ds-gate-head .ds-gate-ask { margin-left: auto; color: var(--ds-g12); }
+/* The busy dot is yellow on a yellow wash: a ring in the family ink keeps it visible. */
+.ds-gate-ask .ds-status-dot { box-shadow: 0 0 0 1px color-mix(in oklab, var(--i) 45%, transparent); }
+.ds-gate-action { margin: 0; padding: 12px; font: var(--ds-fs-12)/1.6 var(--ds-mono); color: var(--ds-g12); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow-y: auto; }
+.ds-gate-details { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 16px; margin: 0; padding: 0 12px 12px; font-size: var(--ds-fs-12); }
+.ds-gate-details dt { color: var(--ds-g11); }
+.ds-gate-details dd { margin: 0; font-family: var(--ds-mono); overflow-wrap: anywhere; }
+.ds-gate-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--ds-g6); }
+.ds-gate-agent { color: var(--ds-g11); font-size: var(--ds-fs-12); }
+.ds-gate-name { font: 500 var(--ds-fs-12) var(--ds-mono); color: var(--ds-g12); }
+.ds-gate-buttons { display: flex; gap: 8px; margin-left: auto; }
+
+/* Decided: flat, one row, the verdict as a dot and a word. */
+.ds-gate.is-allowed, .ds-gate.is-denied { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--ds-g6); background: var(--ds-surface); }
+.ds-gate-line { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--ds-fs-12) var(--ds-mono); color: var(--ds-g11); }
+.ds-gate-meta { color: var(--ds-g9); font-size: var(--ds-fs-12); white-space: nowrap; }
+.ds-gate:not(.is-pending) .ds-status { font-size: var(--ds-fs-12); color: var(--ds-g12); }
+.ds-gate-replay { margin-right: -6px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--ds-round); color: var(--ds-g11); transition: transform var(--ds-dur-press) var(--ds-ease-out); }
+.ds-gate-replay:active { transform: scale(0.97); }
+.ds-gate-replay:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .ds-gate-replay:hover { background: var(--ds-ga3); color: var(--ds-g12); } }
+
+.ds-gate-stack { display: flex; flex-direction: column; gap: 8px; }
+.ds-gate-stack[hidden] { display: none; }
+@media (max-width: 560px) { .ds-gate-meta { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  @starting-style { .ds-gate.is-pending { transform: none; } }
+  .ds-gate-replay:active { transform: none; }
+}

@@ -1,0 +1,5 @@
+.ds-tiles { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.ds-tiles-row { display: inline-flex; flex: none; }
+.ds-tiles-row .ds-tile { box-shadow: 0 0 0 2px var(--ds-surface); }
+.ds-tiles-row .ds-tile + .ds-tile { margin-left: -6px; }
+.ds-tiles-count { font: 400 var(--ds-fs-13)/18px var(--ds-sans); color: var(--ds-g11); white-space: nowrap; }

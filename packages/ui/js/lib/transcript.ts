@@ -60,6 +60,9 @@ function input(raw: string): Record<string, unknown> {
   }
 }
 
+// What the plane resumes a turn with after a network error (controlplane `again`).
+export const AGAIN = "The connection to the API dropped before you finished. Continue where you left off.";
+
 export function field(raw: string, ...names: string[]): string {
   const v = input(raw);
   for (const n of names) if (typeof v[n] === "string" && v[n]) return v[n] as string;
@@ -143,6 +146,8 @@ export function transcript(events: Event[], running: boolean, pending: Approval[
           a.state = settle(said);
         }
         waiting = waiting.filter((a) => a.state === "pending" || a.state === "running");
+      } else if (text === AGAIN) {
+        // The plane resuming a turn the API connection cut short: its notice says so.
       } else {
         const relay = RELAY.exec(text);
         items.push(relay ? { kind: "you", key, text: relay[3], at: e.at, to: relay[1] } : { kind: "you", key, text, at: e.at });

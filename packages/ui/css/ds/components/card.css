@@ -1,0 +1,5 @@
+.ds-card { display: flex; flex-direction: column; gap: 8px; padding: 24px; background: var(--ds-surface); border: 1px solid var(--ds-g12); color: var(--ds-g12); text-decoration: none; min-width: 0; }
+.ds-card-title { font: 500 var(--ds-fs-17)/1.25 var(--ds-display); letter-spacing: -0.01em; }
+.ds-card-text { color: var(--ds-g11); }
+.ds-cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (hover: hover) and (pointer: fine) { .ds-card.is-link { transition: background-color var(--ds-dur-hover) ease; } .ds-card.is-link:hover { background: var(--ds-g2); } }

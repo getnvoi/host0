@@ -1,0 +1,7 @@
+/* A form page's last row: the discreet action centred, drawn as a link: no pill, no fill, its label
+   underlined on hover. */
+.ds-aside { display: flex; justify-content: center; }
+.ds-aside .ds-button.ds-button { padding: 0; background: none; border-color: transparent; box-shadow: none; transform: none; text-underline-offset: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-aside .ds-button.ds-button:hover { background: none; text-decoration: underline; }
+}

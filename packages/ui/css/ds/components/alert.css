@@ -1,0 +1,16 @@
+.ds-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--ds-g7); background: var(--ds-surface); color: var(--ds-g12); font-size: var(--ds-fs-13); line-height: 20px; }
+.ds-alert.is-error { border-color: color-mix(in oklab, var(--ds-bad) 55%, var(--ds-g7)); }
+.ds-alert.is-warning { border-color: color-mix(in oklab, var(--ds-busy) 70%, var(--ds-g7)); }
+.ds-alert:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ds-alert-mark { display: grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--ds-g4); color: var(--ds-g12); }
+.ds-alert.is-warning .ds-alert-mark { background: var(--ds-busy); color: var(--ds-ink); }
+.ds-alert.is-error .ds-alert-mark { background: var(--ds-bad); color: var(--ds-on-fill); }
+.ds-alert.is-success .ds-alert-mark { background: var(--ds-ok); color: var(--ds-bg); }
+.ds-alert-words { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ds-alert-title { margin: 0; font-weight: 500; }
+.ds-alert-text { color: var(--ds-g11); overflow-wrap: anywhere; }
+.ds-alert-text code { font: var(--ds-fs-12) var(--ds-mono); color: var(--ds-g12); }
+.ds-alert .ds-alert-list { margin: 4px 0 0; padding-left: 18px; color: var(--ds-g11); }
+.ds-alert-list a { color: var(--ds-g12); text-decoration: underline; text-decoration-color: var(--ds-g8); text-underline-offset: 2px; }
+.ds-alert-action { display: flex; align-items: center; gap: 8px; flex: none; align-self: center; }
+@media (max-width: 560px) { .ds-alert { flex-wrap: wrap; } .ds-alert-action { margin-left: 30px; } }

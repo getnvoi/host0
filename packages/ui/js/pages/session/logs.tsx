@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "@/contexts/i18n";
 import { messageFrom } from "@/contexts/api/errors";
 import { readLog, useLogSources } from "@/contexts/api/sessions";
 import { watchAway } from "@/lib/away";
-import { Sheet } from "@/ui/dialog";
+import { Drawer } from "@/ds/drawer";
+import { Log } from "@/ds/log";
+import { Segmented } from "@/ds/segmented";
 
 // Terminal colour and cursor codes, which a log shown as text drops.
 const ANSI = /\x1b\[[0-9;?]*[A-Za-z]/g;
@@ -15,7 +16,6 @@ export function Logs({ session, subtitle, name, onPick, onClose }: { session: st
   const sources = useLogSources(session, true);
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
-  const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let offset = 0;
@@ -33,12 +33,7 @@ export function Logs({ session, subtitle, name, onPick, onClose }: { session: st
         const more = raw.replace(ANSI, "");
         if (!live) return;
         offset = next;
-        if (more) {
-          const el = body.current;
-          const bottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-          setText((x) => (x + more).slice(-2_000_000));
-          if (bottom) requestAnimationFrame(() => el && (el.scrollTop = el.scrollHeight));
-        }
+        if (more) setText((x) => (x + more).slice(-2_000_000));
         setError(undefined);
       } catch (e) {
         if (live) setError(messageFrom(e, t));
@@ -65,36 +60,31 @@ export function Logs({ session, subtitle, name, onPick, onClose }: { session: st
     };
   }, [session, name, t]);
 
+  // Lines, as ds Log takes them; the last one is dropped while it is still being written.
+  const lines = text ? text.replace(/\n$/, "").split("\n") : [];
   return (
-    <Sheet
-      label={t("logs.title")}
+    <Drawer
+      id="logs"
+      open
+      flush
+      width={720}
+      title={t("logs.title")}
+      text={subtitle}
       onClose={onClose}
-      head={
-        <div className="sheet-head">
-          <div className="sheet-heading">
-            <span className="sheet-title">{t("logs.title")}</span>
-            <span className="sheet-text">{subtitle}</span>
-          </div>
-          {sources.data && sources.data.length > 1 && (
-            <nav className="seg sm" aria-label={t("logs.sources")}>
-              {sources.data.map((s) => (
-                <button key={s.name} type="button" aria-pressed={s.name === name} onClick={() => onPick(s.name)}>
-                  {s.kind === "setup" ? t("logs.setup") : s.name}
-                </button>
-              ))}
-            </nav>
-          )}
-          <button type="button" className="btn ghost sm icon" aria-label={t("common.close")} onClick={onClose}>
-            <X />
-          </button>
-        </div>
+      actions={
+        sources.data &&
+        sources.data.length > 1 && (
+          <Segmented
+            size="sm"
+            label={t("logs.sources")}
+            value={name}
+            onChange={onPick}
+            items={sources.data.map((s) => ({ value: s.name, label: s.kind === "setup" ? t("logs.setup") : s.name }))}
+          />
+        )
       }
     >
-      <div className="sheet-body" ref={body}>
-        {error && <p className="log-empty">{error}</p>}
-        {!error && !text && <p className="log-empty">{t("logs.empty")}</p>}
-        {text && <pre className="log">{text}</pre>}
-      </div>
-    </Sheet>
+      <Log lines={lines} edge={false} empty={error ?? t("logs.empty")} />
+    </Drawer>
   );
 }

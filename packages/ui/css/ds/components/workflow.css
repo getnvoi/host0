@@ -1,0 +1,36 @@
+.ds-workflow { border: 1px solid var(--ds-g8); border-bottom: 0; background: var(--ds-surface); color: var(--ds-g12); font: 400 var(--ds-fs-13)/1.45 var(--ds-sans); }
+.ds-workflow-line { display: grid; grid-template-columns: 20px auto minmax(0, 1fr) auto 14px; align-items: center; gap: 12px; min-height: 36px; padding: 0 10px; list-style: none; cursor: pointer; user-select: none; }
+.ds-workflow-line::-webkit-details-marker { display: none; }
+.ds-workflow-name { font-weight: 500; white-space: nowrap; }
+.ds-workflow-now { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ds-g11); }
+.ds-workflow-segments { display: flex; gap: 3px; }
+.ds-workflow-segments i { width: 18px; height: 4px; border-radius: 0; background: var(--ds-g6); }
+.ds-workflow-segments i.is-done { background: var(--ds-g12); }
+.ds-workflow-segments i.is-now { background: var(--ds-busy); }
+.ds-workflow-chevron { color: var(--ds-g9); transition: transform var(--ds-dur-pop) var(--ds-ease-out); }
+.ds-workflow[open] .ds-workflow-chevron { transform: rotate(180deg); }
+/* The chevron keeps its open and closed positions and only stops turning. */
+@media (prefers-reduced-motion: reduce) { .ds-workflow-chevron { transition: none; } }
+@media (hover: hover) and (pointer: fine) { .ds-workflow-line:hover { background: var(--ds-ga3); } }
+.ds-workflow-line:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.ds-workflow-steps { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ds-g6); max-height: 240px; overflow-y: auto; }
+/* The mark and the advance span the name and the line under it; both lines read tight. */
+.ds-workflow-step { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; column-gap: 12px; row-gap: 1px; padding: 8px 10px; }
+.ds-workflow-step + .ds-workflow-step { border-top: 1px solid var(--ds-g6); }
+.ds-workflow-number { grid-row: 1 / 3; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ds-g4); color: var(--ds-g11); font: 500 var(--ds-fs-11) var(--ds-mono); }
+.ds-workflow-number .ds-glyph { width: 12px; height: 12px; }
+.ds-workflow-step.is-done .ds-workflow-number { background: var(--ds-ok); color: var(--ds-surface); }
+.ds-workflow-step.is-now .ds-workflow-number { background: var(--ds-busy); color: var(--ds-g12); }
+.ds-workflow-step-name { min-width: 0; font-weight: 500; line-height: 16px; }
+.ds-workflow-state { margin-left: 8px; font-size: var(--ds-fs-12); font-weight: 400; color: var(--ds-g11); }
+.ds-workflow-advance { grid-column: 3; grid-row: 1 / 3; }
+.ds-workflow-meta { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; min-width: 0; font-size: var(--ds-fs-12); line-height: 14px; color: var(--ds-g9); }
+.ds-workflow-meta code { font: var(--ds-fs-11) var(--ds-mono); color: var(--ds-g11); }
+/* A started step opens its session: the whole row is its link, the one in view washed. */
+.ds-workflow-step { position: relative; }
+.ds-workflow-link { color: inherit; text-decoration: none; }
+.ds-workflow-link::after { content: ""; position: absolute; inset: 0; }
+.ds-workflow-link:focus-visible { outline: none; }
+.ds-workflow-step:has(.ds-workflow-link:focus-visible) { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.ds-workflow-step.is-current { background: var(--ds-ga3); }
+@media (hover: hover) and (pointer: fine) { .ds-workflow-step:has(.ds-workflow-link):hover { background: var(--ds-ga3); } }

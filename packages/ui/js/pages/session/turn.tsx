@@ -1,21 +1,36 @@
-import { useState } from "react";
-import type { LucideIcon } from "lucide-react";
-import { AlertTriangle, BotMessageSquare, ChevronRight, CircleCheck, UserRound as AvatarIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslations } from "@/contexts/i18n";
-import type { Action, Call, Item, Part, Sub, Turn } from "@/lib/transcript";
-import { field } from "@/lib/transcript";
+import type { Action, Call, Item, Sub, Turn } from "@/lib/transcript";
+import { field, NVOI } from "@/lib/transcript";
 import { clock, duration, joined, tokens } from "@/lib/time";
 import { Markdown } from "@/ui/bits";
-import { Dot, Face, toolIcon, useToolLabel, type Family } from "@/ui/marks";
+import { useToolLabel } from "@/ui/marks";
+import { Alert } from "@/ds/alert";
+import { Gate } from "@/ds/gate";
+import { Message } from "@/ds/message";
+import { Signed, SignedActions, SignedError, SignedProse, SignedRun, SignedSubagents } from "@/ds/signed";
+import { Status } from "@/ds/status";
 
-export type Signer = { name: string; icon: LucideIcon; family: Family };
+export type Signer = { name: string; icon: "agent" | "subagent" };
+
+// A tool's face, as vrcl's runs helper names them.
+const FACES: Record<string, string> = {
+  Bash: "bash", BashOutput: "bash", KillShell: "bash", Read: "read", Edit: "edit", MultiEdit: "edit", Write: "edit",
+  NotebookEdit: "edit", Glob: "grep", Grep: "grep", LS: "grep", Task: "subagent", Agent: "subagent",
+  SendMessage: "subagent", Skill: "skill", TodoWrite: "plan", EnterPlanMode: "plan", ExitPlanMode: "plan",
+  set_title: "settitle", push_branch: "push", create_pull_request: "pr", navigate_preview: "preview",
+};
+
+export function face(tool: string) {
+  return FACES[tool.startsWith(NVOI) ? tool.slice(NVOI.length) : tool] ?? "tool";
+}
 
 // The one detail worth a line: a command, a path, a title.
 export function hint(input: string): string {
   return field(input, "command", "file_path", "notebook_path", "path", "pattern", "url", "query", "title", "description", "to").split("\n")[0];
 }
 
-export function Items({ items, signer, onSub }: { items: Item[]; signer: Signer; onSub: (id: string) => void }) {
+export function Items({ items, signer, subHref }: { items: Item[]; signer: Signer; subHref: (id: string) => string }) {
   const { t } = useTranslations();
   return (
     <>
@@ -24,19 +39,18 @@ export function Items({ items, signer, onSub }: { items: Item[]; signer: Signer;
           case "you":
             return <You key={i.key} text={i.text} at={i.at} to={i.to} />;
           case "turn":
-            return <Signed key={i.key} turn={i.turn} signer={signer} onSub={onSub} />;
+            return <Box key={i.key} turn={i.turn} signer={signer} subHref={subHref} />;
           case "notice":
             return (
-              <p key={i.key} className="notice">
+              <Alert key={i.key} tone="info">
                 {i.text}
-              </p>
+              </Alert>
             );
           case "stopped":
             return (
-              <p key={i.key} className="outcome">
-                <CircleCheck />
+              <Status key={i.key} state="idle">
                 {t("session.stopped")}
-              </p>
+              </Status>
             );
         }
       })}
@@ -44,34 +58,18 @@ export function Items({ items, signer, onSub }: { items: Item[]; signer: Signer;
   );
 }
 
-// queued: the control to withdraw a queued message; held: the session is at rest, so it waits for the next run.
-export function You({ text, at, to, queued, held }: { text: string; at?: string; to?: string; queued?: React.ReactNode; held?: boolean }) {
+// Your message. queued: the control to withdraw it while it waits.
+export function You({ text, at, to, action, queued }: { text: string; at?: string; to?: string; action?: ReactNode; queued?: boolean }) {
   const { t } = useTranslations();
   return (
-    <div className="msg">
-      <Face icon={AvatarIcon} family="purple" />
-      <div style={{ minWidth: 0 }}>
-        <div className="who">
-          <b>{t("session.you")}</b>
-          {to && <span className="caption">{t("session.to", { name: to })}</span>}
-          {at && <span className="meta">{clock(at)}</span>}
-          {queued && <span className="meta">{t(held ? "queue.held" : "queue.queued")}</span>}
-        </div>
-        {queued ? (
-          <div className="bubble queued">
-            <span>{text}</span>
-            {queued}
-          </div>
-        ) : (
-          <div className="bubble">{text}</div>
-        )}
-      </div>
-    </div>
+    <Message name={t("session.you")} time={at ? clock(at) : undefined} queued={queued} agent={to} action={action}>
+      <Markdown>{text}</Markdown>
+    </Message>
   );
 }
 
-
-function Signed({ turn, signer, onSub }: { turn: Turn; signer: Signer; onSub: (id: string) => void }) {
+// One turn of the agent, signed: its calls folded under a counter, open while it runs, then what it said.
+function Box({ turn, signer, subHref }: { turn: Turn; signer: Signer; subHref: (id: string) => string }) {
   const { t } = useTranslations();
   let lastCall = -1;
   turn.parts.forEach((p, i) => {
@@ -80,175 +78,78 @@ function Signed({ turn, signer, onSub }: { turn: Turn; signer: Signer; onSub: (i
   const folded = turn.parts.slice(0, lastCall + 1);
   const answer = turn.parts.slice(lastCall + 1);
   const calls = folded.filter((p) => p.kind === "call").length;
-  const [toggled, setToggled] = useState<boolean>();
-  const open = toggled ?? (turn.live && answer.length === 0);
-  const Icon = signer.icon;
+  const meta = joined(clock(turn.at), duration(turn.duration), tokens(turn.tokens));
   return (
-    <section className="signed" aria-label={signer.name}>
-      <div className="signed-head">
-        <span className={`stab fam-${signer.family}`}>
-          <span className="fc">
-            <Icon />
-          </span>
-          <span className="n">{signer.name}</span>
-        </span>
-        <span className="meta truncate">{joined(clock(turn.at), duration(turn.duration), tokens(turn.tokens))}</span>
-      </div>
-      <div className="signed-box">
-        {folded.length > 0 && (
-          <>
-            <button type="button" className="fold" aria-expanded={open} onClick={() => setToggled(!open)}>
-              <ChevronRight />
-              {t("session.actions", { count: calls })}
-              {turn.live && answer.length === 0 && <span className="spin" />}
-            </button>
-            {open && (
-              <div className="fold-body">
-                {folded.map((p, i) => (
-                  <PartView key={i} part={p} live={turn.live} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-        {answer.map((p, i) => (
-          <PartView key={i} part={p} live={turn.live} />
-        ))}
-        {turn.subs.length > 0 && <Subs subs={turn.subs} onSub={onSub} />}
-        {turn.actions.map((a) => (
-          <ActionRow key={a.id} action={a} />
-        ))}
-        {turn.error && (
-          <div className="prose" role="alert" style={{ display: "flex", gap: 8, color: "var(--bad)" }}>
-            <AlertTriangle width={14} height={14} style={{ marginTop: 3, flex: "none" }} />
-            <pre style={{ whiteSpace: "pre-wrap", color: "var(--g12)", overflowWrap: "anywhere" }}>{turn.error}</pre>
-          </div>
-        )}
-      </div>
-    </section>
+    <Signed name={signer.name} icon={signer.icon} meta={meta}>
+      {folded.length > 0 && (
+        <SignedActions count={calls} open={turn.live && answer.length === 0}>
+          {folded.map((p, i) =>
+            p.kind === "prose" ? (
+              <SignedProse key={i}>
+                <Markdown>{p.text}</Markdown>
+              </SignedProse>
+            ) : (
+              <Run key={i} call={p.call} live={turn.live} />
+            ),
+          )}
+        </SignedActions>
+      )}
+      {answer.map((p, i) =>
+        p.kind === "prose" ? (
+          <SignedProse key={i}>
+            <Markdown>{p.text}</Markdown>
+          </SignedProse>
+        ) : null,
+      )}
+      {turn.subs.length > 0 && <Subs subs={turn.subs} subHref={subHref} />}
+      {turn.actions.map((a) => (
+        <ActionRow key={a.id} action={a} />
+      ))}
+      {turn.error && <SignedError title={t("session.failed")}>{turn.error}</SignedError>}
+    </Signed>
   );
 }
 
-function PartView({ part, live }: { part: Part; live: boolean }) {
-  if (part.kind === "prose")
-    return (
-      <div className="prose">
-        <Markdown>{part.text}</Markdown>
-      </div>
-    );
-  return <CallRow call={part.call} live={live} />;
-}
-
-// A call without a result spins only while its turn runs; in a turn that ended, its result will not come.
-function CallRow({ call, live }: { call: Call; live: boolean }) {
+// A call without a result runs only while its turn does; in a turn that ended, its result will not come.
+function Run({ call, live }: { call: Call; live: boolean }) {
   const label = useToolLabel();
-  const [open, setOpen] = useState(false);
-  const Icon = toolIcon(call.tool);
   const detail = field(call.input, "command") || hint(call.input);
   return (
-    <>
-      <button type="button" className="run" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Face icon={Icon} family="olive" size={20} />
-        <b>{label(call.tool)}</b>
-        <span className="cmd">{detail}</span>
-        {call.result === undefined && live ? <span className="spin" /> : <span />}
-        <ChevronRight />
-      </button>
-      {open && (
-        <pre className="run-out">
-          <span className="in">{detail || call.input}</span>
-          {call.result !== undefined && "\n\n" + (call.result || "—")}
-        </pre>
-      )}
-    </>
+    <SignedRun
+      tool={face(call.tool)}
+      label={label(call.tool)}
+      command={detail || call.input}
+      state={call.result === undefined ? (live ? "running" : "done") : "done"}
+      output={call.result}
+    />
   );
 }
 
-function Subs({ subs, onSub }: { subs: Sub[]; onSub: (id: string) => void }) {
+function Subs({ subs, subHref }: { subs: Sub[]; subHref: (id: string) => string }) {
   const { t } = useTranslations();
-  const count = (s: Sub["state"]) => subs.filter((x) => x.state === s).length;
-  const tally = [
-    count("done") && t("subs.done", { count: count("done") }),
-    count("running") && t("subs.running", { count: count("running") }),
-    count("failed") && t("subs.failed", { count: count("failed") }),
-  ];
   return (
-    <>
-      <div className="tally">{joined(t("subs.label"), ...tally.map((x) => x || undefined))}</div>
-      {subs.map((s) => (
-        <button key={s.id} type="button" className="sub" onClick={() => onSub(s.id)} aria-label={t("subs.open", { name: s.name })}>
-          <span className="mk">
-            {s.waiting ? <Dot tone="busy" /> : s.state === "running" ? <span className="spin" /> : s.state === "failed" ? <Dot tone="bad" /> : <CircleCheck color="var(--ok)" />}
-          </span>
-          <Face icon={BotMessageSquare} family="blue" size={20} />
-          <span className="nm">{s.name}</span>
-          <span className="ln">{s.waiting ? t("gate.needs_you") : s.last}</span>
-          <span className="meta">{joined(duration(s.duration), s.tools !== undefined && t("subs.tools", { count: s.tools }), tokens(s.tokens).replace(" tokens", ""))}</span>
-        </button>
-      ))}
-    </>
+    <SignedSubagents
+      title={t("subs.label")}
+      agents={subs.map((s) => ({
+        name: s.name,
+        line: s.waiting ? t("gate.needs_you") : s.last,
+        state: s.state,
+        time: s.duration ? duration(s.duration) : undefined,
+        tools: s.tools,
+        tokens: s.tokens,
+        href: subHref(s.id),
+      }))}
+    />
   );
 }
 
+// An nvoi action: a denied one as its decided gate, the others as runs with their outcome.
 function ActionRow({ action }: { action: Action }) {
   const { t } = useTranslations();
   const label = useToolLabel();
-  const [open, setOpen] = useState(false);
-  const Icon = toolIcon(action.name);
-  const url = action.state === "done" ? action.outcome?.match(/https?:\/\/\S+/)?.[0] : undefined;
-  const status = {
-    pending: (
-      <span className="status">
-        <Dot tone="busy" />
-        {t("gate.needs_you")}
-      </span>
-    ),
-    running: (
-      <span className="status">
-        <span className="spin" />
-        {t("actions.running")}
-      </span>
-    ),
-    done: url ? (
-      <a className="status" href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-        <Dot tone="ok" />
-        {t("actions.open")}
-      </a>
-    ) : (
-      <span className="status">
-        <Dot tone="ok" />
-        {t("actions.done")}
-      </span>
-    ),
-    denied: (
-      <span className="status">
-        <Dot tone="idle" />
-        {t("actions.denied")}
-      </span>
-    ),
-    stopped: (
-      <span className="status">
-        <Dot tone="idle" />
-        {t("actions.stopped")}
-      </span>
-    ),
-    failed: (
-      <span className="status">
-        <Dot tone="bad" />
-        {t("actions.failed")}
-      </span>
-    ),
-  }[action.state];
-  return (
-    <>
-      <button type="button" className="run" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Face icon={Icon} family="olive" size={20} />
-        <b>{label(action.name)}</b>
-        <span className="cmd">{field(action.input, "title", "path")}</span>
-        {status}
-        <ChevronRight />
-      </button>
-      {open && <pre className="run-out">{action.outcome ?? action.input}</pre>}
-    </>
-  );
+  const detail = field(action.input, "title", "path") || action.input;
+  if (action.state === "denied" || action.state === "stopped")
+    return <Gate tool={face(action.name)} label={label(action.name)} action={detail} state="denied" meta={t(`actions.${action.state}`)} />;
+  const state = action.state === "failed" ? "failed" : action.state === "running" || action.state === "pending" ? "running" : "done";
+  return <SignedRun tool={face(action.name)} label={label(action.name)} command={detail} state={state} output={action.outcome} />;
 }

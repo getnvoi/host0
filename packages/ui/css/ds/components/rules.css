@@ -1,0 +1,8 @@
+.ds-rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .ds-rules { grid-template-columns: 1fr; } }
+.ds-rule { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ds-g6); }
+.ds-rule-stage { overflow: clip; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; min-height: 140px; padding: 24px; background: var(--ds-g2); }
+.ds-rule figcaption { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px 12px; border-top: 3px solid var(--ds-ok); }
+.ds-rule.is-dont figcaption { border-top-color: var(--ds-bad); }
+.ds-rule figcaption b { font: 500 var(--ds-fs-12) var(--ds-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+.ds-rule figcaption span { color: var(--ds-g11); font-size: var(--ds-fs-13); }

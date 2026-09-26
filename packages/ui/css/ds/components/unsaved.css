@@ -1,0 +1,3 @@
+/* Two words before Save, g11, with no dot: nothing is wrong yet. */
+.ds-unsaved { color: var(--ds-g11); font-size: var(--ds-fs-13); white-space: nowrap; }
+.ds-unsaved[hidden] { display: none; }

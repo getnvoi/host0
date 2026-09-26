@@ -1,0 +1,84 @@
+.ds-head { --head-width: min(var(--width, 720px), 720px); container-type: inline-size; flex: none; height: var(--ds-bar); box-sizing: border-box; background: var(--ds-surface); border-bottom: 1px solid var(--ds-g6); }
+.ds-head-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, var(--head-width)) minmax(0, 1fr); align-items: center; gap: 16px; height: 100%; padding: 0 20px; }
+.ds-head-lead { grid-column: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ds-head .ds-head-title { margin: 0; font: 500 var(--ds-fs-15)/1 var(--ds-display); letter-spacing: -0.015em; color: var(--ds-g12); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; text-box: trim-both cap alphabetic; padding-block: 0.3em; margin-block: -0.3em; }
+.ds-head-lead .ds-count { margin-left: -2px; }
+.ds-head-badge { display: inline-flex; flex: none; min-width: 0; max-width: 40%; }
+.ds-head-sub { color: var(--ds-g9); font-size: var(--ds-fs-13); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* A subtitle stands over the title, as the session bar's owner stands over its repository: where the page
+   belongs, small, then what it is. */
+.ds-head-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ds-head-over { font: 400 var(--ds-fs-11)/1 var(--ds-sans); color: var(--ds-g9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-head-center { grid-column: 2; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0; }
+.ds-head-action { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 8px; }
+/* The centre column is --head-width: over a fixed column it is that column's width, so search lines up
+   with the body under it; over an edge-to-edge list it is the page's width, at most 720px. With nothing in the centre the title may use its width. */
+.ds-head-in:not(:has(> .ds-head-center, > .ds-head-middle)) > .ds-head-lead { grid-column: 1 / 3; }
+
+/* Centred: three columns, the middle on the bar's axis whatever the sides weigh; the title over its
+   subtitle, truncated at 480. When the bar is short the action keeps its width and the title gives. */
+.ds-head.is-centre .ds-head-in { grid-template-columns: minmax(var(--ds-lead), 1fr) minmax(0, auto) 1fr; }
+.ds-head-middle { grid-column: 2; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; max-width: 480px; }
+.ds-head-middle > .ds-head-title, .ds-head-middle > .ds-head-name { max-width: 100%; }
+.ds-head-middle .ds-head-rename { text-align: center; }
+.ds-head-line { max-width: 100%; color: var(--ds-g9); font: var(--ds-fs-12)/16px var(--ds-sans); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The place: its picture, the owner small over the name. */
+.ds-head-place { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+.ds-head-place-with-back { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ds-head-place-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.ds-head-owner { color: var(--ds-g9); font-size: var(--ds-fs-11); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-head-place-name { color: var(--ds-g11); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.ds-head-place:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  a.ds-head-place:hover .ds-head-place-name { color: var(--ds-g12); }
+}
+
+/* The search box: a square field with the pixel lens inside its left edge. */
+.ds-head-search { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; color: var(--ds-g9); }
+.ds-head-search > .ds-glyph { position: absolute; left: 8px; pointer-events: none; }
+.ds-head-search-input { width: 100%; min-width: 0; height: var(--ds-h-control); padding: 0 10px 0 28px; border: 1px solid var(--ds-g8); border-radius: 0; background: var(--ds-surface); box-shadow: var(--ds-sh-neutral); color: var(--ds-g12); font: var(--ds-fs-13) var(--ds-sans); outline: none; }
+.ds-head-search-input::placeholder { color: var(--ds-g9); }
+/* Our clear, not the browser's: a round button with the close glyph, only once there is text. */
+.ds-head-search-input { padding-right: 30px; }
+.ds-head-search-clear { position: absolute; right: 5px; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--ds-g4); color: var(--ds-g11); cursor: pointer; transition: transform var(--ds-dur-press) var(--ds-ease-out); }
+.ds-head-search-input:placeholder-shown ~ .ds-head-search-clear { display: none; }
+.ds-head-search-clear:active { transform: scale(0.97); }
+.ds-head-search-clear:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 1px; }
+/* The mark stays 20px; the press area is 24px, 40px on touch. iOS zooms into a field under 16px. */
+.ds-head-search-clear::before { content: ""; position: absolute; inset: -2px; }
+@media (pointer: coarse) {
+  .ds-head-search-clear::before { inset: -10px; }
+  .ds-head-search-input { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .ds-head-search-clear:active { transform: none; } }
+@media (hover: hover) and (pointer: fine) { .ds-head-search-clear:hover { background: var(--ds-g6); color: var(--ds-g12); } }
+.ds-head-search-input:focus-visible { border-color: var(--ds-g12); box-shadow: 0 0 0 2px var(--ds-focus); }
+
+/* The way back: the page's mark and a pixel arrow on the same disc; the arrow shows on hover or focus. */
+.ds-head-back { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; color: var(--i, var(--ds-g12)); text-decoration: none; }
+.ds-head-back > span { grid-area: 1 / 1; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; transition: opacity var(--ds-dur-pop) var(--ds-ease-out); }
+.ds-head-arrow { opacity: 0; background: var(--f, var(--ds-g4)); }
+.ds-head-back.is-tile .ds-head-arrow { background: var(--ds-g4); color: var(--ds-g12); }
+.ds-head-back:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ds-head-back:focus-visible .ds-head-arrow { opacity: 1; }
+.ds-head-back:focus-visible .ds-head-face { opacity: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-head:hover .ds-head-arrow { opacity: 1; }
+  .ds-head:hover .ds-head-face { opacity: 0; }
+}
+
+/* Too narrow for the page's width plus the title and the action on each side: the title and the action take
+   what they need, and the centre the rest, up to its width. */
+@container (max-width: 1400px) {
+  .ds-head-in { grid-template-columns: minmax(max-content, 1fr) minmax(0, var(--head-width)) minmax(max-content, 1fr); gap: 12px; }
+  .ds-head.is-centre .ds-head-in { grid-template-columns: minmax(var(--ds-lead), 1fr) minmax(0, auto) 1fr; }
+}
+/* A phone: the title gives before the mark and the action, and shares the rest with search. */
+@container (max-width: 560px) {
+  .ds-head-in { grid-template-columns: minmax(var(--ds-lead), max-content) minmax(0, var(--head-width)) max-content; }
+  .ds-head-center > :not(.ds-head-search) { display: none; }
+  .ds-head-sub, .ds-head-place-text { display: none; }
+}
+/* Familjen Grotesk sits low in its line box: a title beside a mark is trimmed to its capitals and baseline,
+   so centring the box centres the letters (the same trim on every display title set in a row). A clipped
+   title adds padding and takes it back in margin, so descenders stay inside the clip. */

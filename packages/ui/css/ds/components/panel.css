@@ -1,0 +1,11 @@
+/* The dialog's look, in the flow of the page: square, white, floating, the foot under a g6 rule. */
+.ds-panel { position: relative; display: flex; flex-direction: column; width: 100%; max-width: var(--w); background: var(--ds-surface); color: var(--ds-g12); box-shadow: var(--ds-sh-float); font: 400 var(--ds-fs-13)/1.5 var(--ds-sans); }
+.ds-panel.is-sm { --w: 440px; }
+.ds-panel.is-md { --w: 560px; }
+.ds-panel-body { display: flex; flex-direction: column; gap: 6px; padding: 20px; }
+.ds-panel-body.has-close { padding-right: 56px; }
+.ds-panel-title { font: 500 var(--ds-fs-20)/30px var(--ds-display); letter-spacing: -0.019em; color: var(--ds-g12); text-wrap: balance; }
+.ds-panel .ds-panel-text { margin: 0; max-width: none; color: var(--ds-g11); font-size: var(--ds-fs-13); }
+.ds-panel-content { display: flex; flex-direction: column; gap: 16px; margin-top: 14px; }
+.ds-panel-foot { display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--ds-g6); }
+.ds-panel-close { position: absolute; top: 14px; right: 14px; display: flex; }

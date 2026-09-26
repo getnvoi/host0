@@ -1,0 +1,7 @@
+.ds-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 28px 16px; border: 1px dashed var(--ds-g8); background: var(--ds-surface); text-align: center; }
+.ds-empty-icon { margin-bottom: 10px; }
+.ds-empty .ds-empty-title { margin: 0; font: 500 var(--ds-fs-20)/30px var(--ds-display); letter-spacing: -0.019em; color: var(--ds-g12); text-wrap: balance; }
+.ds-empty .ds-empty-text { margin: 0; max-width: 46ch; color: var(--ds-g11); font-size: var(--ds-fs-13); text-wrap: pretty; }
+.ds-empty-action { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+.ds-empty.is-filtered { padding-block: 24px; }
+.ds-empty.is-filtered .ds-empty-title { font-size: var(--ds-fs-15); line-height: 24px; }

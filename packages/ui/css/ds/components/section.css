@@ -1,0 +1,27 @@
+.ds-section { --ds-section-edge: var(--ds-edge-section); display: flex; flex-direction: column; min-width: 0; }
+.ds-section.is-signed { --ds-section-edge: var(--ds-g12); }
+.ds-section-bar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.ds-section-tab { display: inline-flex; align-items: stretch; height: 26px; border: 1px solid var(--ds-section-edge); border-bottom: 0; background: var(--ds-surface); }
+.ds-section-icon { display: grid; place-items: center; width: 28px; background: var(--f); border-right: 1px solid var(--ds-section-edge); }
+/* A thing's tile, in a white cell the same width as a category's. */
+.ds-section-tile { display: grid; place-items: center; width: 28px; border-right: 1px solid var(--ds-section-edge); }
+.ds-section-icon .ds-icon { --f: transparent; }
+.ds-section-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ds-g8); }
+.ds-section-dot.is-ok { background: var(--ds-ok); }
+.ds-section-dot.is-busy { background: var(--ds-busy); }
+.ds-section-dot.is-bad { background: var(--ds-bad); }
+.ds-section .ds-section-name { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 10px; font: 500 var(--ds-fs-12)/1 var(--ds-mono); letter-spacing: 0; color: var(--ds-g12); white-space: nowrap; }
+.ds-section.has-icon .ds-section-name { background: color-mix(in oklab, var(--f) 30%, var(--ds-surface)); }
+.ds-section-action { display: flex; align-items: center; gap: 6px; padding-bottom: 4px; }
+.ds-section-box { border: 1px solid var(--ds-section-edge); background: var(--ds-surface); min-width: 0; }
+.ds-section-text { margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--ds-g6); color: var(--ds-g11); font-size: var(--ds-fs-13); }
+.ds-section-line { display: flex; align-items: center; gap: 12px; padding-right: 16px; border-bottom: 1px solid var(--ds-g6); }
+.ds-section-line > .ds-section-text { flex: 1; min-width: 0; border-bottom: 0; }
+.ds-section-end { display: flex; align-items: center; gap: 8px; flex: none; }
+.ds-section-body { display: flex; flex-direction: column; gap: 16px; padding: 16px; font-size: var(--ds-fs-13); color: var(--ds-g12); }
+.ds-section-body > .ds-button { align-self: flex-start; }
+.ds-section.is-flush .ds-section-body { gap: 0; padding: 0; }
+.ds-section.is-flush .ds-section-body > * + * { border-top: 1px solid var(--ds-g6); }
+/* Ground: cards on grey, as a board lane holds them. */
+.ds-section.is-ground .ds-section-box { background: var(--ds-g2); }
+.ds-section.is-ground .ds-section-body { padding: 12px; }

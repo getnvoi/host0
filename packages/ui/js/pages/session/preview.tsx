@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppWindow, ArrowLeft, ArrowRight, CircleAlert, Copy, CornerDownLeft, ExternalLink, House, RotateCw } from "lucide-react";
 import { useTranslations } from "@/contexts/i18n";
 import { messageFrom } from "@/contexts/api/errors";
 import { previewLink, usePreviewStatus } from "@/contexts/api/sessions";
 import type { Session } from "@/contexts/api/types";
 import { shownPage } from "@/lib/transcript";
 import { backoff } from "@/lib/backoff";
-import { Empty } from "@/ui/bits";
-import { notify } from "@/ui/toast";
+import { Address } from "@/ds/address";
+import { Button } from "@/ds/button";
+import { Empty } from "@/ds/empty";
+import { Frame } from "@/ds/frame";
+import { toast } from "@/ds/toast";
 
 // A frame that has not finished loading after this long is loaded again, once per load; each hang in a row doubles
 // the wait, up to a minute.
@@ -48,7 +50,8 @@ function normalize(value: string, origin: string) {
 // the plane checks the app until it answers.
 export function Preview({ session, host }: { session: Session; host: string }) {
   const { t } = useTranslations();
-  const origin = `https://${host}`;
+  // The preview is served as this page is: https on a cluster, http on a port for a local one.
+  const origin = `${location.protocol}//${host}${location.port ? `:${location.port}` : ""}`;
   const pathKey = `nvoi.preview-path:${host}`;
   const status = usePreviewStatus(session.id);
   const up = status.data?.up ?? false;
@@ -224,96 +227,74 @@ export function Preview({ session, host }: { session: Session; host: string }) {
 
   const copy = async () => {
     await navigator.clipboard.writeText(where.path);
-    notify.ok(t("preview.copied", { path: where.path }));
+    toast({ kind: "success", message: t("preview.copied", { path: where.path }) });
   };
-  const open = new URL(where.path, origin);
-  if (token) open.searchParams.set("token", token);
 
   // Once a page is in the frame it stays: a status check that fails while the app recompiles does not unmount it.
   const ready = Boolean(token && src);
+  if (!ready)
+    return error || status.isError ? (
+      <Empty
+        icon="preview"
+        title={t("preview.failed")}
+        text={error ?? messageFrom(status.error, t)}
+        action={
+          <Button glyph="restore" onClick={again}>
+            {t("preview.retry")}
+          </Button>
+        }
+      />
+    ) : (
+      <Empty
+        icon="preview"
+        title={t(status.data ? "preview.starting" : "preview.waking")}
+        text={
+          status.data
+            ? `${t("preview.starting_body")}${status.data.status ? ` (${t("preview.answered", { status: status.data.status })})` : status.data.error ? ` (${status.data.error})` : ""}`
+            : t("preview.waking_body")
+        }
+      />
+    );
   return (
-    <div className="page-flush">
-      <div className="previewbar">
-        <button type="button" className="btn ghost sm icon" aria-label={t("preview.home")} title={t("preview.home")} disabled={!ready} onClick={() => home()}>
-          <House />
-        </button>
-        <button type="button" className="btn ghost sm icon" aria-label={t("preview.back")} disabled={!ready || !canBack} onClick={() => step(-1)}>
-          <ArrowLeft />
-        </button>
-        <button type="button" className="btn ghost sm icon" aria-label={t("preview.forward")} disabled={!ready || !canForward} onClick={() => step(1)}>
-          <ArrowRight />
-        </button>
-        <button type="button" className="btn ghost sm icon" aria-label={t("preview.reload")} title={t("preview.reload")} disabled={!ready} onClick={reload}>
-          <RotateCw />
-        </button>
-        <form
-          className="addr"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (typed !== undefined) navigate(typed);
-            setTyped(undefined);
-            (document.activeElement as HTMLElement | null)?.blur();
-          }}
-        >
-          <input
-            aria-label={t("preview.path")}
-            value={typed ?? origin + where.path}
-            title={where.title}
-            onChange={(e) => setTyped(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
+    <Frame
+      key={round}
+      ref={frame}
+      src={src!}
+      title={t("preview.title")}
+      sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals allow-downloads"
+      onLoad={settled}
+      bar={
+        <Address
+          url={origin + where.path}
+          parts={{
+            home: { label: t("preview.home"), title: t("preview.home"), onClick: () => home() },
+            back: { label: t("preview.back"), title: t("preview.back"), disabled: !canBack, onClick: () => step(-1) },
+            forward: { label: t("preview.forward"), title: t("preview.forward"), disabled: !canForward, onClick: () => step(1) },
+            reload: { label: t("preview.reload"), title: t("preview.reload"), onClick: reload },
+            form: {
+              onSubmit: (e) => {
+                e.preventDefault();
+                if (typed !== undefined) navigate(typed);
                 setTyped(undefined);
-                e.currentTarget.blur();
-              }
-            }}
-            spellCheck={false}
-          />
-          <button type="submit" className="go" aria-label={t("preview.go")} title={t("preview.go")}>
-            <CornerDownLeft />
-          </button>
-        </form>
-        <button type="button" className="btn ghost sm icon" aria-label={t("preview.copy")} title={t("preview.copy")} onClick={copy}>
-          <Copy />
-        </button>
-        {ready && (
-          <a className="btn ghost sm icon" href={open.toString()} target="_blank" rel="noreferrer" aria-label={t("preview.open")} title={t("preview.open")}>
-            <ExternalLink />
-          </a>
-        )}
-      </div>
-      {ready ? (
-        <iframe key={round} ref={frame} className="frame" title={t("preview.title")} src={src} onLoad={settled} />
-      ) : (
-        <div className="center">
-          {error || status.isError ? (
-            <Empty
-              icon={CircleAlert}
-              family="orange"
-              title={t("preview.failed")}
-              text={error ?? messageFrom(status.error, t)}
-              dashed={false}
-              action={
-                <button type="button" className="btn outline" onClick={again}>
-                  <RotateCw />
-                  {t("preview.retry")}
-                </button>
-              }
-            />
-          ) : (
-            <Empty
-              icon={AppWindow}
-              family="orange"
-              title={t(status.data ? "preview.starting" : "preview.waking")}
-              text={
-                status.data
-                  ? `${t("preview.starting_body")}${status.data.status ? ` (${t("preview.answered", { status: status.data.status })})` : status.data.error ? ` (${status.data.error})` : ""}`
-                  : t("preview.waking_body")
-              }
-              dashed={false}
-            />
-          )}
-        </div>
-      )}
-    </div>
+                (document.activeElement as HTMLElement | null)?.blur();
+              },
+            },
+            url: {
+              value: typed ?? origin + where.path,
+              title: where.title,
+              onChange: (e) => setTyped(e.target.value),
+              onKeyDown: (e) => {
+                if (e.key === "Escape") {
+                  setTyped(undefined);
+                  e.currentTarget.blur();
+                }
+              },
+            },
+            go: { title: t("preview.go") },
+            copy: { label: t("preview.copy"), title: t("preview.copy"), onClick: copy },
+          }}
+        />
+      }
+    />
   );
 }

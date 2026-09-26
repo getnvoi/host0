@@ -1,0 +1,11 @@
+.ds-side-nav { display: flex; flex-direction: column; gap: 18px; padding: 20px 12px 40px; }
+.ds-side-nav-group { display: flex; flex-direction: column; gap: 1px; }
+.ds-side-nav-label { font: 500 var(--ds-fs-11) var(--ds-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ds-g9); padding: 0 8px 6px; }
+.ds-side-nav-item { display: flex; align-items: center; height: 28px; padding: 0 8px; color: var(--ds-g11); text-decoration: none; }
+.ds-side-nav-item:hover { background: var(--ds-ga3); color: var(--ds-g12); }
+.ds-side-nav-item.is-on { background: var(--ds-ga4); color: var(--ds-g12); font-weight: 500; }
+@media (max-width: 860px) {
+  .ds-side-nav { flex-direction: row; flex-wrap: wrap; padding: 12px 16px; }
+  .ds-side-nav-group { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .ds-side-nav-label { padding: 0 8px 0 0; }
+}

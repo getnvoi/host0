@@ -1,0 +1,23 @@
+/* One line of g11: a busy dot, the sentence, the time in g9 with tabular figures, and Stop run at the end. */
+.ds-working { display: flex; align-items: center; gap: 8px; min-height: var(--ds-h-control-sm); color: var(--ds-g11); font: 400 var(--ds-fs-13)/1.5 var(--ds-sans); }
+.ds-working[hidden] { display: none; }
+.ds-working-line { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.ds-working-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-working-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ds-busy); }
+/* The dot breathes while something happens; waiting on you it holds still, since nothing will until you act. */
+.ds-working:not(.is-waiting) .ds-working-dot { animation: ds-working-breathe 1.6s ease-in-out infinite; }
+@keyframes ds-working-breathe { 50% { opacity: 0.35; } }
+.ds-working-time { color: var(--ds-g9); font-size: var(--ds-fs-12); font-variant-numeric: tabular-nums; }
+.ds-working-stop, .ds-working-action { display: contents; }
+.ds-working-action > :first-child, .ds-working-stop .ds-button { margin-left: auto; }
+.ds-working-action ~ .ds-working-stop .ds-button { margin-left: 0; }
+
+/* Reconnecting floats: a square white surface centred at the top of the window, above the page. */
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-working:not(.is-waiting) .ds-working-dot { animation: none; }
+}
+
+/* Reconnecting takes the working line's place while the stream is down: it stands just before that line and
+   hides it, so the transcript's status slot says one thing. */
+.ds-working.is-reconnecting:not([hidden]) + .ds-working { display: none; }

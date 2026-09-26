@@ -1,0 +1,15 @@
+.ds-tabs { display: flex; align-items: stretch; gap: 2px; height: 40px; overflow-x: auto; scrollbar-width: none; }
+.ds-tabs::-webkit-scrollbar { display: none; }
+.ds-tabs-tab { display: inline-flex; align-items: center; gap: 7px; padding: 0 10px; color: var(--ds-g11); font-weight: 500; white-space: nowrap; text-decoration: none; }
+.ds-tabs-tab:first-child { padding-left: 0; }
+.ds-tabs-tab.is-current { color: var(--ds-g12); box-shadow: inset 0 -2px 0 var(--ds-g12); }
+@media (hover: hover) and (pointer: fine) { .ds-tabs-tab:hover { color: var(--ds-g12); } }
+.ds-tabs-tab:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.ds-tabs-label.is-mono { font: 500 var(--ds-fs-12) var(--ds-mono); }
+.ds-tabs-number { font: 500 var(--ds-fs-11) var(--ds-mono); color: var(--ds-g9); }
+.ds-tabs-dot { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--ds-g8); }
+.ds-tabs-dot.is-ok { background: var(--ds-ok); }
+.ds-tabs-dot.is-busy { background: var(--ds-busy); box-shadow: 0 0 0 1px color-mix(in oklab, var(--ds-amber-i) 45%, transparent); }
+.ds-tabs-dot.is-bad { background: var(--ds-bad); }
+.ds-tabs-word { margin-left: -2px; color: var(--ds-g11); font: 400 var(--ds-fs-12)/1 var(--ds-sans); }
+.ds-tabs-rule { width: 1px; margin: 12px 6px; background: var(--ds-g6); flex: none; }

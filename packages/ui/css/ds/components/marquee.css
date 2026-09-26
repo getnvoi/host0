@@ -1,0 +1,22 @@
+/* A white strip with an ink edge on paper: the label cell, then the names moving under a clipped view. The
+   track holds the list twice and moves by half its width, so the loop has no seam. */
+.ds-marquee { container-type: inline-size; background: var(--ds-bg); border: 1px solid var(--ds-g12); }
+.ds-marquee-in { display: flex; align-items: stretch; }
+.ds-marquee-label { flex: none; display: flex; align-items: center; width: 232px; padding: 16px 20px; border-right: 1px solid var(--ds-g12); color: var(--ds-g12); font: 500 var(--ds-fs-13)/1.35 var(--ds-sans); text-wrap: balance; }
+.ds-marquee-view { flex: 1; min-width: 0; overflow: hidden; display: flex; align-items: center; }
+.ds-marquee-track { display: flex; width: max-content; animation: ds-marquee var(--marquee-seconds, 50s) linear infinite; }
+.ds-marquee-list { display: flex; list-style: none; margin: 0; padding: 0; }
+.ds-marquee-item { padding: 20px 26px; color: var(--ds-g11); font: 500 18px/1 var(--ds-display); letter-spacing: -0.01em; white-space: nowrap; }
+.ds-marquee:hover .ds-marquee-track, .ds-marquee:focus-within .ds-marquee-track { animation-play-state: paused; }
+@keyframes ds-marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .ds-marquee-track { animation: none; width: auto; }
+  .ds-marquee-list { flex-wrap: wrap; padding: 8px 0; }
+  .ds-marquee-list[aria-hidden] { display: none; }
+  .ds-marquee-item { padding: 10px 16px; }
+}
+@container (max-width: 600px) {
+  .ds-marquee-in { flex-direction: column; }
+  .ds-marquee-label { width: auto; padding: 12px 16px; border-right: 0; border-bottom: 1px solid var(--ds-g12); }
+  .ds-marquee-item { padding: 16px 20px; font-size: 16px; }
+}

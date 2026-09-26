@@ -1,0 +1,29 @@
+/* A modal <dialog>, as wide as a screenshot reads well. It arrives like the dialog: from 0.97 and
+   transparent in 240ms, leaving in 60% of that, over the washed page. */
+.ds-lightbox { width: min(1100px, 100vw - 32px); height: min(820px, 100dvh - 64px); max-width: none; max-height: none; margin: auto; padding: 0; border: 0; border-radius: 0; overflow: hidden; background: var(--ds-surface); color: var(--ds-g12); box-shadow: var(--ds-sh-float); font: 400 var(--ds-fs-13)/1.5 var(--ds-sans); opacity: 0; transform: scale(0.97); transition: opacity calc(var(--ds-dur-dialog) * 0.6) var(--ds-ease-out), transform calc(var(--ds-dur-dialog) * 0.6) var(--ds-ease-out), display calc(var(--ds-dur-dialog) * 0.6) allow-discrete, overlay calc(var(--ds-dur-dialog) * 0.6) allow-discrete; }
+.ds-lightbox[open] { display: flex; flex-direction: column; opacity: 1; transform: none; transition-duration: var(--ds-dur-dialog); }
+@starting-style { .ds-lightbox[open] { opacity: 0; transform: scale(0.97); } }
+.ds-lightbox::backdrop { background: var(--ds-backdrop); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); opacity: 0; transition: opacity calc(var(--ds-dur-dialog) * 0.6) var(--ds-ease-out), display calc(var(--ds-dur-dialog) * 0.6) allow-discrete, overlay calc(var(--ds-dur-dialog) * 0.6) allow-discrete; }
+.ds-lightbox[open]::backdrop { opacity: 1; transition-duration: var(--ds-dur-dialog); }
+@starting-style { .ds-lightbox[open]::backdrop { opacity: 0; } }
+.ds-lightbox:focus-visible { outline: none; }
+
+.ds-lightbox-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 20px; border-bottom: 1px solid var(--ds-g6); }
+.ds-lightbox-words { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.ds-lightbox-title { flex: none; max-width: 60%; font: 500 var(--ds-fs-15)/24px var(--ds-display); letter-spacing: -0.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-box: trim-both cap alphabetic; padding-block: 0.3em; margin-block: -0.3em; }
+.ds-lightbox-caption { min-width: 0; color: var(--ds-g11); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-lightbox-caption:empty { display: none; }
+
+/* The picture on a quiet grey, full width, scrolling down when it is taller than the window. */
+.ds-lightbox-ground { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--ds-g3); }
+.ds-lightbox-image { display: block; width: 100%; height: auto; }
+.ds-lightbox-image:not([src]) { display: none; }
+
+.ds-lightbox-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px 10px 20px; border-top: 1px solid var(--ds-g6); }
+.ds-lightbox-position { color: var(--ds-g11); font-variant-numeric: tabular-nums; }
+.ds-lightbox-steps { display: flex; gap: 8px; margin-left: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-lightbox, .ds-lightbox[open] { transform: none; }
+  @starting-style { .ds-lightbox[open] { transform: none; } }
+}

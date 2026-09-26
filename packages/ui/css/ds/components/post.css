@@ -1,0 +1,9 @@
+.ds-post { display: grid; place-items: center; width: 100%; margin-inline: auto; overflow: hidden; background: var(--ds-paper) var(--ds-grain); }
+.ds-post.is-wide { aspect-ratio: 16 / 9; max-width: 960px; padding: 24px 0; }
+.ds-post.is-square { aspect-ratio: 1; max-width: 520px; padding: 28px; }
+.ds-post-window { display: flex; flex-direction: column; gap: 12px; width: 75%; padding: 20px; background: var(--ds-bg); border: 1px solid var(--ds-ink); }
+.ds-post.is-square .ds-post-window { width: 100%; padding: 16px; }
+.ds-post.is-crop { align-items: start; padding-bottom: 0; }
+.ds-post.is-crop .ds-post-window { width: 88%; padding: 12px; }
+.ds-post.is-scaled .ds-post-window { padding: 0; }
+.ds-post.is-scaled .ds-post-window > * { zoom: var(--scale); }

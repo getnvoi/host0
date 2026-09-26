@@ -1,0 +1,45 @@
+/* Bones are g4 on the surface. The shimmer is a faint band that crosses each bone; it stops under reduced
+   motion. The whole shape fades in after 300ms so a fast answer never shows it. */
+.ds-skeleton { --ds-list-x: 20px; display: flex; flex-direction: column; opacity: 1; transition: opacity var(--ds-dur-dialog) var(--ds-ease-out) 300ms; }
+@starting-style { .ds-skeleton { opacity: 0; } }
+.ds-skeleton.is-row, .ds-skeleton.is-list { background: var(--ds-surface); }
+.ds-skeleton-bones { display: contents; }
+.ds-skeleton-bone { position: relative; display: block; flex: none; height: 10px; overflow: hidden; background: var(--ds-g4); }
+.ds-skeleton-bone::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--ds-g1) 70%, transparent), transparent); transform: translateX(-100%); animation: ds-skeleton-shimmer 1.6s var(--ds-ease-in-out) infinite; }
+@keyframes ds-skeleton-shimmer { 60%, 100% { transform: translateX(100%); } }
+
+.ds-skeleton-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px; align-items: center; gap: 16px; min-height: 52px; padding: 8px var(--ds-list-x); }
+.ds-skeleton-row + .ds-skeleton-row { border-top: 1px solid var(--ds-g6); }
+.ds-skeleton-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ds-skeleton-words { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
+.ds-skeleton-bone.is-disc { width: 24px; height: 24px; border-radius: 50%; }
+.ds-skeleton-bone.is-title { width: 38%; max-width: 220px; }
+.ds-skeleton-bone.is-line { width: 62%; max-width: 360px; height: 8px; background: var(--ds-g3); }
+.ds-skeleton-bone.is-cell { width: 72px; }
+.ds-skeleton-bone.is-short { width: 36px; justify-self: end; }
+.ds-skeleton-row:nth-child(3n + 2) .is-title { width: 52%; }
+.ds-skeleton-row:nth-child(3n + 3) .is-title { width: 30%; }
+.ds-skeleton-row:nth-child(3n + 2) .is-line { width: 44%; }
+
+.ds-skeleton-head { display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px; align-items: center; gap: 16px; height: 36px; padding: 0 var(--ds-list-x); border-bottom: 1px solid var(--ds-g6); }
+.ds-skeleton-bone.is-caption { width: 48px; height: 8px; background: var(--ds-g3); }
+
+.ds-skeleton-tab { display: inline-flex; align-self: flex-start; align-items: center; height: 26px; padding: 0 10px; border: 1px solid var(--ds-g6); border-bottom: 0; background: var(--ds-surface); }
+.ds-skeleton-bone.is-tab { width: 72px; height: 8px; }
+.ds-skeleton-box { padding: 16px; border: 1px solid var(--ds-g6); background: var(--ds-surface); }
+.ds-skeleton-lines { display: flex; flex-direction: column; gap: 10px; }
+.ds-skeleton-bone.is-text { width: 100%; }
+.ds-skeleton-bone.is-text:nth-child(3n + 2) { width: 86%; }
+.ds-skeleton-bone.is-text:last-child { width: 58%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-skeleton-bone::after { animation: none; display: none; }
+}
+
+/* Page: a centred column of sections under a title bone. List: edge to edge, rows aligned with the head. */
+.ds-skeleton.is-page .ds-skeleton-bones { width: 100%; max-width: var(--width); margin-inline: auto; padding: 32px 20px; display: flex; flex-direction: column; gap: 24px; }
+.ds-skeleton-title { display: flex; flex-direction: column; gap: 10px; }
+.ds-skeleton-bone.is-heading { width: 40%; height: 20px; }
+.ds-skeleton.is-list { width: 100%; }
+/* Inside a column page the column is already drawn: the bones take its width and spacing. */
+.ds-page.is-column .ds-skeleton.is-page .ds-skeleton-bones { max-width: none; padding: 0; }

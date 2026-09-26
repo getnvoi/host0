@@ -1,0 +1,7 @@
+.ds-stack { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+.ds-stack.has-width { width: 100%; max-width: var(--width); }
+.ds-stack.is-centered { margin-inline: auto; }
+.ds-stack.is-center { align-items: center; }
+.ds-stack.is-start { align-items: flex-start; }
+.ds-stack.is-end { align-items: flex-end; }
+.ds-stack.is-full { width: 100%; }

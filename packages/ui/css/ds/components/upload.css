@@ -1,0 +1,34 @@
+.ds-upload { display: inline-flex; }
+.ds-upload.is-drop { display: flex; }
+/* With a list: the area, then the files under it. */
+.ds-upload.has-files { flex-direction: column; gap: 24px; }
+.ds-upload-files { display: flex; flex-direction: column; }
+.ds-upload-picked { display: contents; }
+.ds-upload-files:not(:has(.ds-upload-file)) { display: none; }
+.ds-upload-file { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 28px; align-items: center; gap: 12px; min-height: 44px; min-width: 0; }
+.ds-upload-file + .ds-upload-file, .ds-upload-file + .ds-upload-picked > .ds-upload-file:first-child, .ds-upload-picked > .ds-upload-file + .ds-upload-file { border-top: 1px solid var(--ds-g6); }
+.ds-upload-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 var(--ds-fs-13) var(--ds-mono); color: var(--ds-g12); }
+.ds-upload-file-size { font-size: var(--ds-fs-13); color: var(--ds-g9); font-variant-numeric: tabular-nums; }
+.ds-upload-file-remove { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; background: none; color: var(--ds-g9); cursor: pointer; }
+.ds-upload-file-remove:hover { color: var(--ds-g12); }
+.ds-upload-file-remove:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.ds-upload-drop { display: flex; flex: 1; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 24px 16px; border: 1px dashed var(--ds-g8); background: var(--ds-surface); color: var(--ds-g11); font: 400 var(--ds-fs-13)/1.4 var(--ds-sans); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ds-upload-title { font-weight: 500; color: var(--ds-g12); }
+.ds-upload-details { font-size: var(--ds-fs-12); line-height: 16px; max-width: 64ch; }
+.ds-upload-icon { transition: transform var(--ds-dur-pop) var(--ds-ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .ds-upload-drop:not(:disabled):hover { background: var(--ds-g2); }
+}
+.ds-upload-drop:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+/* Files over the area: the ink edge, and the face lifts to meet them. */
+.ds-upload.is-over .ds-upload-drop { border-style: solid; border-color: var(--ds-g12); background: var(--ds-g2); }
+.ds-upload.is-over .ds-upload-icon { transform: translateY(-3px); }
+.ds-upload-drop:disabled { cursor: not-allowed; opacity: 0.5; }
+.ds-upload.is-loading .ds-upload-drop { cursor: progress; opacity: var(--ds-dim-busy); }
+.ds-upload-spin { width: 16px; height: 16px; margin: 6px 0; border-radius: 50%; border: 1.5px solid var(--ds-g11); border-right-color: transparent; animation: ds-upload-spin 0.6s linear infinite; }
+@keyframes ds-upload-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ds-upload-icon { transition: none; }
+  .ds-upload.is-over .ds-upload-icon { transform: none; }
+  .ds-upload-spin { animation-duration: 1.8s; }
+}

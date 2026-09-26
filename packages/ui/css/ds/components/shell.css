@@ -1,0 +1,15 @@
+.ds-shell { display: flex; min-width: 0; background: var(--ds-bg); }
+.ds-shell.has-height { height: var(--height); }
+/* The page scrolls inside itself, under its head; the frame never does. */
+.ds-shell-main { flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+/* A form or a turbo frame wrapping the whole page (a new agent, an edit) takes no box of its own, so the
+   page is still as tall as the frame and its scroll area scrolls. */
+.ds-shell-main > :is(form, turbo-frame):has(> .ds-page) { display: contents; }
+.ds-shell-main > .ds-page, .ds-shell-main > :is(form, turbo-frame) > .ds-page { height: 100%; }
+
+/* Hidden until the keyboard reaches it: then a solid round button over the top-left corner. */
+.ds-shell-skip { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ds-shell-skip:focus-visible { position: fixed; top: 8px; left: 8px; z-index: 10; display: inline-flex; align-items: center; width: auto; height: var(--ds-h-control); padding: 0 12px; overflow: visible; clip-path: none; border-radius: var(--ds-round); background: var(--ds-g12); color: var(--ds-g1); box-shadow: var(--ds-sh-float); font: 500 var(--ds-fs-13)/1 var(--ds-sans); text-decoration: none; outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+/* The main area takes focus from the skip link only to move the reading point; it is not a control. */
+.ds-shell-main:focus { outline: none; }
+.ds-shell-announcer { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-import { Plus, SquareTerminal, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -9,11 +8,12 @@ import "@xterm/xterm/css/xterm.css";
 import { useTranslations } from "@/contexts/i18n";
 import { messageFrom } from "@/contexts/api/errors";
 import { killTerminal, terminalsKey, useTerminals } from "@/contexts/api/sessions";
-import { Empty, Skeleton } from "@/ui/bits";
-import { Dot } from "@/ui/marks";
+import { Button } from "@/ds/button";
+import { Empty } from "@/ds/empty";
+import { Status } from "@/ds/status";
+import { toast } from "@/ds/toast";
 import { backoff } from "@/lib/backoff";
 import { watchAway } from "@/lib/away";
-import { notify } from "@/ui/toast";
 
 // closed: boxd refused or ended the shell (a close code of 4000 and up). lost: retries ran out. paused: the page was
 // hidden for a minute and let the socket go.
@@ -32,6 +32,23 @@ export function Terminals({ session }: { session: string }) {
   const [local, setLocal] = useState<string[]>([]);
   const [active, setActive] = useState<string>();
   const [gone, setGone] = useState<string[]>([]);
+  // Keys typed while the sandbox wakes and no shell is there yet: sent to the first shell that opens.
+  const early = useRef("");
+  const ready = Boolean(active);
+  useEffect(() => {
+    if (ready) return;
+    const keep = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).closest("input, textarea, [contenteditable]")) return;
+      const key = e.key === "Enter" ? "\r" : e.key === "Backspace" ? "\x7f" : e.key === "Tab" ? "\t" : e.key.length === 1 ? e.key : "";
+      if (!key) return;
+      // Taken before the page's own shortcuts (N opens a new session) see it.
+      e.preventDefault();
+      e.stopPropagation();
+      early.current = key === "\x7f" ? early.current.slice(0, -1) : (early.current + key).slice(-4096);
+    };
+    document.addEventListener("keydown", keep, true);
+    return () => document.removeEventListener("keydown", keep, true);
+  }, [ready]);
   const server = (list.data ?? []).map((x) => x.id);
   const tabs = [...server, ...local.filter((id) => !server.includes(id))].filter((id) => !gone.includes(id));
 
@@ -59,7 +76,7 @@ export function Terminals({ session }: { session: string }) {
     } catch (e) {
       // The shell still runs: its tab comes back.
       setGone((g) => g.filter((x) => x !== id));
-      notify.error(messageFrom(e, t));
+      toast({ kind: "error", message: messageFrom(e, t) });
     }
     client.invalidateQueries({ queryKey: terminalsKey(session) });
   };
@@ -68,12 +85,7 @@ export function Terminals({ session }: { session: string }) {
     client.invalidateQueries({ queryKey: terminalsKey(session) });
   };
 
-  if (list.isPending)
-    return (
-      <div className="column">
-        <Skeleton />
-      </div>
-    );
+  if (list.isPending) return <Empty icon="terminal" title={t("terminal.waking")} text={t("terminal.waking_body")} />;
   return (
     <div className="page-flush">
       <div className="terms" role="tablist" aria-label={t("terminal.tabs")}>
@@ -83,32 +95,23 @@ export function Terminals({ session }: { session: string }) {
               {(list.data?.find((x) => x.id === id)?.command ?? "bash").replace(/^.*\//, "").split(" ")[0]}
               {i > 0 ? ` ${i + 1}` : ""}
             </button>
-            <button type="button" className="btn ghost sm icon" aria-label={t("terminal.close")} title={t("terminal.close")} onClick={() => close(id)}>
-              <X />
-            </button>
+            <Button variant="ghost" size="sm" glyph="close" label={t("terminal.close")} title={t("terminal.close")} onClick={() => close(id)} />
           </span>
         ))}
-        <button type="button" className="btn ghost sm icon" aria-label={t("terminal.new")} title={t("terminal.new")} onClick={open}>
-          <Plus />
-        </button>
+        <Button variant="ghost" size="sm" glyph="plus" label={t("terminal.new")} title={t("terminal.new")} onClick={open} />
       </div>
       {active && tabs.includes(active) ? (
-        <Shell key={active} session={session} id={active} onExit={() => exited(active)} />
+        <Shell key={active} session={session} id={active} onExit={() => exited(active)} typed={early} />
       ) : (
-        <div className="center">
-          <Empty
-            icon={SquareTerminal}
-            family="orange"
-            title={t("terminal.empty")}
-            dashed={false}
-            action={
-              <button type="button" className="btn outline" onClick={open}>
-                <Plus />
-                {t("terminal.new")}
-              </button>
-            }
-          />
-        </div>
+        <Empty
+          icon="terminal"
+          title={t("terminal.empty")}
+          action={
+            <Button glyph="plus" onClick={open}>
+              {t("terminal.new")}
+            </Button>
+          }
+        />
       )}
     </div>
   );
@@ -146,7 +149,7 @@ function theme(): ITheme {
   };
 }
 
-function Shell({ session, id, onExit }: { session: string; id: string; onExit: () => void }) {
+function Shell({ session, id, onExit, typed }: { session: string; id: string; onExit: () => void; typed?: { current: string } }) {
   const { t } = useTranslations();
   const host = useRef<HTMLDivElement>(null);
   const [link, setLink] = useState<Link>("connecting");
@@ -183,7 +186,8 @@ function Shell({ session, id, onExit }: { session: string; id: string; onExit: (
     let paused = false;
     let tries = 0;
     // Keys typed before the socket opens go out once it does, up to a screenful.
-    let held: Uint8Array[] = [];
+    let held: Uint8Array[] = typed?.current ? [new TextEncoder().encode(typed.current)] : [];
+    if (typed) typed.current = "";
     const send = (b: Uint8Array) => {
       if (ws?.readyState === WebSocket.OPEN) ws.send(b);
       else if (held.reduce((n, h) => n + h.length, 0) < 4096) held.push(b);
@@ -303,8 +307,7 @@ function Shell({ session, id, onExit }: { session: string; id: string; onExit: (
     <>
       {link !== "open" && (
         <div className="previewbar" aria-live="polite">
-          {link === "exited" || link === "closed" || link === "lost" || link === "paused" ? <Dot tone={link === "lost" ? "bad" : "idle"} /> : <span className="spin" />}
-          <span className="grow" style={{ fontFamily: "var(--sans)" }}>
+          <Status state={link === "lost" ? "bad" : link === "exited" || link === "closed" || link === "paused" ? "idle" : "busy"}>
             {link === "exited"
               ? t("terminal.ended")
               : link === "closed"
@@ -312,11 +315,11 @@ function Shell({ session, id, onExit }: { session: string; id: string; onExit: (
                   ? t("terminal.closed", { reason })
                   : t("terminal.ended")
                 : t(`terminal.${link}`)}
-          </span>
+          </Status>
           {link === "lost" && (
-            <button type="button" className="btn ghost sm" onClick={() => retry.current?.()}>
+            <Button variant="ghost" size="sm" onClick={() => retry.current?.()}>
               {t("terminal.retry")}
-            </button>
+            </Button>
           )}
         </div>
       )}

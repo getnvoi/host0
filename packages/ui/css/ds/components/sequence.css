@@ -1,0 +1,13 @@
+.ds-sequence { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); list-style: none; margin: 0; padding: 0; }
+.ds-sequence-step { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 24px; background: var(--ds-surface); border: 1px solid var(--ds-g12); min-width: 0; }
+.ds-sequence-number { font: 500 var(--ds-fs-12) var(--ds-mono); letter-spacing: 0.08em; color: var(--ds-g11); }
+.ds-sequence-title { font: 500 var(--ds-fs-17)/1.25 var(--ds-display); letter-spacing: -0.01em; color: var(--ds-g12); }
+.ds-sequence-text { color: var(--ds-g11); }
+.ds-sequence-link { color: inherit; text-decoration: none; }
+.ds-sequence-link::after { content: ""; position: absolute; inset: 0; }
+.ds-sequence-link:focus-visible { outline: none; }
+.ds-sequence-step:has(.ds-sequence-link:focus-visible) { outline: 2px solid var(--ds-g12); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-sequence-step:has(.ds-sequence-link) { transition: background-color var(--ds-dur-hover) ease; }
+  .ds-sequence-step:has(.ds-sequence-link):hover { background: var(--ds-g2); }
+}

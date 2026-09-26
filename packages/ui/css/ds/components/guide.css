@@ -1,0 +1,2 @@
+.ds-guide { display: flex; align-items: center; gap: var(--gap); border-block: 1px dashed var(--ds-g8); }
+.ds-guide-height { font: 400 var(--ds-fs-12)/16px var(--ds-mono); font-variant-numeric: tabular-nums; color: var(--ds-g11); }

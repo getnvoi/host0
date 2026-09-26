@@ -1,120 +1,90 @@
-import { useMemo, useState } from "react";
-import { CircleAlert, FileDiff, FileMinus, FilePen, FilePlus, RotateCw } from "lucide-react";
+import { useMemo } from "react";
 import { useTranslations } from "@/contexts/i18n";
 import { messageFrom } from "@/contexts/api/errors";
 import { useChanges } from "@/contexts/api/sessions";
 import type { FileChange } from "@/contexts/api/types";
 import { parsePatch, type FileDiff as Diff } from "@/lib/diff";
 import { age } from "@/lib/time";
-import { Empty, Skeleton } from "@/ui/bits";
+import { Alert } from "@/ds/alert";
+import { Button } from "@/ds/button";
+import { Empty } from "@/ds/empty";
+import { List, ListCell, ListName, ListRow } from "@/ds/list";
+import { Meta, MetaDiff } from "@/ds/meta";
+import { Section } from "@/ds/section";
+import { Skeleton } from "@/ds/skeleton";
+import { Stack } from "@/ds/stack";
 
-const ICON = { added: FilePlus, deleted: FileMinus, modified: FilePen, renamed: FileDiff };
 
 // What the session changed against its base, committed or not, read live from the sandbox.
 export function Changes({ session }: { session: string }) {
   const { t } = useTranslations();
   const changes = useChanges(session);
   const diffs = useMemo(() => new Map(parsePatch(changes.data?.patch ?? "").map((d) => [d.path, d])), [changes.data?.patch]);
-  const [current, setCurrent] = useState<string>();
 
-  if (changes.isPending)
-    return (
-      <div className="column">
-        <Skeleton rows={6} widths={["40%", "90%", "75%", "85%", "60%", "70%"]} />
-      </div>
-    );
+  if (changes.isPending) return <Skeleton shape="list" rows={6} />;
   if (changes.isError)
     return (
-      <div className="center">
-        <Empty
-          icon={CircleAlert}
-          family="orange"
-          title={t("changes.failed")}
-          text={messageFrom(changes.error, t)}
-          dashed={false}
-          action={
-            <button type="button" className="btn outline" onClick={() => changes.refetch()}>
-              <RotateCw />
-              {t("changes.retry")}
-            </button>
-          }
-        />
-      </div>
+      <Empty
+        icon="changes"
+        title={t("changes.failed")}
+        text={messageFrom(changes.error, t)}
+        action={
+          <Button glyph="restore" onClick={() => changes.refetch()}>
+            {t("changes.retry")}
+          </Button>
+        }
+      />
     );
   const data = changes.data;
   const base = data.base.replace(/^origin\//, "");
-  if (data.files.length === 0)
-    return (
-      <div className="center">
-        <Empty icon={FileDiff} family="green" title={t("changes.none")} text={t("changes.none_body", { base, age: age(data.at) })} dashed={false} />
-      </div>
-    );
+  if (data.files.length === 0) return <Empty icon="changes" title={t("changes.none")} text={t("changes.none_body", { base, age: age(data.at) })} />;
 
-  const show = (f: FileChange) => {
-    setCurrent(f.path);
-    document.getElementById(`diff-${f.path}`)?.scrollIntoView({ block: "start" });
-  };
-
+  // As vrcl's changes view: the files with their added and removed lines, then each file's diff in its own box.
   return (
-    <div className="changes">
-      <nav className="files" aria-label={t("changes.files")}>
-        <div className="files-sum">
-          <div>
-            <b>{t("changes.count", { count: data.files.length })}</b>
-            <span className="meta">
-              <span className="add">+{data.added}</span> <span className="del">−{data.removed}</span> {t("changes.against", { base, age: age(data.at) })}
-            </span>
-          </div>
-          <button
-            type="button"
-            className="btn ghost sm icon"
-            aria-label={t("changes.refresh")}
-            title={t("changes.refresh")}
-            disabled={changes.isFetching}
-            onClick={() => changes.refetch()}
-          >
-            {changes.isFetching ? <span className="spin" /> : <RotateCw />}
-          </button>
-        </div>
-        <div className="files-list">
-          {data.files.map((f) => (
-            <button key={f.path} type="button" className="file" aria-current={current === f.path} onClick={() => show(f)} title={f.path}>
-              <span className="p">&lrm;{f.path}</span>
-              <span>
-                {f.binary ? (
-                  <span className="meta">bin</span>
-                ) : (
-                  <>
-                    {f.added > 0 && <span className="add">+{f.added}</span>} {f.removed > 0 && <span className="del">−{f.removed}</span>}
-                  </>
-                )}
-              </span>
-            </button>
+    <Stack gap={24}>
+      <Section
+        name={t("changes.files")}
+        icon="changes"
+        count={data.files.length}
+        text={
+          <>
+            <MetaDiff added={data.added} removed={data.removed} /> {t("changes.against", { base, age: age(data.at) })}
+          </>
+        }
+        flush
+        action={<Button variant="ghost" size="sm" glyph="restore" label={t("changes.refresh")} loading={changes.isFetching} onClick={() => changes.refetch()} />}
+      >
+        <List columns={[t("changes.files"), ["", "end"]]} template="minmax(0, 1fr) 96px" head={false} label={t("changes.files")}>
+          {data.files.map((f, i) => (
+            <ListRow
+              key={f.path}
+              href={`#file-${i}`}
+              name={<ListName title={f.path} mono />}
+              cells={<ListCell align="end">{f.binary ? <Meta parts={["bin"]} /> : <Meta parts={[<MetaDiff key="d" added={f.added} removed={f.removed} />]} />}</ListCell>}
+            />
           ))}
-        </div>
-      </nav>
-      <div className="diffs">
-        {data.truncated && <p className="caption">{t("changes.truncated")}</p>}
-        {data.files.map((f) => (
-          <DiffView key={f.path} file={f} diff={diffs.get(f.path)} />
-        ))}
-      </div>
-    </div>
+        </List>
+      </Section>
+      {data.truncated && <Alert tone="info">{t("changes.truncated")}</Alert>}
+      {data.files.map((f, i) => (
+        <Section
+          key={f.path}
+          id={`file-${i}`}
+          name={f.old_path && f.old_path !== f.path ? `${f.old_path} → ${f.path}` : f.path}
+          text={f.binary ? "bin" : <MetaDiff added={f.added} removed={f.removed} />}
+          flush
+        >
+          <DiffView file={f} diff={diffs.get(f.path)} />
+        </Section>
+      ))}
+    </Stack>
   );
 }
 
 function DiffView({ file, diff }: { file: FileChange; diff?: Diff }) {
   const { t } = useTranslations();
-  const Icon = ICON[file.status] ?? FileDiff;
   return (
-    <section className="diff" id={`diff-${file.path}`} aria-label={file.path}>
-      <div className="diff-head">
-        <Icon />
-        <span className="p">{file.old_path && file.old_path !== file.path ? `${file.old_path} → ${file.path}` : file.path}</span>
-        <span className="meta">
-          <span className="add">+{file.added}</span> <span className="del">−{file.removed}</span>
-        </span>
-      </div>
+    <div className="diff" aria-label={file.path}>
       {file.binary || diff?.binary ? (
         <p className="diff-note">{t("changes.binary")}</p>
       ) : !diff || diff.hunks.length === 0 ? (
@@ -130,7 +100,7 @@ function DiffView({ file, diff }: { file: FileChange; diff?: Diff }) {
           </table>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 

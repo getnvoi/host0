@@ -1,0 +1,3 @@
+.ds-rows { display: flex; flex-direction: column; min-width: 0; }
+.ds-rows-item { padding: var(--pad) var(--inset); min-width: 0; }
+.ds-rows-item + .ds-rows-item { border-top: 1px solid var(--ds-g6); }

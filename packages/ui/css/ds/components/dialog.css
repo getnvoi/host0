@@ -1,0 +1,52 @@
+/* A modal <dialog>, square, centred by the browser. It arrives from 0.97 and transparent in 240ms and
+   leaves in 60% of that; the page behind is washed and blurred 2px, never darkened. */
+.ds-dialog { width: min(var(--w), 100vw - 32px); max-width: none; max-height: calc(100dvh - 64px); margin: auto; padding: 0; border: 0; border-radius: 0; overflow: hidden; background: var(--ds-surface); color: var(--ds-g12); box-shadow: var(--ds-sh-float); font: 400 var(--ds-fs-13)/1.5 var(--ds-sans); opacity: 0; transform: scale(0.97); transition: opacity calc(var(--ds-dur-dialog) * 0.6) var(--ds-ease-out), transform calc(var(--ds-dur-dialog) * 0.6) var(--ds-ease-out), display calc(var(--ds-dur-dialog) * 0.6) allow-discrete, overlay calc(var(--ds-dur-dialog) * 0.6) allow-discrete; }
+.ds-dialog.is-sm { --w: 440px; }
+.ds-dialog.is-md { --w: 560px; }
+.ds-dialog.is-lg { --w: 640px; }
+.ds-dialog[open] { display: flex; flex-direction: column; opacity: 1; transform: none; transition-duration: var(--ds-dur-dialog); }
+@starting-style { .ds-dialog[open] { opacity: 0; transform: scale(0.97); } }
+.ds-dialog::backdrop { background: var(--ds-backdrop); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); opacity: 0; transition: opacity calc(var(--ds-dur-dialog) * 0.6) var(--ds-ease-out), display calc(var(--ds-dur-dialog) * 0.6) allow-discrete, overlay calc(var(--ds-dur-dialog) * 0.6) allow-discrete; }
+.ds-dialog[open]::backdrop { opacity: 1; transition-duration: var(--ds-dur-dialog); }
+@starting-style { .ds-dialog[open]::backdrop { opacity: 0; } }
+.ds-dialog:focus-visible { outline: none; }
+
+/* Body scrolls; the foot stays. */
+.ds-dialog-inner { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.ds-dialog-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; padding: 20px 56px 20px 20px; }
+.ds-dialog .ds-dialog-title { margin: 0; font: 500 var(--ds-fs-20)/30px var(--ds-display); letter-spacing: -0.019em; color: var(--ds-g12); text-wrap: balance; }
+.ds-dialog .ds-dialog-text { margin: 0; max-width: none; color: var(--ds-g11); font-size: var(--ds-fs-13); }
+.ds-dialog-content { display: flex; flex-direction: column; gap: 16px; margin-top: 14px; margin-right: -36px; }
+.ds-dialog-foot { flex: none; display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--ds-g6); background: var(--ds-surface); }
+.ds-dialog-close { position: absolute; top: 14px; right: 14px; display: flex; }
+
+/* fixed: one height for every step of a flow, so the panel keeps its place; the body scrolls. */
+.ds-dialog.is-fixed { height: min(620px, 100dvh - 64px); }
+/* bleed: the title and its band in a head with one edge under it, then content edge to edge, each part
+   meeting the next at a divider. Rows, alerts and fields inside lose their own edges and take the 20px
+   side padding. */
+.ds-dialog-head { flex: none; border-bottom: 1px solid var(--ds-g7); }
+.ds-dialog.is-bleed .ds-dialog-title { padding: 15px 56px 13px 20px; font: 500 var(--ds-fs-15)/1.3 var(--ds-display); letter-spacing: -0.015em; }
+.ds-dialog.is-bleed .ds-dialog-text { padding: 0 56px 12px 20px; margin-top: -6px; }
+.ds-dialog-band { border-top: 1px solid var(--ds-g6); }
+.ds-dialog.is-bleed .ds-dialog-body { padding: 0; gap: 0; }
+.ds-dialog.is-bleed .ds-dialog-content { flex: 1; margin: 0; gap: 0; }
+.ds-dialog.is-bleed .ds-dialog-content > * + * { border-top: 1px solid var(--ds-g6); }
+.ds-dialog.is-bleed .ds-dialog-content > .ds-alert { border: 0; padding: 10px 20px; align-items: center; background: color-mix(in oklab, var(--ds-amber-f) 55%, var(--ds-surface)); }
+.ds-dialog.is-bleed .ds-dialog-content > * + .ds-alert { border-top: 1px solid var(--ds-g6); }
+.ds-dialog.is-bleed .ds-dialog-content .ds-row { padding-inline: 20px; }
+.ds-dialog.is-bleed .ds-dialog-content > form { padding: 12px 20px; }
+.ds-dialog.is-bleed .ds-dialog-content .ds-row.has-action { padding-inline: 0; }
+.ds-dialog.is-bleed .ds-dialog-content .ds-row-link { padding-left: 20px; }
+.ds-dialog.is-bleed .ds-dialog-content .ds-row-action { padding-right: 20px; }
+.ds-dialog.is-bleed .ds-dialog-foot { justify-content: space-between; padding: 12px 20px; }
+@media (max-width: 640px) {
+  .ds-dialog.is-fixed { width: 100vw; height: 100dvh; max-height: 100dvh; }
+  .ds-dialog.is-bleed .ds-dialog-title { padding-left: 16px; }
+  .ds-dialog.is-bleed .ds-dialog-content .ds-row, .ds-dialog.is-bleed .ds-dialog-foot { padding-inline: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-dialog, .ds-dialog[open] { transform: none; }
+  @starting-style { .ds-dialog[open] { transform: none; } }
+}

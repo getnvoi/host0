@@ -1,0 +1,38 @@
+/* The frame: the head fixed at the top, one scroll area under it. The scrollbar is the scroll area's, at the
+   window's edge; the column's width and padding stay on the body inside it. */
+.ds-page { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: var(--ds-bg); }
+.ds-page > .ds-head { flex: none; }
+/* The foot: fixed under the scroll area, over it so what floats in it (the composer's shadow) falls on the
+   content instead of being cut by the scroll area's edge. */
+.ds-page-foot { flex: none; position: relative; z-index: 3; }
+.ds-page-foot-in { width: 100%; max-width: calc(var(--width) + 40px); margin-inline: auto; padding: 0 20px 20px; }
+@media (max-width: 600px) { .ds-page-foot-in { padding: 0 16px 16px; } }
+/* Relative, so hidden inputs and other absolute parts scroll and clip with it instead of stretching the
+   document, which focus would then scroll. */
+.ds-page-scroll { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
+/* A list page is one surface under its head, down to the bottom however few rows it has. */
+.ds-page.is-list .ds-page-body { display: flex; flex-direction: column; flex: 1 0 auto; min-width: 0; background: var(--ds-surface); }
+/* A fixed column: the head's centre takes its width. */
+.ds-page.is-column .ds-head { --head-width: var(--width); }
+.ds-page.is-column .ds-page-body { flex: none; width: 100%; max-width: calc(var(--width) + 40px); margin-inline: auto; padding: 32px 20px 48px; display: flex; flex-direction: column; gap: 24px; }
+@media (max-width: 600px) { .ds-page.is-column .ds-page-body { padding: 20px 16px 32px; } }
+/* A body that shows nothing but an empty state: the body and every only child down to it fill the visible
+   height, the column's cap is lifted, and the empty state sits in the middle, 40% of the page's width (never
+   under 420px, and the whole width on a phone). */
+.ds-page:not(.is-flush) .ds-page-body:not(:has(> :nth-child(2))):has(.ds-empty) { display: flex; flex-direction: column; flex: 1 0 auto; max-width: none; }
+.ds-page:not(.is-flush) .ds-page-body:not(:has(> :nth-child(2))) :only-child:has(.ds-empty) { display: flex; flex-direction: column; flex: 1 0 auto; }
+.ds-page:not(.is-flush) .ds-page-body:not(:has(> :nth-child(2))) .ds-empty:only-child { margin: auto; align-self: center; box-sizing: border-box; width: max(40%, min(100%, 420px)); }
+@media (max-width: 600px) { .ds-page:not(.is-flush) .ds-page-body:not(:has(> :nth-child(2))) .ds-empty:only-child { width: 100%; } }
+/* Flush: nothing scrolls, the body is the height left and its last child fills it. */
+.ds-page.is-flush .ds-page-scroll { overflow: hidden; }
+.ds-page.is-flush .ds-page-body { flex: 1; min-height: 0; max-width: none; padding: 0; gap: 0; }
+.ds-page.is-flush .ds-page-body > :last-child { flex: 1 1 auto; min-height: 0; }
+/* What stands before the filling child, such as an alert, keeps the page's side padding. */
+.ds-page.is-flush .ds-page-body > :not(:last-child) { flex: none; margin: 16px 20px; }
+/* An empty state standing alone in a flush page sits in the middle of it. */
+.ds-page.is-flush .ds-page-body:has(> .ds-empty:only-child) { justify-content: center; align-items: center; padding: 20px; }
+.ds-page.is-flush .ds-page-body > .ds-empty:only-child { flex: none; width: 100%; max-width: calc(var(--width) + 40px); }
+
+/* Tabs under the head: a fixed band on the column's width. */
+.ds-page-tabs { flex: none; border-bottom: 1px solid var(--ds-g6); background: var(--ds-surface); }
+.ds-page-tabs-in { max-width: calc(var(--width) + 40px); margin-inline: auto; padding: 0 20px; }

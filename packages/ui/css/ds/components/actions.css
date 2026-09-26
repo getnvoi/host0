@@ -1,0 +1,5 @@
+.ds-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ds-actions.is-end { justify-content: flex-end; }
+.ds-actions.is-between { justify-content: space-between; }
+.ds-actions.is-start { justify-content: flex-start; }
+.ds-actions.has-rule { padding: 12px 16px; border-top: 1px solid var(--ds-g6); }

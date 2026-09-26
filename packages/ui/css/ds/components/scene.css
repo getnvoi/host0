@@ -1,0 +1,10 @@
+/* The element's box before and after it upgrades, from the poster's ratio, so nothing shifts. The faces
+   the scene is set in come from fonts.css. */
+.ds-scene { display: block; width: 100%; max-width: var(--scene-width, 520px); margin-inline: auto; aspect-ratio: 520 / 380; }
+.ds-scene[size="large"] { aspect-ratio: 900 / 580; }
+.ds-scene > img { display: block; width: 100%; height: auto; }
+.ds-scene.is-narrow { display: none; }
+@media (max-width: 700px) {
+  .ds-scene.is-wide { display: none; }
+  .ds-scene.is-narrow { display: block; }
+}

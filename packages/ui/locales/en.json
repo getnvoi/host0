@@ -56,7 +56,8 @@
     "repository": "Repository",
     "title": "Title",
     "into": "Into",
-    "body": "Body"
+    "body": "Body",
+    "branch": "Branch"
   },
   "home": {
     "title": "Sessions",
@@ -98,7 +99,9 @@
     "text": "The agent starts from the environment's seed, on a new branch.",
     "no_environment": "No environment is ready. Run nvoi seed first.",
     "placeholder": "What should the agent do?",
-    "environment": "Environment"
+    "environment": "Environment",
+    "task": "Task",
+    "where": "A new checkout of %{repo}, off %{branch}, on %{env}"
   },
   "preview": {
     "title": "Preview",
@@ -198,7 +201,9 @@
     "closed": "The shell is closed: %{reason}",
     "lost": "The connection to this shell was lost.",
     "retry": "Connect again",
-    "paused": "Disconnected while the page was hidden. Reconnects when you come back."
+    "paused": "Disconnected while the page was hidden. Reconnects when you come back.",
+    "waking": "Waking the sandbox…",
+    "waking_body": "What you type now goes to the shell as soon as it opens."
   },
   "tools": {
     "set_title": "Set the title",

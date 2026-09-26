@@ -1,0 +1,81 @@
+.ds-list { --ds-list-x: 20px; display: flex; background: var(--ds-surface); flex-direction: column; min-width: 0; }
+.ds-section-box .ds-list { --ds-list-x: 16px; }
+.ds-list-head, .ds-list-row { display: grid; grid-template-columns: var(--tracks); align-items: center; gap: 16px; padding: 0 var(--ds-list-x); }
+.ds-list-head { height: 36px; border-bottom: 1px solid var(--ds-g6); }
+.ds-list-caption { font-size: var(--ds-fs-12); font-weight: 500; color: var(--ds-g11); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-list-row { position: relative; min-height: 52px; padding-block: 8px; color: var(--ds-g12); font-size: var(--ds-fs-13); transition: background-color var(--ds-dur-hover) ease; }
+.ds-list-row + .ds-list-row { border-top: 1px solid var(--ds-g6); }
+.ds-list-cell { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--ds-g11); font-variant-numeric: tabular-nums; }
+.ds-list-cell.is-mono { display: block; font: 400 var(--ds-fs-12)/16px var(--ds-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-list-text.is-mono { font: 400 var(--ds-fs-12)/16px var(--ds-mono); }
+.ds-list-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ds-g8); }
+.ds-list-dot.is-ok { background: var(--ds-ok); }
+.ds-list-dot.is-busy { background: var(--ds-busy); }
+.ds-list-dot.is-bad { background: var(--ds-bad); }
+.ds-list-cell.is-end, .ds-list-caption.is-end { justify-content: flex-end; text-align: right; }
+.ds-list-name { gap: 10px; color: var(--ds-g12); }
+/* A row's mark starts on the list's left edge, where the head's words and every other row's text start. */
+.ds-list-name > .ds-lead { justify-items: start; }
+/* A state dot as the mark: as far from the title as from the row's edge. */
+.ds-list-name > .ds-lead:has(> .ds-list-dot) { width: 6px; min-width: 6px; }
+.ds-list-name:has(> .ds-lead > .ds-list-dot) { gap: var(--ds-list-x); }
+.ds-list-words { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.ds-list-title { font-weight: 500; color: var(--ds-g12); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
+.ds-list-text { color: var(--ds-g9); font-size: var(--ds-fs-12); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-list-text.has-icon { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.ds-list-menu { justify-content: flex-end; }
+
+/* A row that links: the name's link covers the row; anything interactive in a cell sits above it. */
+.ds-list-link { outline: none; }
+.ds-list-link::after { content: ""; position: absolute; inset: 0; }
+.ds-list-row :is(a, button, input, select, label, [tabindex]):not(.ds-list-link) { position: relative; z-index: 1; }
+.ds-list-row:has(.ds-list-link:focus-visible) { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) {
+  .ds-list-row.is-link:hover { background: var(--ds-ga3); }
+}
+
+/* Off: archived or not usable. The name drops to 400 and the row to g9. */
+.ds-list-row.is-off, .ds-list-row.is-off .ds-list-cell, .ds-list-row.is-off .ds-list-title { color: var(--ds-g9); }
+.ds-list-row.is-off .ds-list-title { font-weight: 400; }
+.ds-list-row.is-disabled { cursor: not-allowed; }
+
+.ds-list.is-empty { padding: 24px var(--ds-list-x, 20px); }
+
+/* Runs of rows under a group line: the label and its count in caption type, between dividers. */
+.ds-list-group { display: flex; align-items: center; height: 32px; padding: 0 var(--ds-list-x); border-bottom: 1px solid var(--ds-g6); }
+.ds-list-run + .ds-list-run .ds-list-group { border-top: 1px solid var(--ds-g6); }
+.ds-list-group-label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--ds-fs-12); font-weight: 500; color: var(--ds-g11); }
+
+/* A phone keeps the name and the last column: the middle ones leave, captions with them. */
+@media (max-width: 640px) {
+  .ds-list-head, .ds-list-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .ds-list-head > :not(:first-child):not(:last-child),
+  .ds-list-row > .ds-list-cell:not(:first-child):not(:last-child) { display: none; }
+}
+
+/* Dense: 40px rows for a long list read at a glance. */
+.ds-list.is-dense .ds-list-row { min-height: 40px; padding-block: 6px; }
+
+/* Fold: a row that opens a detail under it. The summary is the row; the chevron turns when open. */
+.ds-list-fold + .ds-list-fold, .ds-list-fold + .ds-list-row, .ds-list-row + .ds-list-fold { border-top: 1px solid var(--ds-g6); }
+.ds-list-row.is-fold { list-style: none; cursor: pointer; }
+.ds-list-row.is-fold::-webkit-details-marker { display: none; }
+.ds-list-row.is-fold:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.ds-list-chevron { justify-content: flex-end; color: var(--ds-g9); }
+.ds-list-chevron .ds-glyph { transition: transform var(--ds-dur-hover) var(--ds-ease-out); }
+.ds-list-fold[open] .ds-list-chevron .ds-glyph { transform: rotate(90deg); }
+@media (hover: hover) and (pointer: fine) { .ds-list-row.is-fold:hover { background: var(--ds-ga3); } }
+@media (prefers-reduced-motion: reduce) { .ds-list-chevron .ds-glyph { transition: none; } }
+/* The detail sits on g2 under a g6 rule; a list in it drops its white and its head is 30px. */
+.ds-list-detail { border-top: 1px solid var(--ds-g6); background: var(--ds-g2); }
+.ds-list-detail .ds-list { background: none; }
+.ds-list-detail .ds-list-head { height: 30px; }
+
+/* Foot: one line after the rows, in the list's side padding. */
+.ds-list-foot { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px var(--ds-list-x); border-top: 1px solid var(--ds-g6); }
+/* A text action leading the foot starts on the same edge: no padding, and the pixel plus pulled back by its
+   3px of air so its ink starts where the rows' text does. */
+.ds-list-foot > .ds-button.is-ghost:first-child { padding-left: 0; }
+.ds-list-foot > .ds-button.is-ghost:first-child > .ds-glyph:first-child { margin-left: -3px; }
+/* Flush to the edge it has no wash to show on hover: its words darken instead. */
+.ds-list-foot > .ds-button.is-ghost:first-child:hover { background: none; color: var(--ds-g12); }
