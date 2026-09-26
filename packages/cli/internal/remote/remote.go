@@ -109,7 +109,9 @@ func env() *cobra.Command {
 			if err := yaml.Unmarshal(raw, &e); err != nil {
 				return err
 			}
-			yaml.Unmarshal(raw, &names)
+			if err := yaml.Unmarshal(raw, &names); err != nil {
+				return err
+			}
 			e.Secrets = map[string]string{}
 			for _, n := range names.Secrets {
 				if e.Secrets[n] = os.Getenv(n); e.Secrets[n] == "" {
