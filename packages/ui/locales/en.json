@@ -1,0 +1,246 @@
+{
+  "actions": {
+    "running": "Running",
+    "done": "Done",
+    "open": "Open",
+    "denied": "Denied",
+    "stopped": "Stopped",
+    "failed": "Failed"
+  },
+  "auth": {
+    "sign_out": "Sign out"
+  },
+  "changes": {
+    "count_one": "%{count} file",
+    "count_other": "%{count} files",
+    "against": "against %{base}, as of %{age}",
+    "files": "Changed files",
+    "refresh": "Read the changes again",
+    "retry": "Try again",
+    "failed": "The changes could not be read",
+    "none": "No changes",
+    "none_body": "Nothing differs from %{base}, as of %{age}.",
+    "truncated": "The diff is too long to show in full. The file list is complete.",
+    "binary": "Binary file, not shown.",
+    "renamed": "Renamed, content unchanged.",
+    "empty": "No line changes."
+  },
+  "common": {
+    "close": "Close"
+  },
+  "composer": {
+    "write": "Ask for a change, or reply…",
+    "reply": "Reply to %{name}…",
+    "send": "Send",
+    "queue": "Queue this message",
+    "queue_placeholder": "The agent is working. What you send now runs next.",
+    "broken": "Nothing to send into"
+  },
+  "days": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "ago_one": "%{count} day ago",
+    "ago_other": "%{count} days ago"
+  },
+  "errors": {
+    "unexpected": "Unexpected error. Reload the page.",
+    "unreachable": "The plane did not answer. Check your connection.",
+    "status": "The plane answered %{status}."
+  },
+  "gate": {
+    "label": "Waiting for your approval",
+    "needs_you": "Needs your approval",
+    "allow": "Allow",
+    "deny": "Deny",
+    "asked": "Asked by %{name}",
+    "repository": "Repository",
+    "title": "Title",
+    "into": "Into",
+    "body": "Body"
+  },
+  "home": {
+    "title": "Sessions",
+    "search": "Search sessions",
+    "view": "View",
+    "list": "List",
+    "board": "Board",
+    "empty_title": "No sessions yet",
+    "empty_body": "A session is an agent at work in its own sandbox, with a live preview. Start one to give it a task.",
+    "no_match": "No session matches “%{q}”.",
+    "clear": "Clear search",
+    "queued_one": "%{count} queued",
+    "queued_other": "%{count} queued"
+  },
+  "lanes": {
+    "running": "Running",
+    "waiting": "Waiting on you",
+    "idle": "Idle",
+    "failed": "Failed",
+    "none": "No sessions"
+  },
+  "link": {
+    "reconnecting": "Reconnecting…"
+  },
+  "login": {
+    "title": "Sign in from your terminal",
+    "expired_title": "That link has expired",
+    "body": "Links are one-time and last a minute. Get a fresh one with:",
+    "invite": "For someone else: nvoi invite <name>"
+  },
+  "logs": {
+    "title": "Services",
+    "open": "Show what the services print",
+    "sources": "Log",
+    "setup": "Setup",
+    "empty": "Nothing written yet."
+  },
+  "new": {
+    "text": "The agent starts from the environment's seed, on a new branch.",
+    "no_environment": "No environment is ready. Run nvoi seed first.",
+    "placeholder": "What should the agent do?",
+    "environment": "Environment"
+  },
+  "preview": {
+    "title": "Preview",
+    "reload": "Reload the preview",
+    "open": "Open the preview in a new tab",
+    "waking": "Waking the preview",
+    "waking_body": "The sandbox may be paused. It comes back in a few seconds, where it stopped.",
+    "failed": "No preview",
+    "starting": "Starting the app",
+    "starting_body": "The sandbox is up and the app does not answer yet. Checked again every 10 seconds.",
+    "answered": "last answer %{status}",
+    "back": "Back",
+    "forward": "Forward",
+    "path": "Address of the preview",
+    "copy": "Copy the path",
+    "copied": "Copied %{path}",
+    "go": "Go to this address",
+    "home": "The app's front page",
+    "retry": "Try again"
+  },
+  "queue": {
+    "queued": "Queued",
+    "withdraw": "Cancel this message",
+    "held": "Queued, runs after your next message"
+  },
+  "session": {
+    "new": "New session",
+    "untitled": "New session",
+    "agent": "Claude",
+    "you": "You",
+    "to": "to %{name}",
+    "views": "Session views",
+    "transcript": "Transcript",
+    "all": "All sessions",
+    "missing": "This session does not exist",
+    "forking": "Starting a sandbox from the seed…",
+    "working": "The agent is working…",
+    "waiting": "The agent is waiting on you…",
+    "failed": "The session stopped on an error",
+    "failed_next": "Send a message to pick the work back up.",
+    "latest": "Jump to the latest",
+    "stop": "Stop run",
+    "stop_title": "Stop this run?",
+    "stop_body": "The agent stops where it is. What it changed stays.",
+    "keep": "Keep running",
+    "stopped": "Stopped. What it changed stays.",
+    "actions_one": "%{count} action",
+    "actions_other": "%{count} actions"
+  },
+  "side": {
+    "label": "Sidebar",
+    "open": "Open the sidebar",
+    "collapse": "Collapse the sidebar",
+    "expand": "Expand the sidebar",
+    "sessions": "Sessions",
+    "recent": "Recent",
+    "none": "No sessions yet",
+    "account": "Account",
+    "you": "This browser",
+    "theme": "Theme",
+    "themes": {
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "pages": "Pages"
+  },
+  "state": {
+    "forking": "Starting",
+    "running": "Working",
+    "awaiting_approval": "Waiting on you",
+    "idle": "Idle",
+    "failed": "Failed"
+  },
+  "subs": {
+    "label": "Sub-agents",
+    "done": "%{count} done",
+    "running": "%{count} running",
+    "failed": "%{count} failed",
+    "tools_one": "%{count} tool",
+    "tools_other": "%{count} tools",
+    "open": "Open %{name}",
+    "back": "Back to %{name}",
+    "talk_to": "Talk to",
+    "the_session": "the session"
+  },
+  "terminal": {
+    "tabs": "Terminals",
+    "new": "Open a new terminal",
+    "close": "Close this terminal",
+    "connecting": "Connecting…",
+    "reconnecting": "Reconnecting…",
+    "exited": "Exited with code %{code}.",
+    "ended": "This shell has ended.",
+    "empty": "No terminal open.",
+    "open": "Connected",
+    "closed": "The shell is closed: %{reason}",
+    "lost": "The connection to this shell was lost.",
+    "retry": "Connect again",
+    "paused": "Disconnected while the page was hidden. Reconnects when you come back."
+  },
+  "tools": {
+    "set_title": "Set the title",
+    "push_branch": "Push the branch",
+    "create_pull_request": "Open a pull request",
+    "navigate_preview": "Show a page"
+  },
+  "views": {
+    "chat": "Chat",
+    "preview": "Preview",
+    "changes": "Changes",
+    "terminal": "Terminal"
+  },
+  "usage": {
+    "title": "Usage",
+    "person": "Person",
+    "everyone": "Everyone",
+    "range": "Range",
+    "days_one": "%{count} day",
+    "days_other": "%{count} days",
+    "min_one": "%{count} min",
+    "min_other": "%{count} min",
+    "hours_one": "%{count} h",
+    "hours_other": "%{count} h",
+    "compute": "Compute",
+    "sessions": "Sessions",
+    "pull_requests": "Pull requests",
+    "tokens": "Tokens",
+    "nodes": "Worker node time",
+    "wait_one": "Median wait on %{count} approval",
+    "wait_other": "Median wait on %{count} approvals",
+    "compute_title": "Compute",
+    "compute_text": "Time sandboxes ran, by environment.",
+    "states_title": "Sandbox time",
+    "states_text": "Running costs compute; paused and suspended sandboxes free their worker.",
+    "state": {
+      "running": "Running",
+      "paused": "Paused",
+      "suspended": "Suspended"
+    },
+    "env_title": "Environments",
+    "environment": "Environment",
+    "nothing": "Nothing recorded in this range."
+  }
+}

@@ -1,0 +1,13 @@
+diff --git a/cmd/ate-setup/internal/config/config.go b/cmd/ate-setup/internal/config/config.go
+index aeb17887..474c35d6 100644
+--- a/cmd/ate-setup/internal/config/config.go
++++ b/cmd/ate-setup/internal/config/config.go
+@@ -391,7 +391,7 @@ func applyKindDefaults(cfg *Config) {
+ 	kindClusterName := firstNonEmpty(cfg.shellEnv["KIND_CLUSTER_NAME"], "kind")
+ 	cfg.Context = firstNonEmpty(cfg.Context, "kind-"+kindClusterName)
+ 	cfg.KODockerRepo = firstNonEmpty(cfg.KODockerRepo, "localhost:5001")
+-	cfg.KODefaultPlatforms = "linux/" + runtime.GOARCH
++	cfg.KODefaultPlatforms = firstNonEmpty(cfg.KODefaultPlatforms, "linux/"+runtime.GOARCH)
+ 	cfg.BucketName = "ate-snapshots"
+ }
+ 

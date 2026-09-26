@@ -1,0 +1,7 @@
+/bin/nvoi
+.DS_Store
+.env
+
+/packages/ui/node_modules/
+/packages/controlplane/web/dist/*
+!/packages/controlplane/web/dist/.gitkeep

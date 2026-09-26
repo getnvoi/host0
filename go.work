@@ -1,0 +1,11 @@
+go 1.27.0
+
+use (
+	./packages/boxd
+	./packages/cli
+	./packages/controlplane
+	./packages/cloudflare
+	./packages/hetzner
+	./packages/infra
+	./packages/shared
+)

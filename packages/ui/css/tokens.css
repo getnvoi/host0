@@ -1,0 +1,107 @@
+/* nvoi-ui tokens, softened: warm greys, lighter edges, one radius for surfaces. */
+:root {
+  --hue: 80;
+  --g1: oklch(99.2% .002 var(--hue));
+  --g2: oklch(98.2% .003 var(--hue));
+  --g3: oklch(96% .004 var(--hue));
+  --g4: oklch(93.6% .005 var(--hue));
+  --g6: oklch(90.5% .006 var(--hue));
+  --g7: oklch(87.5% .007 var(--hue));
+  --g8: oklch(82% .008 var(--hue));
+  --g9: oklch(64% .01 var(--hue));
+  --g11: oklch(50% .01 var(--hue));
+  --g12: oklch(25% .008 var(--hue));
+  --ga3: oklch(25% .01 var(--hue) / .045);
+  --ga4: oklch(25% .01 var(--hue) / .07);
+  --bg: oklch(98.8% .003 var(--hue));
+  --surface: #fff;
+  --ok: #30a46c;
+  --busy: #f2b83a;
+  --bad: #e5484d;
+  --bad-fill: #cd2b31;
+  --focus: #4a8ed8;
+  --backdrop: rgb(255 255 255 / .6);
+
+  --f-blue: #d9ebf5; --i-blue: #1d3f6e;
+  --f-olive: #ebefde; --i-olive: #3a4420;
+  --f-green: #e2f4e8; --i-green: #1f4634;
+  --f-orange: #ffe9cc; --i-orange: #6a3a24;
+  --f-pink: #fbe6f2; --i-pink: #6e2352;
+  --f-purple: #efe6f6; --i-purple: #4a2c6a;
+  --f-yellow: #fff6c7; --i-yellow: #54451f;
+  --f-gray: #efefed; --i-gray: #2b2b2a;
+
+  --code-add: #e6f6ec; --code-del: #fdecec; --code-add-ink: #1f6b45; --code-del-ink: #a03236;
+  --term-bg: #fbfaf7; --term-ink: #2c2a26;
+
+  --r-surface: 10px;
+  --r-float: 14px;
+  --r-row: 8px;
+  --r-round: 9999px;
+  --sh-neutral: 0 1px 2px rgb(40 36 28 / .05);
+  --sh-float: 0 1px 2px rgb(40 36 28 / .04), 0 6px 16px rgb(40 36 28 / .07), 0 0 0 1px rgb(40 36 28 / .06);
+
+  --ease: cubic-bezier(.23, 1, .32, 1);
+  --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+  --d-press: 140ms; --d-hover: 120ms; --d-pop: 160ms; --d-menu: 200ms; --d-dialog: 240ms;
+
+  --bar: 52px;
+  --lead: 28px;
+  --side: 20px;
+  --column: 720px;
+  --narrow: 880px;
+
+  --sans: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+  --display: "Familjen Grotesk Variable", "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --g1: oklch(19% .004 var(--hue)); --g2: oklch(21.5% .004 var(--hue)); --g3: oklch(24.5% .005 var(--hue));
+    --g4: oklch(27.5% .005 var(--hue)); --g6: oklch(32% .006 var(--hue)); --g7: oklch(36% .006 var(--hue));
+    --g8: oklch(44% .007 var(--hue)); --g9: oklch(58% .008 var(--hue)); --g11: oklch(76% .008 var(--hue));
+    --g12: oklch(94% .004 var(--hue)); --ga3: oklch(100% 0 0 / .05); --ga4: oklch(100% 0 0 / .08);
+    --bg: oklch(17.5% .004 var(--hue)); --surface: oklch(20.5% .004 var(--hue));
+    --backdrop: rgb(0 0 0 / .5);
+    --sh-neutral: 0 1px 2px rgb(0 0 0 / .3);
+    --sh-float: 0 6px 16px rgb(0 0 0 / .35), 0 0 0 1px rgb(255 255 255 / .07);
+    --f-blue: #1e3348; --i-blue: #cfe5f2; --f-olive: #2c3120; --i-olive: #e6ebd3;
+    --f-green: #1b3528; --i-green: #d9f1e1; --f-orange: #3e2a19; --i-orange: #ffe3c2;
+    --f-pink: #3e1d32; --i-pink: #fbe0f0; --f-purple: #30233f; --i-purple: #ece1f5;
+    --f-yellow: #3a3212; --i-yellow: #fff1b8; --f-gray: #2e2e2c; --i-gray: #ececea;
+    --code-add: #16301f; --code-del: #3a1a1b; --code-add-ink: #8fdcaa; --code-del-ink: #f2a3a5;
+    --term-bg: #151412; --term-ink: #e9e6df;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --g1: oklch(19% .004 var(--hue)); --g2: oklch(21.5% .004 var(--hue)); --g3: oklch(24.5% .005 var(--hue));
+  --g4: oklch(27.5% .005 var(--hue)); --g6: oklch(32% .006 var(--hue)); --g7: oklch(36% .006 var(--hue));
+  --g8: oklch(44% .007 var(--hue)); --g9: oklch(58% .008 var(--hue)); --g11: oklch(76% .008 var(--hue));
+  --g12: oklch(94% .004 var(--hue)); --ga3: oklch(100% 0 0 / .05); --ga4: oklch(100% 0 0 / .08);
+  --bg: oklch(17.5% .004 var(--hue)); --surface: oklch(20.5% .004 var(--hue));
+  --backdrop: rgb(0 0 0 / .5);
+  --sh-neutral: 0 1px 2px rgb(0 0 0 / .3);
+  --sh-float: 0 6px 16px rgb(0 0 0 / .35), 0 0 0 1px rgb(255 255 255 / .07);
+  --f-blue: #1e3348; --i-blue: #cfe5f2; --f-olive: #2c3120; --i-olive: #e6ebd3;
+  --f-green: #1b3528; --i-green: #d9f1e1; --f-orange: #3e2a19; --i-orange: #ffe3c2;
+  --f-pink: #3e1d32; --i-pink: #fbe0f0; --f-purple: #30233f; --i-purple: #ece1f5;
+  --f-yellow: #3a3212; --i-yellow: #fff1b8; --f-gray: #2e2e2c; --i-gray: #ececea;
+  --code-add: #16301f; --code-del: #3a1a1b; --code-add-ink: #8fdcaa; --code-del-ink: #f2a3a5;
+  --term-bg: #151412; --term-ink: #e9e6df;
+  color-scheme: dark;
+}
+
+/* Chart tones: one saturated mark per family, for bars and swatches. */
+:root { --c-blue: #6f9fe0; --c-green: #4fa877; --c-orange: #ee9a52; --c-purple: #9b82de; --c-pink: #dd82bd; --c-olive: #9aa85a; --c-yellow: #e6bb45; --c-gray: #c9c6bf; }
+.fam-blue { --f: var(--f-blue); --i: var(--i-blue); --c: var(--c-blue); }
+.fam-olive { --f: var(--f-olive); --i: var(--i-olive); --c: var(--c-olive); }
+.fam-green { --f: var(--f-green); --i: var(--i-green); --c: var(--c-green); }
+.fam-orange { --f: var(--f-orange); --i: var(--i-orange); --c: var(--c-orange); }
+.fam-pink { --f: var(--f-pink); --i: var(--i-pink); --c: var(--c-pink); }
+.fam-purple { --f: var(--f-purple); --i: var(--i-purple); --c: var(--c-purple); }
+.fam-yellow { --f: var(--f-yellow); --i: var(--i-yellow); --c: var(--c-yellow); }
+.fam-gray { --f: var(--f-gray); --i: var(--i-gray); --c: var(--c-gray); }

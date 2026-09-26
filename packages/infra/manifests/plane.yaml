@@ -1,0 +1,82 @@
+# The control plane. It reaches Substrate's API with its service account token, as AX's controller does.
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: plane, namespace: nvoi-system }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: plane, namespace: nvoi }
+rules:
+  - { apiGroups: [ate.dev], resources: [workerpools], verbs: [get, patch] }
+  - { apiGroups: [""], resources: [pods], verbs: [patch] }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: plane, namespace: nvoi }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: plane }
+subjects: [{ kind: ServiceAccount, name: plane, namespace: nvoi-system }]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: nvoi-plane }
+rules:
+  - { apiGroups: [""], resources: [nodes], verbs: [patch] }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: nvoi-plane }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: nvoi-plane }
+subjects: [{ kind: ServiceAccount, name: plane, namespace: nvoi-system }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: plane, namespace: nvoi-system }
+spec:
+  selector: { app: plane }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: plane, namespace: nvoi-system }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: plane } }
+  template:
+    metadata:
+      labels: { app: plane }
+      annotations: { nvoi.dev/secret: "[[.Secret]]" }
+    spec:
+      serviceAccountName: plane
+      securityContext: { runAsUser: 0 }
+      nodeSelector: { node-role.kubernetes.io/control-plane: "true" }
+      containers:
+        - name: plane
+          image: ko://github.com/getnvoi/nvoi/controlplane/cmd/plane
+          env:
+            - { name: NVOI_CLUSTER, value: "[[.Cluster]]" }
+            - { name: NVOI_ZONE, value: "[[.Zone]]" }
+            - { name: NVOI_PREVIEW_SUFFIX, value: "[[.Suffix]]" }
+            - { name: NVOI_BOXD_IMAGE, value: ko://github.com/getnvoi/nvoi/boxd/cmd/boxd }
+            - { name: NVOI_TOKEN_SHA256, valueFrom: { secretKeyRef: { name: plane, key: token-sha256 } } }
+            - { name: NVOI_BOX_TOKEN, valueFrom: { secretKeyRef: { name: plane, key: box-token } } }
+            - { name: CLOUDFLARE_API_TOKEN, valueFrom: { secretKeyRef: { name: cloudflare, key: token } } }
+            - { name: TUNNEL_TOKEN, valueFrom: { secretKeyRef: { name: cloudflared, key: token } } }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/nvoi }
+            - { name: ate-token, mountPath: /var/run/secrets/ateapi, readOnly: true }
+            - { name: servicedns-ca, mountPath: /run/servicedns-ca, readOnly: true }
+      volumes:
+        - name: data
+          hostPath: { path: /var/lib/nvoi/plane, type: DirectoryOrCreate }
+        - name: ate-token
+          projected:
+            sources:
+              - serviceAccountToken: { audience: api.ate-system.svc, expirationSeconds: 7200, path: token }
+        - name: servicedns-ca
+          projected:
+            sources:
+              - clusterTrustBundle:
+                  signerName: servicedns.podcert.ate.dev/identity
+                  labelSelector: { matchLabels: { podcert.ate.dev/canarying: live } }
+                  path: trust-bundle.pem

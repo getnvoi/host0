@@ -1,0 +1,3 @@
+# boxd runs inside actors, whose image unpacker takes no device nodes; distroless static carries none.
+baseImageOverrides:
+  github.com/getnvoi/nvoi/boxd/cmd/boxd: gcr.io/distroless/static-debian12
