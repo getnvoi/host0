@@ -1,24 +1,61 @@
-// Anthropic's claude CLI: the command line for one turn and how its stream-json reads.
+// Anthropic's claude CLI: its credential, the command line for one turn and how its stream-json reads.
 package claude
 
 import (
 	"encoding/json"
+	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/getnvoi/nvoi/controlplane/llm"
 	"github.com/getnvoi/nvoi/shared/contract"
 )
 
 // The MCP server name; the CLI prefixes its tools with mcp__nvoi__.
 const Server = "nvoi"
 
-func Tool(name string) (string, bool) { return strings.CutPrefix(name, "mcp__"+Server+"__") }
-
-type Turn struct {
-	Prompt, Session, Model, Instructions, MCP string
-	Resume                                    bool
+// The CLI reads a credential only from the variable of its kind: an API key in CLAUDE_CODE_OAUTH_TOKEN is "Not logged in".
+var credential = map[string]string{
+	"oauth":   "CLAUDE_CODE_OAUTH_TOKEN",
+	"api_key": "ANTHROPIC_API_KEY",
+	"bearer":  "ANTHROPIC_AUTH_TOKEN",
 }
 
-func Argv(t Turn) []string {
+type Runner struct{}
+
+func (Runner) Key() string   { return "claude_code" }
+func (Runner) Label() string { return "Claude Code" }
+
+// bearer with base_url is a third-party Anthropic-compatible endpoint (z.ai, Kimi, OpenRouter).
+func (Runner) Fields() []llm.Field {
+	return []llm.Field{
+		{Key: "kind", Required: true, Options: []string{"oauth", "api_key", "bearer"}},
+		{Key: "token", Required: true, Secret: true},
+		{Key: "base_url"},
+		{Key: "model", Options: []string{"sonnet", "opus", "haiku"}, Default: "sonnet"},
+	}
+}
+
+func (Runner) Install() string {
+	return "command -v claude >/dev/null || curl -fsSL https://claude.ai/install.sh | bash"
+}
+
+// IS_SANDBOX lets bypassPermissions run as root.
+func (Runner) Env(v map[string]string) map[string]string {
+	env := map[string]string{credential[v["kind"]]: v["token"], "IS_SANDBOX": "1"}
+	if v["base_url"] != "" {
+		env["ANTHROPIC_BASE_URL"] = v["base_url"]
+	}
+	return env
+}
+
+func (Runner) Tool(name string) (string, bool) { return strings.CutPrefix(name, "mcp__"+Server+"__") }
+
+var flaky = regexp.MustCompile(`(?i)EAI_AGAIN|ENOTFOUND|ECONNRESET|ETIMEDOUT|ECONNREFUSED|can't reach the API|connection error|overloaded|API Error: 5\d\d`)
+
+func (Runner) Transient(text string) bool { return flaky.MatchString(text) }
+
+func (Runner) Argv(t llm.Turn) []string {
 	settings, _ := json.Marshal(map[string]any{"permissions": map[string]string{"defaultMode": "bypassPermissions"}})
 	mcp, _ := json.Marshal(map[string]any{"mcpServers": map[string]any{Server: map[string]any{"command": t.MCP, "args": []string{"mcp"}}}})
 	argv := []string{"claude", "-p", t.Prompt, "--verbose", "--output-format", "stream-json",
@@ -35,6 +72,8 @@ func Argv(t Turn) []string {
 	return append(argv, "--session-id", t.Session)
 }
 
+func (Runner) Events(line string) []contract.Event { return events(line) }
+
 // Quiet system subtypes: nothing a reader of the transcript needs.
 var quiet = map[string]bool{"thinking_tokens": true, "task_updated": true, "background_tasks_changed": true,
 	"hook_started": true, "hook_response": true}
@@ -49,7 +88,7 @@ type usage struct {
 }
 
 // The events in one line of output; a line that is not stream-json is a notice.
-func Events(line string) []contract.Event {
+func events(line string) []contract.Event {
 	var d struct {
 		Type, Subtype, Result, Status, Description, Summary string
 		IsError                                             bool   `json:"is_error"`
@@ -154,4 +193,35 @@ func text(raw json.RawMessage) string {
 		b = append(b, p.Text)
 	}
 	return strings.Join(b, "\n")
+}
+
+var agentID = regexp.MustCompile(`agentId: (\w+)`)
+
+// The prompt that has the main agent pass a message to the sub-agent its Task call to started.
+func (Runner) Relay(events []contract.Event, to, prompt string) (string, error) {
+	name, agent := "sub-agent", ""
+	for _, ev := range events {
+		switch {
+		case ev.Kind == "tool_use" && ev.ToolID == to:
+			var in struct {
+				Description string `json:"description"`
+				Type        string `json:"subagent_type"`
+			}
+			json.Unmarshal([]byte(ev.Content), &in)
+			if in.Description != "" {
+				name = in.Description
+			} else if in.Type != "" {
+				name = in.Type
+			}
+		case ev.Kind == "tool_result" && ev.ToolID == to:
+			if m := agentID.FindStringSubmatch(ev.Content); m != nil {
+				agent = m[1]
+			}
+		}
+	}
+	if agent == "" {
+		return "", fmt.Errorf("that sub-agent cannot be reached yet")
+	}
+	return fmt.Sprintf("The user wrote to your sub-agent \"%s\". Continue it with SendMessage to: '%s', passing their message "+
+		"as it is, then tell them what it answered.\n\nTheir message:\n%s", name, agent, prompt), nil
 }

@@ -130,7 +130,7 @@
   "session": {
     "new": "New session",
     "untitled": "New session",
-    "agent": "Claude",
+    "agent": "Agent",
     "you": "You",
     "to": "to %{name}",
     "views": "Session views",

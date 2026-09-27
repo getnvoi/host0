@@ -53,12 +53,15 @@ func Commands() []*cobra.Command {
 }
 
 func credentials() *cobra.Command {
-	var github, claude string
+	var github, provider string
+	var set, secret []string
 	cmd := &cobra.Command{
 		Use:   "credentials",
-		Short: "Hand the plane a GitHub token (default: gh auth token) and a Claude token (default: claude setup-token)",
+		Short: "Hand the plane a GitHub token (default: gh auth token) and the agent's credential (default: claude setup-token)",
+		Example: `  nvoi credentials --set kind=api_key --secret token=ANTHROPIC_API_KEY
+  nvoi credentials --set kind=bearer --set base_url=https://api.z.ai/api/anthropic --secret token=ZAI_API_KEY`,
 		RunE: func(*cobra.Command, []string) error {
-			c := contract.Credentials{GitHub: os.Getenv(github), Claude: os.Getenv(claude)}
+			c := contract.Credentials{GitHub: os.Getenv(github), LLM: contract.LLM{Provider: provider, Values: map[string]string{}}}
 			if c.GitHub == "" {
 				out, err := exec.Command("gh", "auth", "token").Output()
 				if err != nil {
@@ -66,29 +69,56 @@ func credentials() *cobra.Command {
 				}
 				c.GitHub = strings.TrimSpace(string(out))
 			}
-			if c.Claude == "" {
-				// setup-token is interactive: it opens a browser and prints the token last.
-				var b bytes.Buffer
-				setup := exec.Command("claude", "setup-token")
-				setup.Stdin, setup.Stdout, setup.Stderr = os.Stdin, io.MultiWriter(os.Stdout, &b), os.Stderr
-				if err := setup.Run(); err != nil {
-					return fmt.Errorf("claude setup-token: %w", err)
+			for _, kv := range set {
+				k, v, ok := strings.Cut(kv, "=")
+				if !ok {
+					return fmt.Errorf("--set %s: want key=value", kv)
 				}
-				for _, f := range strings.Fields(b.String()) {
-					if strings.HasPrefix(f, "sk-ant-oat") {
-						c.Claude = f
-					}
+				c.LLM.Values[k] = v
+			}
+			for _, kv := range secret {
+				k, name, ok := strings.Cut(kv, "=")
+				if !ok {
+					return fmt.Errorf("--secret %s: want key=VARIABLE", kv)
 				}
-				if c.Claude == "" {
-					return fmt.Errorf("claude setup-token printed no token")
+				if c.LLM.Values[k] = os.Getenv(name); c.LLM.Values[k] == "" {
+					return fmt.Errorf("%s is not set in this shell", name)
 				}
+			}
+			if provider == "claude_code" && len(set)+len(secret) == 0 {
+				token, err := claudeToken()
+				if err != nil {
+					return err
+				}
+				c.LLM.Values["kind"], c.LLM.Values["token"] = "oauth", token
 			}
 			return call("PUT", "/credentials", c, nil)
 		},
 	}
 	cmd.Flags().StringVar(&github, "github-env", "GITHUB_TOKEN", "variable holding the GitHub token")
-	cmd.Flags().StringVar(&claude, "claude-env", "CLAUDE_CODE_OAUTH_TOKEN", "variable holding the Claude token")
+	cmd.Flags().StringVar(&provider, "llm", "claude_code", "the agent CLI the credential is for")
+	cmd.Flags().StringArrayVar(&set, "set", nil, "a credential field, key=value")
+	cmd.Flags().StringArrayVar(&secret, "secret", nil, "a credential field read from this shell, key=VARIABLE")
 	return cmd
+}
+
+// CLAUDE_CODE_OAUTH_TOKEN, or a new one from claude setup-token, which opens a browser and prints the token last.
+func claudeToken() (string, error) {
+	if t := os.Getenv("CLAUDE_CODE_OAUTH_TOKEN"); t != "" {
+		return t, nil
+	}
+	var b bytes.Buffer
+	setup := exec.Command("claude", "setup-token")
+	setup.Stdin, setup.Stdout, setup.Stderr = os.Stdin, io.MultiWriter(os.Stdout, &b), os.Stderr
+	if err := setup.Run(); err != nil {
+		return "", fmt.Errorf("claude setup-token: %w", err)
+	}
+	for _, f := range strings.Fields(b.String()) {
+		if strings.HasPrefix(f, "sk-ant-oat") {
+			return f, nil
+		}
+	}
+	return "", fmt.Errorf("claude setup-token printed no token")
 }
 
 func env() *cobra.Command {

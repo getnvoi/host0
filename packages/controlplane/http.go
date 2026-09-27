@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/getnvoi/nvoi/controlplane/box"
+	"github.com/getnvoi/nvoi/controlplane/llm"
 	"github.com/getnvoi/nvoi/shared/contract"
 )
 
@@ -77,7 +78,14 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	})
 	api.HandleFunc("PUT /credentials", func(w http.ResponseWriter, r *http.Request) {
 		var c contract.Credentials
-		reply(w, nil, read(r, &c, func() error { return p.Store.Put("credentials", "default", c) }))
+		reply(w, nil, read(r, &c, func() error {
+			_, values, err := llm.Check(Runners, c.LLM)
+			if err != nil {
+				return badRequest{err}
+			}
+			c.LLM.Values = values
+			return p.Store.Put("credentials", "default", c)
+		}))
 	})
 	api.HandleFunc("PUT /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
 		var e contract.Environment

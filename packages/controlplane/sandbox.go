@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/getnvoi/nvoi/controlplane/box"
+	"github.com/getnvoi/nvoi/controlplane/llm"
 	"github.com/getnvoi/nvoi/shared/contract"
 	"github.com/getnvoi/nvoi/shared/tiers"
 )
@@ -177,13 +178,25 @@ func seedScript(env contract.Environment) string {
 	// A rebuild starts from the branch as it is now, not the checkout the last build left.
 	fmt.Fprintf(&b, "git -C %s fetch -q \"https://x-access-token:$GITHUB_TOKEN@github.com/%s\" %s && git -C %s reset -q --hard FETCH_HEAD\n",
 		App, env.Repo, env.Branch, App)
-	b.WriteString("command -v claude >/dev/null || curl -fsSL https://claude.ai/install.sh | bash\n")
+	// Every runner, so a credential moved to another provider finds its CLI in the seed.
+	for _, r := range Runners {
+		b.WriteString(r.Install() + "\n")
+	}
 	fmt.Fprintf(&b, "cd %s\n", App)
 	for _, s := range env.Setup {
 		b.WriteString(s + "\n")
 	}
 	fmt.Fprintf(&b, "touch %s\n", Ready)
 	return b.String()
+}
+
+// The runner the stored credential names, and its values.
+func (p *Plane) runner() (llm.Runner, map[string]string, error) {
+	var c contract.Credentials
+	if err := p.Store.Get("credentials", "default", &c); err != nil && err != ErrNotFound {
+		return nil, nil, err
+	}
+	return llm.Check(Runners, c.LLM)
 }
 
 func (p *Plane) env(name string) (contract.Environment, contract.Credentials, error) {

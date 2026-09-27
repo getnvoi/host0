@@ -255,7 +255,7 @@ credential is one row however many things use it.
 ## The turn
 
 **A turn is not a job.** It is a session running in a Pod, and the Pod holds it.
-`claude` runs under `sandbox_client`; the control plane is merely the process
+The agent CLI runs under `sandbox_client`; the control plane is merely the process
 ATTACHED — reading the stream, writing rows, answering what it asks. Kill the
 control plane and the turn continues; the next reader reattaches at
 `Session.Cursor`.

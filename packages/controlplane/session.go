@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,9 +16,13 @@ import (
 
 	"github.com/getnvoi/nvoi/controlplane/box"
 	"github.com/getnvoi/nvoi/controlplane/claude"
+	"github.com/getnvoi/nvoi/controlplane/llm"
 	"github.com/getnvoi/nvoi/shared/contract"
 	"github.com/getnvoi/nvoi/shared/tiers"
 )
+
+// The agent CLIs a credential may name.
+var Runners = []llm.Runner{claude.Runner{}}
 
 // The tools the agent sees; what each does is Plane.perform.
 var Tools = []map[string]any{
@@ -87,7 +90,7 @@ func (p *Plane) Start(name, prompt, by string) (contract.Session, error) {
 	}
 	sid := id()
 	s := contract.Session{ID: sid, Env: name, Actor: "wt-" + sid, Branch: "nvoi/" + sid, Preview: p.Preview(sid),
-		Claude: uuid(), State: "forking", At: time.Now(), Pending: prompt, By: by}
+		Transcript: uuid(), State: "forking", At: time.Now(), Pending: prompt, By: by}
 	if err := p.save(&s); err != nil {
 		return s, err
 	}
@@ -255,16 +258,21 @@ func (p *Plane) turn(ctx context.Context, s *contract.Session, prompt string) st
 		p.fail(s, err)
 		return ""
 	}
+	runner, values, err := llm.Check(Runners, creds.LLM)
+	if err != nil {
+		p.fail(s, err)
+		return ""
+	}
 	if err := p.ensure(ctx, s.Actor, env.Tier); err != nil {
 		p.fail(s, err)
 		return ""
 	}
 	if s.Turns > 0 {
-		// The last turn's claude, if a failure left it running, would work beside this one on the same checkout.
+		// The last turn's agent, if a failure left it running, would work beside this one on the same checkout.
 		p.end(s.Actor, fmt.Sprintf("turn-%d", s.Turns))
 	}
 	tools, _ := json.Marshal(Tools)
-	argv := claude.Argv(claude.Turn{Prompt: prompt, Session: s.Claude, Resume: s.Turns > 0, Model: "sonnet",
+	argv := runner.Argv(llm.Turn{Prompt: prompt, Session: s.Transcript, Resume: s.Turns > 0, Model: values["model"],
 		Instructions: fmt.Sprintf(instructions, origin(s.Preview)), MCP: Boxd})
 	stops.Delete(stopKey(s.ID, s.Turns+1))
 	p.put(s, func() {
@@ -273,8 +281,9 @@ func (p *Plane) turn(ctx context.Context, s *contract.Session, prompt string) st
 		s.Pending = ""
 		add(s, contract.Event{Kind: "prompt", Content: prompt})
 	})
-	return p.follow(ctx, s, box.Run{Argv: argv, Dir: App, Env: map[string]string{
-		"CLAUDE_CODE_OAUTH_TOKEN": creds.Claude, "IS_SANDBOX": "1", "NVOI_TOOLS": string(tools)}})
+	run := box.Run{Argv: argv, Dir: App, Env: runner.Env(values)}
+	run.Env["NVOI_TOOLS"] = string(tools)
+	return p.follow(ctx, s, run)
 }
 
 // Stops a run if it is still going; one that ended, or a boxd out of reach, leaves nothing to do.
@@ -284,13 +293,18 @@ func (p *Plane) end(actor, run string) {
 	p.box(actor).Cancel(ctx, run)
 }
 
-// How long claude may stay up after its answer, for its background shells, before the turn ends it.
+// How long the agent may stay up after its answer, for its background shells, before the turn ends it.
 var linger = 10 * time.Second
 
 // Runs or follows the current turn, then settles its tools: auto at once, approval parked until decided.
 // Returns the prompt to run next.
 func (p *Plane) follow(ctx context.Context, s *contract.Session, run box.Run) string {
 	env, creds, err := p.env(s.Env)
+	if err != nil {
+		p.fail(s, err)
+		return ""
+	}
+	runner, _, err := llm.Check(Runners, creds.LLM)
 	if err != nil {
 		p.fail(s, err)
 		return ""
@@ -306,7 +320,7 @@ func (p *Plane) follow(ctx context.Context, s *contract.Session, run box.Run) st
 	var answered sync.Once
 	var ended atomic.Bool
 	code, err := p.box(s.Actor).Exec(ctx, rid, run, 0, func(line string) {
-		evs := claude.Events(line)
+		evs := runner.Events(line)
 		if len(evs) == 0 {
 			return
 		}
@@ -316,7 +330,7 @@ func (p *Plane) follow(ctx context.Context, s *contract.Session, run box.Run) st
 		unlock()
 		for _, ev := range evs {
 			if ev.Kind == "result" {
-				// claude -p stays up while its background shells run; the turn is over once it has answered.
+				// The agent stays up while its background shells run; the turn is over once it has answered.
 				answered.Do(func() {
 					time.AfterFunc(linger, func() {
 						ended.Store(true)
@@ -339,12 +353,14 @@ func (p *Plane) follow(ctx context.Context, s *contract.Session, run box.Run) st
 		return p.drain(s)
 	}
 	if code != 0 {
-		p.put(s, func() { add(s, contract.Event{Kind: "notice", Content: fmt.Sprintf("claude exited %d", code)}) })
+		p.put(s, func() {
+			add(s, contract.Event{Kind: "notice", Content: fmt.Sprintf("%s exited %d", runner.Label(), code)})
+		})
 	}
 	var outcomes []string
 	var asks []contract.Approval
 	for _, ev := range s.Events[start:] {
-		name, ok := claude.Tool(ev.Tool)
+		name, ok := runner.Tool(ev.Tool)
 		if ev.Kind != "tool_use" || !ok {
 			continue
 		}
@@ -368,12 +384,12 @@ func (p *Plane) follow(ctx context.Context, s *contract.Session, run box.Run) st
 			s.State, s.Outcomes = "awaiting_approval", outcomes
 		})
 		return ""
-	case code != 0 && transient(s.Events[start:]) && retry(s.ID) <= retryLimit:
-		// Claude could not reach its API (DNS, a reset, an overload): its session goes on after a pause, with what
+	case code != 0 && transient(runner, s.Events[start:]) && retry(s.ID) <= retryLimit:
+		// The agent could not reach its API (DNS, a reset, an overload): its session goes on after a pause, with what
 		// the tools it did call came to.
 		n, _ := retries.Load(s.ID)
 		p.put(s, func() {
-			add(s, contract.Event{Kind: "notice", Content: fmt.Sprintf("Claude could not reach its API; trying again (%d of %d).", n, retryLimit)})
+			add(s, contract.Event{Kind: "notice", Content: fmt.Sprintf("%s could not reach its API; trying again (%d of %d).", runner.Label(), n, retryLimit)})
 		})
 		select {
 		case <-time.After(time.Duration(n.(int)) * retryPause):
@@ -402,7 +418,6 @@ var (
 	retries    sync.Map // session id -> attempts in a row
 	retryLimit = 2
 	retryPause = 10 * time.Second
-	flaky      = regexp.MustCompile(`(?i)EAI_AGAIN|ENOTFOUND|ECONNRESET|ETIMEDOUT|ECONNREFUSED|can't reach the API|connection error|overloaded|API Error: 5\d\d`)
 )
 
 // Counts one more attempt at the session's turn.
@@ -419,11 +434,11 @@ func retry(sid string) int {
 }
 
 // Whether the turn ended on a network error rather than something the agent did.
-func transient(events []contract.Event) bool {
+func transient(runner llm.Runner, events []contract.Event) bool {
 	for i := len(events) - 1; i >= 0; i-- {
 		switch events[i].Kind {
 		case "error", "result", "message":
-			if flaky.MatchString(events[i].Content) {
+			if runner.Transient(events[i].Content) {
 				return true
 			}
 		}
@@ -500,37 +515,6 @@ func (p *Plane) Stop(ctx context.Context, sid string) error {
 		return err
 	}
 	return nil
-}
-
-var agentID = regexp.MustCompile(`agentId: (\w+)`)
-
-// The prompt that has the main agent continue the sub-agent started by tool call to.
-func relay(events []contract.Event, to, prompt string) (string, error) {
-	name, agent := "sub-agent", ""
-	for _, ev := range events {
-		switch {
-		case ev.Kind == "tool_use" && ev.ToolID == to:
-			var in struct {
-				Description string `json:"description"`
-				Type        string `json:"subagent_type"`
-			}
-			json.Unmarshal([]byte(ev.Content), &in)
-			if in.Description != "" {
-				name = in.Description
-			} else if in.Type != "" {
-				name = in.Type
-			}
-		case ev.Kind == "tool_result" && ev.ToolID == to:
-			if m := agentID.FindStringSubmatch(ev.Content); m != nil {
-				agent = m[1]
-			}
-		}
-	}
-	if agent == "" {
-		return "", fmt.Errorf("that sub-agent cannot be reached yet")
-	}
-	return fmt.Sprintf("The user wrote to your sub-agent \"%s\". Continue it with SendMessage to: '%s', passing their message "+
-		"as it is, then tell them what it answered.\n\nTheir message:\n%s", name, agent, prompt), nil
 }
 
 // One request to the port, through boxd as the preview goes: the status, or the error that stopped it. It asks for

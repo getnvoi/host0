@@ -150,7 +150,7 @@ func withBoxd(t *testing.T) (*Plane, *fakeBoxd) {
 		Sandboxes: &sandbox{boxed: boxed{addr: srv.Listener.Addr().String()}},
 		Pin:       func(_ context.Context, image string) (string, error) { return image, nil }}
 	p.Store.Put("environments", "web", contract.Environment{Name: "web", Branch: "main"})
-	p.Store.Put("credentials", "default", contract.Credentials{})
+	p.Store.Put("credentials", "default", testCreds)
 	return p, fb
 }
 
@@ -569,3 +569,5 @@ func TestTransientTurnRetried(t *testing.T) {
 		}
 	}
 }
+
+var testCreds = contract.Credentials{LLM: contract.LLM{Provider: "claude_code", Values: map[string]string{"kind": "oauth", "token": "t"}}}

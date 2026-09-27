@@ -15,30 +15,6 @@ import (
 	"github.com/getnvoi/nvoi/shared/contract"
 )
 
-func TestRelay(t *testing.T) {
-	events := []contract.Event{
-		{Kind: "tool_use", Tool: "Task", ToolID: "toolu_1", Content: `{"description":"Audit the api","subagent_type":"Explore"}`},
-	}
-	if _, err := relay(events, "toolu_1", "hi"); err == nil || err.Error() != "that sub-agent cannot be reached yet" {
-		t.Fatalf("before its result: %v", err)
-	}
-	events = append(events, contract.Event{Kind: "tool_result", ToolID: "toolu_1", Content: "Found it.\nagentId: a1b2c3 (use SendMessage)"})
-	got, err := relay(events, "toolu_1", "look at auth too")
-	want := "The user wrote to your sub-agent \"Audit the api\". Continue it with SendMessage to: 'a1b2c3', passing their " +
-		"message as it is, then tell them what it answered.\n\nTheir message:\nlook at auth too"
-	if err != nil || got != want {
-		t.Fatalf("got %q %v", got, err)
-	}
-	events[0].Content = `{"subagent_type":"Explore"}`
-	if got, _ := relay(events, "toolu_1", "x"); !strings.Contains(got, `sub-agent "Explore"`) {
-		t.Fatalf("by type: %q", got)
-	}
-	events[0].Content = `{}`
-	if got, _ := relay(events, "toolu_1", "x"); !strings.Contains(got, `sub-agent "sub-agent"`) {
-		t.Fatalf("unnamed: %q", got)
-	}
-}
-
 // A sandbox whose every port is one boxd stand-in.
 type boxed struct {
 	Sandboxes
@@ -63,7 +39,7 @@ func withBox(t *testing.T, boxd http.HandlerFunc) (*Plane, http.Handler) {
 	p.Sandboxes, p.BoxToken = boxed{addr: srv.Listener.Addr().String()}, "box"
 	p.Store.Put("environments", "web", contract.Environment{Name: "web", Branch: "main",
 		Services: []contract.Service{{Name: "rails"}, {Name: "worker"}}})
-	p.Store.Put("credentials", "default", contract.Credentials{})
+	p.Store.Put("credentials", "default", testCreds)
 	p.Store.Put("seeds", "web", contract.Seed{Env: "web", Run: "seed-1"})
 	p.Store.Put("sessions", "s1", contract.Session{ID: "s1", Env: "web", Actor: "wt-s1"})
 	return p, h

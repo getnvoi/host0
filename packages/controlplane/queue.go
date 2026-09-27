@@ -21,8 +21,11 @@ func (p *Plane) Say(sid, prompt, to string) error {
 		return err
 	}
 	if to != "" {
-		var err error
-		if prompt, err = relay(s.Events, to, prompt); err != nil {
+		runner, _, err := p.runner()
+		if err != nil {
+			return err
+		}
+		if prompt, err = runner.Relay(s.Events, to, prompt); err != nil {
 			return err
 		}
 	}

@@ -33,7 +33,13 @@ type Environment struct {
 
 type Credentials struct {
 	GitHub string `json:"github,omitempty"`
-	Claude string `json:"claude,omitempty"`
+	LLM    LLM    `json:"llm"`
+}
+
+// The agent's credential: the runner it is for, and that runner's fields by key.
+type LLM struct {
+	Provider string            `json:"provider"`
+	Values   map[string]string `json:"values"`
 }
 
 type Seed struct {
@@ -61,17 +67,17 @@ type Event struct {
 }
 
 type Session struct {
-	ID      string  `json:"id"`
-	Env     string  `json:"env"`
-	Actor   string  `json:"actor"`
-	Branch  string  `json:"branch"`
-	Preview string  `json:"preview"`
-	Claude  string  `json:"claude"` // transcript id
-	Turns   int     `json:"turns"`
-	State   string  `json:"state"` // forking, running, idle, awaiting_approval, failed
-	Title   string  `json:"title,omitempty"`
-	Error   string  `json:"error,omitempty"`
-	Events  []Event `json:"events"`
+	ID         string  `json:"id"`
+	Env        string  `json:"env"`
+	Actor      string  `json:"actor"`
+	Branch     string  `json:"branch"`
+	Preview    string  `json:"preview"`
+	Transcript string  `json:"transcript"` // the runner's session id
+	Turns      int     `json:"turns"`
+	State      string  `json:"state"` // forking, running, idle, awaiting_approval, failed
+	Title      string  `json:"title,omitempty"`
+	Error      string  `json:"error,omitempty"`
+	Events     []Event `json:"events"`
 	// Where the running turn's prompt sits in Events, so a plane that restarts can follow the turn again from there.
 	Mark int `json:"mark"`
 	// The prompt to run next, saved before it starts: the first one while the fork is made, a queued message or an
