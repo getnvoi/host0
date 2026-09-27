@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getnvoi/nvoi/infra"
-	"github.com/getnvoi/nvoi/shared/naming"
+	"github.com/getnvoi/host0/infra"
+	"github.com/getnvoi/host0/shared/naming"
 )
 
 const api = "https://api.cloudflare.com/client/v4"

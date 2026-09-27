@@ -8,13 +8,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/getnvoi/nvoi/cloudflare"
-	"github.com/getnvoi/nvoi/infra"
-	"github.com/getnvoi/nvoi/infra/steps"
-	"github.com/getnvoi/nvoi/shared/naming"
+	"github.com/getnvoi/host0/cloudflare"
+	"github.com/getnvoi/host0/infra"
+	"github.com/getnvoi/host0/infra/steps"
+	"github.com/getnvoi/host0/shared/naming"
 )
 
-// nvoi on this machine: a kind cluster in Docker in place of Hetzner servers, and above it the same install as
+// hz on this machine: a kind cluster in Docker in place of Hetzner servers, and above it the same install as
 // cluster install: Substrate, the worker pools, the Cloudflare tunnel, the plane at https://app-<name>.<zone>.
 func Machine() *cobra.Command {
 	cmd := &cobra.Command{Use: "local", Short: "Run a cluster on this machine, in kind, behind the zone's Cloudflare tunnel"}
@@ -23,7 +23,7 @@ func Machine() *cobra.Command {
 	var only []string
 	flags := func(c *cobra.Command) {
 		c.Flags().StringVar(&cfg.Zone, "zone", "", "Cloudflare zone its hosts are served under")
-		c.Flags().StringVar(&name, "name", "local", "the cluster's name: its hosts are app-<name>.<zone>, its tunnel nvoi-cluster-<name>")
+		c.Flags().StringVar(&name, "name", "local", "the cluster's name: its hosts are app-<name>.<zone>, its tunnel hz-cluster-<name>")
 		c.Flags().StringVar(&cfg.PreviewSuffix, "preview-suffix", "-preview", "previews are <id>-<name><suffix>.<zone>")
 		_ = c.MarkFlagRequired("zone")
 	}
@@ -52,7 +52,7 @@ func Machine() *cobra.Command {
 	}
 	up := &cobra.Command{
 		Use:   "up",
-		Short: "Create or update the kind cluster and install nvoi on it; point this CLI at it",
+		Short: "Create or update the kind cluster and install hz on it; point this CLI at it",
 		Args:  cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			e, err := env()
@@ -86,6 +86,6 @@ func Machine() *cobra.Command {
 
 func cacheDir() (string, error) {
 	home, _ := os.UserHomeDir()
-	cache := filepath.Join(home, ".nvoi", "cache")
+	cache := filepath.Join(home, ".hz", "cache")
 	return cache, os.MkdirAll(cache, 0o700)
 }

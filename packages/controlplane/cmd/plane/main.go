@@ -8,12 +8,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane"
-	"github.com/getnvoi/nvoi/controlplane/edge"
-	"github.com/getnvoi/nvoi/controlplane/forge"
-	"github.com/getnvoi/nvoi/controlplane/kube"
-	"github.com/getnvoi/nvoi/controlplane/store"
-	"github.com/getnvoi/nvoi/controlplane/substrate"
+	"github.com/getnvoi/host0/controlplane"
+	"github.com/getnvoi/host0/controlplane/edge"
+	"github.com/getnvoi/host0/controlplane/forge"
+	"github.com/getnvoi/host0/controlplane/kube"
+	"github.com/getnvoi/host0/controlplane/store"
+	"github.com/getnvoi/host0/controlplane/substrate"
 )
 
 func must(name string) string {
@@ -38,31 +38,31 @@ func main() {
 		CAFile:    "/run/servicedns-ca/trust-bundle.pem",
 		TokenFile: "/var/run/secrets/ateapi/token",
 		Router:    "atenet-router.ate-system.svc.cluster.local:8081",
-		Atespace:  "nvoi",
-		Snapshots: "gs://ate-snapshots/nvoi/",
+		Atespace:  "hz",
+		Snapshots: "gs://ate-snapshots/hz/",
 	})
 	if err != nil {
 		log.Fatalf("substrate: %v", err)
 	}
-	pools, err := kube.InCluster("nvoi")
+	pools, err := kube.InCluster("hz")
 	if err != nil {
 		log.Fatalf("kube: %v", err)
 	}
-	cluster, zone := must("NVOI_CLUSTER"), must("NVOI_ZONE")
+	cluster, zone := must("HZ_CLUSTER"), must("HZ_ZONE")
 	p := &controlplane.Plane{
 		Sandboxes:    sb,
 		Pools:        pools,
-		Store:        &store.Files{Root: "/var/lib/nvoi"},
+		Store:        &store.Files{Root: "/var/lib/hz"},
 		Edge:         edge.Cloudflare{Token: must("CLOUDFLARE_API_TOKEN"), Zone: zone, TunnelToken: must("TUNNEL_TOKEN")},
 		Forge:        forge.GitHub{},
 		Pin:          controlplane.PinDockerHub,
-		BoxImage:     must("NVOI_BOXD_IMAGE"),
-		BoxToken:     must("NVOI_BOX_TOKEN"),
+		BoxImage:     must("HZ_BOXD_IMAGE"),
+		BoxToken:     must("HZ_BOX_TOKEN"),
 		Cluster:      cluster,
 		Zone:         zone,
-		Suffix:       must("NVOI_PREVIEW_SUFFIX"),
-		PauseAfter:   duration("NVOI_PAUSE_AFTER", 10*time.Minute),
-		SuspendAfter: duration("NVOI_SUSPEND_AFTER", 60*time.Minute),
+		Suffix:       must("HZ_PREVIEW_SUFFIX"),
+		PauseAfter:   duration("HZ_PAUSE_AFTER", 10*time.Minute),
+		SuspendAfter: duration("HZ_SUSPEND_AFTER", 60*time.Minute),
 	}
 	api, app := p.Host("api"), p.Host("app")
 	for _, h := range []string{api, app} {
@@ -73,7 +73,7 @@ func main() {
 	go p.Scale(context.Background())
 	go p.Sample(context.Background())
 	log.Printf("plane on :8080, api at %s, app at %s", controlplane.Origin(api), controlplane.Origin(app))
-	srv := &http.Server{Addr: ":8080", Handler: p.Handler(api, app, must("NVOI_TOKEN_SHA256")),
+	srv := &http.Server{Addr: ":8080", Handler: p.Handler(api, app, must("HZ_TOKEN_SHA256")),
 		ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
 	log.Fatal(srv.ListenAndServe())
 }

@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/getnvoi/nvoi/infra"
+	"github.com/getnvoi/host0/infra"
 )
 
 const kubectl = "k3s kubectl "

@@ -15,8 +15,8 @@ done
 [ -n "$ip" ] || { echo "no address in {{.NetRange}}" >&2; exit 1; }
 iface=$(ip -4 -o addr show to {{.NetRange}} | awk '{print $2}' | head -1)
 
-echo "net.ipv4.conf.all.proxy_arp=1" > /etc/sysctl.d/90-nvoi.conf
-sysctl -q -p /etc/sysctl.d/90-nvoi.conf
+echo "net.ipv4.conf.all.proxy_arp=1" > /etc/sysctl.d/90-hz.conf
+sysctl -q -p /etc/sysctl.d/90-hz.conf
 
 mkdir -p /etc/rancher/k3s
 cat > /etc/rancher/k3s/registries.yaml <<EOF

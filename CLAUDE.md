@@ -1,4 +1,4 @@
-# nvoi
+# hz
 
 Coding agents on a cluster you own: k3s on Hetzner, Agent Substrate for sandboxes, a Cloudflare tunnel for
 previews. A seed sandbox runs the app; every task forks it, gets a preview URL, and asks before it acts outside.
@@ -21,7 +21,7 @@ repository.
 
 ```
 WRONG   curl -H "Authorization: Bearer $TOKEN" https://api.hetzner.cloud/v1/servers
-RIGHT   nvoi ls                      # and if it does not exist yet, write it
+RIGHT   hz ls                      # and if it does not exist yet, write it
 ```
 
 This is not process hygiene. It is how the surface gets defined: the product
@@ -107,7 +107,7 @@ running", and the caller answers that by starting a second model over one
 checkout.
 
 **An error carries the sentence the failing thing already wrote.** `sandbox_client`
-printed `NVOI_TOKEN is required`; four layers above it reported "failed while
+printed `HZ_TOKEN is required`; four layers above it reported "failed while
 waiting for running", and ten minutes went into finding a sentence that had
 already been written. If a caller has to go and look, the CLI is missing a
 command.
@@ -120,7 +120,7 @@ infra/         the install: interfaces, steps, manifests  local commands only
 hetzner/       infra.Cloud
 cloudflare/    infra.Edge
 controlplane/  the api, sandboxes, turns, approvals   runs in the cluster
-cli/           the nvoi binary
+cli/           the hz binary
 ```
 
 **A contract lives with its consumer; a provider is its own module.** `infra` declares `Cloud`, `Edge` and
@@ -149,7 +149,7 @@ thin adapter is also what lets a hosted install run it server-side later.
 ## A control plane with no secret does not serve
 
 `install` mints a 32-byte secret, deploys the control plane holding only its
-bcrypt hash, and writes the plaintext to `~/.nvoi/state.json` at 0600. Nobody
+bcrypt hash, and writes the plaintext to `~/.hz/state.json` at 0600. Nobody
 chooses a password and nobody types one.
 
 **An absent secret is refused, never waved through.** A reference
@@ -186,7 +186,7 @@ if you can compute the name.
 **A name is computed, never discovered.**
 
 ```
-Prefix(app, env) -> "nvoi-{app}-{env}"
+Prefix(app, env) -> "hz-{app}-{env}"
 ```
 
 Same inputs, same names, same resources. There is nothing to look up, nothing to
@@ -223,7 +223,7 @@ hand comes back on the next run.
 Hetzner, Cloudflare and Kubernetes all resolve by name or label, which is what
 makes this possible without an engine underneath us.
 
-**Sweep by owner.** `nvoi/owner` on Kubernetes objects, the same label on cloud
+**Sweep by owner.** `hz/owner` on Kubernetes objects, the same label on cloud
 resources. One owner per reconcile step, a closed taxonomy, so a step can only
 ever delete its own work. Adding a step is one const — never an exclusion list.
 In-cluster that is `ApplyOwned` / `SweepOwned`.
@@ -239,11 +239,11 @@ The control plane reads no environment variables. Two things live outside the da
 because they cannot live inside it:
 
 ```
-~/.nvoi/key      32 bytes, 0600 — the sealing key, the one thing to back up
-~/.nvoi/nvoi.db  SQLite
+~/.hz/key      32 bytes, 0600 — the sealing key, the one thing to back up
+~/.hz/hz.db  SQLite
 ```
 
-`.env.seed` is read exactly once by `nvoi seed`, sealed into rows, then it is
+`.env.seed` is read exactly once by `hz seed`, sealed into rows, then it is
 yours to delete. Nothing reads it at runtime.
 
 Secrets are AES-256-GCM, fresh nonce per seal. A provider declares what it needs
@@ -273,7 +273,7 @@ decides on one box. Same interface either way.
 
 The clone happens on the control plane and travels in as a tar, so `git push` from inside
 a Pod must fail — that is the boundary working, not a bug. Tools are served
-_inverted_ over the pipe, so no nvoi token is in the Pod's environ. The LLM key
+_inverted_ over the pipe, so no hz token is in the Pod's environ. The LLM key
 is the one necessary exception, and it is pinned by egress to one host.
 
 One namespace per worktree, from day one, even with one worktree.
@@ -283,7 +283,7 @@ One namespace per worktree, from day one, even with one worktree.
 ## Working here
 
 ```
-go build -C packages/cli -o ../../bin/nvoi ./cmd/nvoi
+go build -C packages/cli -o ../../bin/hz ./cmd/hz
 go test -C packages/infra ./...
 ```
 

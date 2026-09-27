@@ -10,24 +10,24 @@ type Svg = SVGProps<SVGSVGElement>;
 
 const SVGS: Record<"wordmark" | "mark" | "mark-paper" | "mark-bare", (props: Svg) => ReactElement> = {
   wordmark: (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="61.7 -512.5 1586.4 527.9" role="img" aria-label="nvoi" {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="61.7 -512.5 1586.4 527.9" role="img" aria-label="hz" {...props}>
       <path fill="currentColor" d={WORD} />
     </svg>
   ),
   mark: (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 92 92" role="img" aria-label="nvoi" {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 92 92" role="img" aria-label="hz" {...props}>
       <circle cx="50" cy="50" r="41.5" fill="none" stroke="#1f1e1a" strokeWidth="9" />
       <path fill="#1f1e1a" d={BLADES} />
     </svg>
   ),
   "mark-paper": (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 92 92" role="img" aria-label="nvoi" {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 92 92" role="img" aria-label="hz" {...props}>
       <circle cx="50" cy="50" r="41.5" fill="none" stroke="#f3efe9" strokeWidth="9" />
       <path fill="#f3efe9" d={BLADES} />
     </svg>
   ),
   "mark-bare": (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 92 92" role="img" aria-label="nvoi" {...props}>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="4 4 92 92" role="img" aria-label="hz" {...props}>
       <path fill="currentColor" d={BLADES} />
     </svg>
   ),
@@ -40,7 +40,7 @@ export function Brand({ name = "wordmark", height, className, ...rest }: BrandPr
   if (name === "lockup") {
     const { style, ...span } = rest as Record<string, unknown> & { style?: CSSProperties };
     return (
-      <span className={cx("ds-brand-lockup", className)} style={{ "--h": `${height ?? 20}px`, ...style } as CSSProperties} role="img" aria-label="nvoi" {...span}>
+      <span className={cx("ds-brand-lockup", className)} style={{ "--h": `${height ?? 20}px`, ...style } as CSSProperties} role="img" aria-label="hz" {...span}>
         {SVGS.mark({ className: "ds-brand-mark is-light", "aria-hidden": true })}
         {SVGS["mark-paper"]({ className: "ds-brand-mark is-dark", "aria-hidden": true })}
         {SVGS.wordmark({ className: "ds-brand-word", "aria-hidden": true })}

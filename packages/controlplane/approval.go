@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/controlplane/box"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 // How long one tool may take, a push or a pull request.

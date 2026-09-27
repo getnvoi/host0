@@ -15,14 +15,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getnvoi/nvoi/infra"
-	"github.com/getnvoi/nvoi/infra/kube"
-	"github.com/getnvoi/nvoi/infra/manifests"
-	"github.com/getnvoi/nvoi/infra/node"
-	"github.com/getnvoi/nvoi/infra/source"
-	"github.com/getnvoi/nvoi/shared/naming"
-	"github.com/getnvoi/nvoi/shared/state"
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/infra"
+	"github.com/getnvoi/host0/infra/kube"
+	"github.com/getnvoi/host0/infra/manifests"
+	"github.com/getnvoi/host0/infra/node"
+	"github.com/getnvoi/host0/infra/source"
+	"github.com/getnvoi/host0/shared/naming"
+	"github.com/getnvoi/host0/shared/state"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 type pool struct {
@@ -34,7 +34,7 @@ type pool struct {
 func pools(e *infra.Env) []pool {
 	var ps []pool
 	for _, t := range tiers.All {
-		ps = append(ps, pool{Tier: t, Name: t.Pool(), Namespace: "nvoi"})
+		ps = append(ps, pool{Tier: t, Name: t.Pool(), Namespace: "hz"})
 	}
 	return ps
 }
@@ -93,7 +93,7 @@ var Install = []infra.Step{
 		if err != nil {
 			return err
 		}
-		dir, err := os.MkdirTemp("", "nvoi-")
+		dir, err := os.MkdirTemp("", "hz-")
 		if err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ var Install = []infra.Step{
 	}),
 	step("worker pools", func(ctx context.Context, e *infra.Env) error {
 		// replicas is the plane's: a pool is written back with what it has now, and a new one starts at zero.
-		current, err := output(ctx, e, `k3s kubectl -n nvoi get workerpool -o jsonpath='{range .items[*]}{.metadata.name}={.spec.replicas}{"\n"}{end}'`)
+		current, err := output(ctx, e, `k3s kubectl -n hz get workerpool -o jsonpath='{range .items[*]}{.metadata.name}={.spec.replicas}{"\n"}{end}'`)
 		if err != nil {
 			return err
 		}
@@ -158,7 +158,7 @@ var Install = []infra.Step{
 		for _, p := range pools(e) {
 			names = append(names, p.Name)
 		}
-		return kube.Run(ctx, e.Shell, "-n nvoi delete workerpool --ignore-not-found -l 'workload,workload notin ("+strings.Join(names, ",")+")'", e.Out)
+		return kube.Run(ctx, e.Shell, "-n hz delete workerpool --ignore-not-found -l 'workload,workload notin ("+strings.Join(names, ",")+")'", e.Out)
 	}),
 	step("cloudflare tunnel", func(ctx context.Context, e *infra.Env) error {
 		token, err := e.Edge.Tunnel(ctx, e.Cluster, "http://plane."+naming.Namespace+".svc:80")
@@ -217,7 +217,7 @@ var Install = []infra.Step{
 			return err
 		}
 		e.Say("api at %s", url)
-		e.Say("web UI at %s: sign in with nvoi open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
+		e.Say("web UI at %s: sign in with hz open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
 		return state.Save(state.State{URL: url, Token: token})
 	}),
 }

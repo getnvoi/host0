@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
-	"github.com/getnvoi/nvoi/shared/contract"
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/controlplane/box"
+	"github.com/getnvoi/host0/shared/contract"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // A boxd stand-in. Runs end at once with exit 0, except those in hold, which run until cancelled.
@@ -366,7 +366,7 @@ func TestRecoverRunsQueueOfIdleSession(t *testing.T) {
 func TestSayForksAgain(t *testing.T) {
 	p, fb := withBoxd(t)
 	p.Store.Put("ready", "web", contract.Seed{Env: "web", Template: "t", Tag: "t", State: "ready"})
-	p.Store.Put("sessions", "f1", contract.Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "nvoi/f1", State: "failed",
+	p.Store.Put("sessions", "f1", contract.Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "hz/f1", State: "failed",
 		Error: "boom", Pending: "first"})
 	if err := p.Say("f1", "second", ""); err != nil {
 		t.Fatal(err)

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 // What happened, in order, for whoever is listening. A reader resumes after the last id it saw; one further

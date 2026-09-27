@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane"
+	"github.com/getnvoi/host0/controlplane"
 )
 
 type GitHub struct{}

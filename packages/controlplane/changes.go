@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/controlplane/box"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 const patchLimit = 2 << 20
@@ -28,7 +28,7 @@ func (p *Plane) awake(ctx context.Context, sid string) (contract.Session, contra
 
 // Untracked files count as added: they are marked intent-to-add first. The base is printed ahead of the numstat.
 const diffScript = `git add -N -A . && base=origin/"$BASE" && { git rev-parse -q --verify "$base^{commit}" >/dev/null || base=HEAD; } && ` +
-	`printf '%s\0' "$base" && git diff --no-color --no-ext-diff -M --numstat -z "$base" && printf '\0NVOI\0' && ` +
+	`printf '%s\0' "$base" && git diff --no-color --no-ext-diff -M --numstat -z "$base" && printf '\0HZ\0' && ` +
 	`git diff --no-color --no-ext-diff -M "$base"`
 
 func (p *Plane) Changes(ctx context.Context, sid string) (contract.Changes, error) {
@@ -60,7 +60,7 @@ func changes(out []byte) (contract.Changes, bool) {
 	i, found := 1, false
 	for i < len(tokens) {
 		t := tokens[i]
-		if t == "" && i+1 < len(tokens) && tokens[i+1] == "NVOI" {
+		if t == "" && i+1 < len(tokens) && tokens[i+1] == "HZ" {
 			found = true
 			break
 		}

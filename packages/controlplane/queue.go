@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 // Guards the queue records. Taken after a session's lock, never before it.

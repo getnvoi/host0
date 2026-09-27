@@ -86,7 +86,7 @@
     "title": "Sign in from your terminal",
     "expired_title": "That link has expired",
     "body": "Links are one-time and last a minute. Get a fresh one with:",
-    "invite": "For someone else: nvoi invite <name>"
+    "invite": "For someone else: hz invite <name>"
   },
   "logs": {
     "title": "Services",
@@ -97,7 +97,7 @@
   },
   "new": {
     "text": "The agent starts from the environment's seed, on a new branch.",
-    "no_environment": "No environment is ready. Run nvoi seed first.",
+    "no_environment": "No environment is ready. Run hz seed first.",
     "placeholder": "What should the agent do?",
     "environment": "Environment",
     "task": "Task",

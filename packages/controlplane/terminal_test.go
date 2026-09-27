@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 // A sandbox whose every port is one boxd stand-in.
@@ -77,7 +77,7 @@ func TestLogs(t *testing.T) {
 	if res = call(h, "GET", "api-dev.nvoi.to", "/sessions/s1/logs/..%2Fetc?offset=0", "", bearer); res.Code != 404 {
 		t.Fatalf("unknown log %d", res.Code)
 	}
-	if want := []string{"/workspace/.nvoi/runs/seed-1/log", "/workspace/.nvoi/logs/worker.log"}; !reflect.DeepEqual(asked, want) {
+	if want := []string{"/workspace/.hz/runs/seed-1/log", "/workspace/.hz/logs/worker.log"}; !reflect.DeepEqual(asked, want) {
 		t.Fatalf("asked boxd for %v", asked)
 	}
 }

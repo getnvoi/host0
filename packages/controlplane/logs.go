@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/controlplane/box"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 // Where each service's output is kept, beside its stdout.
-const Logs = "/workspace/.nvoi/logs"
+const Logs = "/workspace/.hz/logs"
 
 // The setup script's log, then one per service, in the environment's order.
 func (p *Plane) Logs(sid string) ([]contract.Log, error) {

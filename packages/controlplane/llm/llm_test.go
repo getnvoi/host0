@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/getnvoi/nvoi/controlplane/claude"
-	"github.com/getnvoi/nvoi/controlplane/llm"
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/controlplane/claude"
+	"github.com/getnvoi/host0/controlplane/llm"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 var runners = []llm.Runner{claude.Runner{}}
@@ -17,7 +17,7 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("defaults: %v %v", v, err)
 	}
 	refused := map[string]contract.LLM{
-		"no agent credential: run nvoi credentials (providers: claude_code)": {},
+		"no agent credential: run hz credentials (providers: claude_code)": {},
 		`no provider "codex" (providers: claude_code)`:                       {Provider: "codex"},
 		"claude_code: token is required":                                     {Provider: "claude_code", Values: map[string]string{"kind": "oauth"}},
 		"claude_code: kind must be one of oauth, api_key, bearer":            {Provider: "claude_code", Values: map[string]string{"kind": "x", "token": "k"}},

@@ -17,7 +17,7 @@ var All = []Tier{
 	{Name: "large", CPU: "4", Memory: "8Gi", CPURequest: "1"},
 }
 
-func (t Tier) Pool() string { return "nvoi-" + t.Name }
+func (t Tier) Pool() string { return "hz-" + t.Name }
 
 func Get(name string) (Tier, error) {
 	if name == "" {

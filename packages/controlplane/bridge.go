@@ -11,10 +11,10 @@ import (
 // The page around a preview cannot see into it: the preview is another origin. Every HTML page the preview serves
 // loads this script, which talks to the web UI only.
 //
-// Out, nvoi:url: the path, the title, and whether the frame can go back or forward, on start, on load, on each
-// history change, and in answer to nvoi:ping (with its id), which is how the UI learns a page carries the script.
-// In: nvoi:history (back or forward), nvoi:navigate (a path) and nvoi:reload, which a cross-origin parent cannot do.
-const bridgePath = "/__nvoi/bridge.js"
+// Out, hz:url: the path, the title, and whether the frame can go back or forward, on start, on load, on each
+// history change, and in answer to hz:ping (with its id), which is how the UI learns a page carries the script.
+// In: hz:history (back or forward), hz:navigate (a path) and hz:reload, which a cross-origin parent cannot do.
+const bridgePath = "/__hz/bridge.js"
 
 func bridgeScript(appHost string) string {
 	return fmt.Sprintf(`(function(){
@@ -22,7 +22,7 @@ if (window.top === window.self) return;
 var O = %q;
 function post(reason, id) {
   var n = window.navigation;
-  parent.postMessage({type: "nvoi:url", reason: reason, id: id, title: document.title,
+  parent.postMessage({type: "hz:url", reason: reason, id: id, title: document.title,
     path: location.pathname + location.search + location.hash,
     back: n ? n.canGoBack : history.length > 1, forward: n ? n.canGoForward : false}, O);
 }
@@ -36,10 +36,10 @@ history.replaceState = function () { replace.apply(this, arguments); post("repla
 addEventListener("message", function (e) {
   if (e.origin !== O || !e.data) return;
   var d = e.data;
-  if (d.type === "nvoi:history" && typeof d.delta === "number") history.go(d.delta);
-  if (d.type === "nvoi:navigate" && typeof d.path === "string" && d.path.charAt(0) === "/") location.assign(d.path);
-  if (d.type === "nvoi:reload") location.reload();
-  if (d.type === "nvoi:ping") post("ping", d.id);
+  if (d.type === "hz:history" && typeof d.delta === "number") history.go(d.delta);
+  if (d.type === "hz:navigate" && typeof d.path === "string" && d.path.charAt(0) === "/") location.assign(d.path);
+  if (d.type === "hz:reload") location.reload();
+  if (d.type === "hz:ping") post("ping", d.id);
 });
 })();
 `, origin(appHost))

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 // One value of a runner's credential. Options, when set, is the closed set it must be in.
@@ -34,7 +34,7 @@ type Runner interface {
 	Env(values map[string]string) map[string]string
 	Argv(t Turn) []string
 	Events(line string) []contract.Event
-	// The nvoi tool a tool_use calls, without the prefix the CLI adds.
+	// The hz tool a tool_use calls, without the prefix the CLI adds.
 	Tool(name string) (string, bool)
 	// Output saying the CLI lost its API rather than the turn failing.
 	Transient(text string) bool
@@ -51,7 +51,7 @@ func Find(runners []Runner, key string) (Runner, error) {
 		keys = append(keys, r.Key())
 	}
 	if key == "" {
-		return nil, fmt.Errorf("no agent credential: run nvoi credentials (providers: %s)", strings.Join(keys, ", "))
+		return nil, fmt.Errorf("no agent credential: run hz credentials (providers: %s)", strings.Join(keys, ", "))
 	}
 	return nil, fmt.Errorf("no provider %q (providers: %s)", key, strings.Join(keys, ", "))
 }

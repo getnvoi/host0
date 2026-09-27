@@ -1,12 +1,12 @@
-module github.com/getnvoi/nvoi/cli
+module github.com/getnvoi/host0/cli
 
 go 1.27.0
 
 require (
-	github.com/getnvoi/nvoi/cloudflare v0.0.0
-	github.com/getnvoi/nvoi/hetzner v0.0.0
-	github.com/getnvoi/nvoi/infra v0.0.0
-	github.com/getnvoi/nvoi/shared v0.0.0
+	github.com/getnvoi/host0/cloudflare v0.0.0
+	github.com/getnvoi/host0/hetzner v0.0.0
+	github.com/getnvoi/host0/infra v0.0.0
+	github.com/getnvoi/host0/shared v0.0.0
 	github.com/spf13/cobra v1.10.2
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -19,8 +19,8 @@ require (
 )
 
 replace (
-	github.com/getnvoi/nvoi/cloudflare => ../cloudflare
-	github.com/getnvoi/nvoi/hetzner => ../hetzner
-	github.com/getnvoi/nvoi/infra => ../infra
-	github.com/getnvoi/nvoi/shared => ../shared
+	github.com/getnvoi/host0/cloudflare => ../cloudflare
+	github.com/getnvoi/host0/hetzner => ../hetzner
+	github.com/getnvoi/host0/infra => ../infra
+	github.com/getnvoi/host0/shared => ../shared
 )

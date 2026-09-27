@@ -7,8 +7,8 @@ import (
 	"errors"
 	"net"
 
-	"github.com/getnvoi/nvoi/shared/contract"
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/shared/contract"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 type Container struct {

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "@/contexts/i18n";
 import type { Action, Call, Item, Sub, Turn } from "@/lib/transcript";
-import { field, NVOI } from "@/lib/transcript";
+import { field, HZ } from "@/lib/transcript";
 import { clock, duration, joined, tokens } from "@/lib/time";
 import { Markdown } from "@/ui/bits";
 import { useToolLabel } from "@/ui/marks";
@@ -22,7 +22,7 @@ const FACES: Record<string, string> = {
 };
 
 export function face(tool: string) {
-  return FACES[tool.startsWith(NVOI) ? tool.slice(NVOI.length) : tool] ?? "tool";
+  return FACES[tool.startsWith(HZ) ? tool.slice(HZ.length) : tool] ?? "tool";
 }
 
 // The one detail worth a line: a command, a path, a title.
@@ -143,7 +143,7 @@ function Subs({ subs, subHref }: { subs: Sub[]; subHref: (id: string) => string 
   );
 }
 
-// An nvoi action: a denied one as its decided gate, the others as runs with their outcome.
+// An hz action: a denied one as its decided gate, the others as runs with their outcome.
 function ActionRow({ action }: { action: Action }) {
   const { t } = useTranslations();
   const label = useToolLabel();

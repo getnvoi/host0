@@ -250,7 +250,7 @@ func command(run Run) *exec.Cmd {
 func environ() []string {
 	var env []string
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "NVOI_BOX_TOKEN=") {
+		if !strings.HasPrefix(kv, "HZ_BOX_TOKEN=") {
 			env = append(env, kv)
 		}
 	}

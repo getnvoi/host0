@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 func TestChanges(t *testing.T) {

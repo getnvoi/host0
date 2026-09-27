@@ -7,12 +7,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/getnvoi/nvoi/controlplane/llm"
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/controlplane/llm"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
-// The MCP server name; the CLI prefixes its tools with mcp__nvoi__.
-const Server = "nvoi"
+// The MCP server name; the CLI prefixes its tools with mcp__hz__.
+const Server = "hz"
 
 // The CLI reads a credential only from the variable of its kind: an API key in CLAUDE_CODE_OAUTH_TOKEN is "Not logged in".
 var credential = map[string]string{

@@ -1,4 +1,4 @@
-// ~/.nvoi/state.json: where the plane is and the token it takes. The only thing the laptop keeps.
+// ~/.hz/state.json: where the plane is and the token it takes. The only thing the laptop keeps.
 package state
 
 import (
@@ -15,7 +15,7 @@ type State struct {
 
 func path() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".nvoi", "state.json")
+	return filepath.Join(home, ".hz", "state.json")
 }
 
 func Save(s State) error {
@@ -30,7 +30,7 @@ func Load() (State, error) {
 	var s State
 	b, err := os.ReadFile(path())
 	if err != nil {
-		return s, fmt.Errorf("no plane: run nvoi cluster install (%w)", err)
+		return s, fmt.Errorf("no plane: run hz cluster install (%w)", err)
 	}
 	return s, json.Unmarshal(b, &s)
 }

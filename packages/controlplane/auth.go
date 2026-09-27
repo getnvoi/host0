@@ -12,7 +12,7 @@ import (
 // A browser signs in with a one-time link the CLI asks for; the link becomes a session cookie. Only hashes are
 // stored, so the store holds nothing that opens a door.
 const (
-	sessionCookie = "nvoi_session"
+	sessionCookie = "hz_session"
 	linkTTL       = 60 * time.Second
 	sessionTTL    = 30 * 24 * time.Hour
 )
@@ -89,7 +89,7 @@ func (p *Plane) signedIn(next http.Handler) http.Handler {
 			http.Error(w, "signed out", http.StatusUnauthorized)
 			return
 		}
-		if r.Method != http.MethodGet && r.Header.Get("X-Requested-With") != "nvoi" {
+		if r.Method != http.MethodGet && r.Header.Get("X-Requested-With") != "hz" {
 			http.Error(w, "missing X-Requested-With", http.StatusForbidden)
 			return
 		}

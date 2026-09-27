@@ -1,4 +1,4 @@
-module github.com/getnvoi/nvoi/boxd
+module github.com/getnvoi/host0/boxd
 
 go 1.27.0
 

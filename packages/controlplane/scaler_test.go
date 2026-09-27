@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 type fakeSandboxes struct {
@@ -128,30 +128,30 @@ func (f *fakePools) Hold(_ context.Context, node string, on bool) error {
 func TestShrink(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{workers: []Worker{
-		{Pool: "nvoi-medium", Pod: "busy", Assigned: true},
-		{Pool: "nvoi-medium", Pod: "idle"},
+		{Pool: "hz-medium", Pod: "busy", Assigned: true},
+		{Pool: "hz-medium", Pod: "idle"},
 	}}
-	pools := &fakePools{replicas: map[string]int{"nvoi-medium": 2}, costs: map[string]int{}}
+	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
 	p := &Plane{Sandboxes: sb, Pools: pools}
 	ctx := context.Background()
 
 	p.shrink(ctx)
-	if pools.replicas["nvoi-medium"] != 2 {
+	if pools.replicas["hz-medium"] != 2 {
 		t.Fatal("shrank on the first tick a worker was free")
 	}
 	p.shrink(ctx)
-	if pools.replicas["nvoi-medium"] != 1 || pools.costs["idle"] != -1000 {
-		t.Fatalf("second tick: replicas %d costs %v", pools.replicas["nvoi-medium"], pools.costs)
+	if pools.replicas["hz-medium"] != 1 || pools.costs["idle"] != -1000 {
+		t.Fatalf("second tick: replicas %d costs %v", pools.replicas["hz-medium"], pools.costs)
 	}
 	if _, touched := pools.costs["busy"]; touched {
 		t.Fatal("a busy worker was costed")
 	}
 
-	sc.grown["nvoi-medium"] = time.Now()
-	pools.replicas["nvoi-medium"] = 2
+	sc.grown["hz-medium"] = time.Now()
+	pools.replicas["hz-medium"] = 2
 	p.shrink(ctx)
 	p.shrink(ctx)
-	if pools.replicas["nvoi-medium"] != 2 {
+	if pools.replicas["hz-medium"] != 2 {
 		t.Fatal("shrank right after a grow")
 	}
 }
@@ -159,14 +159,14 @@ func TestShrink(t *testing.T) {
 func TestWakeGrows(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1}
-	pools := &fakePools{replicas: map[string]int{"nvoi-large": 0}, costs: map[string]int{}}
+	pools := &fakePools{replicas: map[string]int{"hz-large": 0}, costs: map[string]int{}}
 	p := &Plane{Sandboxes: sb, Pools: pools, Store: newStore()}
 	large, _ := tiers.Get("large")
 	if err := p.wake(context.Background(), "a", large); err != nil {
 		t.Fatal(err)
 	}
-	if pools.replicas["nvoi-large"] != 1 {
-		t.Fatalf("large not grown from zero: %d", pools.replicas["nvoi-large"])
+	if pools.replicas["hz-large"] != 1 {
+		t.Fatalf("large not grown from zero: %d", pools.replicas["hz-large"])
 	}
 }
 
@@ -197,13 +197,13 @@ func TestRest(t *testing.T) {
 func TestWakeEvictsBeforeGrowing(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1, states: map[string]string{"old": "paused", "new": "suspended"}}
-	pools := &fakePools{replicas: map[string]int{"nvoi-medium": 1}, costs: map[string]int{}}
+	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, costs: map[string]int{}}
 	p := &Plane{Sandboxes: sb, Pools: pools, Store: newStore(Route{"old", 3000, "medium"}, Route{"new", 3000, "medium"})}
 	medium, _ := tiers.Get("medium")
 	if err := p.wake(context.Background(), "new", medium); err != nil {
 		t.Fatal(err)
 	}
-	if sb.states["old"] != "suspended" || pools.replicas["nvoi-medium"] != 1 {
+	if sb.states["old"] != "suspended" || pools.replicas["hz-medium"] != 1 {
 		t.Fatalf("expected the paused actor evicted and no growth: %v %v", sb.states, pools.replicas)
 	}
 }
@@ -211,14 +211,14 @@ func TestWakeEvictsBeforeGrowing(t *testing.T) {
 func TestEvictSkipsBusy(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1, states: map[string]string{"old": "paused", "new": "suspended"}}
-	pools := &fakePools{replicas: map[string]int{"nvoi-medium": 1}, costs: map[string]int{}}
+	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, costs: map[string]int{}}
 	p := &Plane{Sandboxes: sb, Pools: pools, Store: newStore(Route{"old", 3000, "medium"}, Route{"new", 3000, "medium"})}
 	sc.open["old"] = 1
 	medium, _ := tiers.Get("medium")
 	if err := p.wake(context.Background(), "new", medium); err != nil {
 		t.Fatal(err)
 	}
-	if sb.states["old"] != "paused" || pools.replicas["nvoi-medium"] != 2 {
+	if sb.states["old"] != "paused" || pools.replicas["hz-medium"] != 2 {
 		t.Fatalf("a busy actor was evicted: %v %v", sb.states, pools.replicas)
 	}
 }
@@ -246,41 +246,41 @@ func TestHoldForgetsDeletedActors(t *testing.T) {
 
 func TestGrowWaitsForStartingWorker(t *testing.T) {
 	sc = newScaler()
-	pools := &fakePools{replicas: map[string]int{"nvoi-medium": 1}, ready: map[string]int{"nvoi-medium": 0}}
+	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, ready: map[string]int{"hz-medium": 0}}
 	p := &Plane{Pools: pools}
-	sc.grown["nvoi-medium"] = time.Now().Add(-time.Minute)
-	p.grow(context.Background(), "nvoi-medium")
-	if pools.replicas["nvoi-medium"] != 1 {
-		t.Fatalf("grew to %d while a worker was starting", pools.replicas["nvoi-medium"])
+	sc.grown["hz-medium"] = time.Now().Add(-time.Minute)
+	p.grow(context.Background(), "hz-medium")
+	if pools.replicas["hz-medium"] != 1 {
+		t.Fatalf("grew to %d while a worker was starting", pools.replicas["hz-medium"])
 	}
-	sc.grown["nvoi-medium"] = time.Now().Add(-growWait)
-	p.grow(context.Background(), "nvoi-medium")
-	if pools.replicas["nvoi-medium"] != 2 {
-		t.Fatalf("did not grow past a stuck worker: %d", pools.replicas["nvoi-medium"])
+	sc.grown["hz-medium"] = time.Now().Add(-growWait)
+	p.grow(context.Background(), "hz-medium")
+	if pools.replicas["hz-medium"] != 2 {
+		t.Fatalf("did not grow past a stuck worker: %d", pools.replicas["hz-medium"])
 	}
-	pools.ready["nvoi-medium"] = 2
-	sc.grown["nvoi-medium"] = time.Now().Add(-time.Minute)
-	p.grow(context.Background(), "nvoi-medium")
-	if pools.replicas["nvoi-medium"] != 3 {
-		t.Fatalf("did not grow a ready pool: %d", pools.replicas["nvoi-medium"])
+	pools.ready["hz-medium"] = 2
+	sc.grown["hz-medium"] = time.Now().Add(-time.Minute)
+	p.grow(context.Background(), "hz-medium")
+	if pools.replicas["hz-medium"] != 3 {
+		t.Fatalf("did not grow a ready pool: %d", pools.replicas["hz-medium"])
 	}
 }
 
 // A pod marked for a shrink and taken before it went loses its mark, so the ReplicaSet does not pick it later.
 func TestShrinkUnmarksTaken(t *testing.T) {
 	sc = newScaler()
-	sb := &fakeSandboxes{workers: []Worker{{Pool: "nvoi-medium", Pod: "a"}, {Pool: "nvoi-medium", Pod: "b"}}}
-	pools := &fakePools{replicas: map[string]int{"nvoi-medium": 2}, costs: map[string]int{}}
+	sb := &fakeSandboxes{workers: []Worker{{Pool: "hz-medium", Pod: "a"}, {Pool: "hz-medium", Pod: "b"}}}
+	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
 	p := &Plane{Sandboxes: sb, Pools: pools}
 	ctx := context.Background()
 	p.shrink(ctx)
 	p.shrink(ctx)
-	if pools.replicas["nvoi-medium"] != 0 || pools.costs["a"] != -1000 || pools.costs["b"] != -1000 {
-		t.Fatalf("replicas %d costs %v", pools.replicas["nvoi-medium"], pools.costs)
+	if pools.replicas["hz-medium"] != 0 || pools.costs["a"] != -1000 || pools.costs["b"] != -1000 {
+		t.Fatalf("replicas %d costs %v", pools.replicas["hz-medium"], pools.costs)
 	}
 	// "b" was resumed onto before the ReplicaSet removed it.
-	sb.workers = []Worker{{Pool: "nvoi-medium", Pod: "b", Assigned: true}}
-	pools.replicas["nvoi-medium"] = 1
+	sb.workers = []Worker{{Pool: "hz-medium", Pod: "b", Assigned: true}}
+	pools.replicas["hz-medium"] = 1
 	p.shrink(ctx)
 	if pools.costs["b"] != 0 {
 		t.Fatalf("a taken pod kept its mark: %v", pools.costs)

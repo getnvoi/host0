@@ -4,14 +4,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/getnvoi/nvoi/infra"
-	"github.com/getnvoi/nvoi/shared/naming"
+	"github.com/getnvoi/host0/infra"
+	"github.com/getnvoi/host0/shared/naming"
 )
 
 func TestAddons(t *testing.T) {
 	cfg := Client{}.Defaults()
 	cfg.WorkerMax = 10
-	out, err := Client{Token: "t"}.Addons(naming.Cluster{Name: "dev"}, cfg, "#cloud-config", map[string]string{"nvoi.dev/worker": "true"})
+	out, err := Client{Token: "t"}.Addons(naming.Cluster{Name: "dev"}, cfg, "#cloud-config", map[string]string{"hz.dev/worker": "true"})
 	if err != nil {
 		t.Fatal(err)
 	}

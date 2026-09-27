@@ -13,12 +13,12 @@ const turn: Event[] = [
   { kind: "task", tool_id: "s1", content: '{"state":"notification","status":"completed","tokens":1800,"tools":2,"duration_ms":4000}' },
   { kind: "tool_result", tool_id: "s1", content: "No namespaces.\nagentId: abc123" },
   { kind: "message", content: "Added the route." },
-  { kind: "tool_use", tool: "mcp__nvoi__create_pull_request", tool_id: "p1", content: '{"title":"Add /health","body":"b"}' },
+  { kind: "tool_use", tool: "mcp__hz__create_pull_request", tool_id: "p1", content: '{"title":"Add /health","body":"b"}' },
   { kind: "message", content: "I asked to open the pull request." },
   { kind: "result", content: "done", meta: { duration_ms: 38000, tokens: 21400 } },
 ];
 
-test("folds a turn: calls before the answer, sub-agents apart, nvoi actions last", () => {
+test("folds a turn: calls before the answer, sub-agents apart, hz actions last", () => {
   const items = transcript(turn, false);
   expect(items.map((i) => i.kind)).toEqual(["you", "turn"]);
   const t = items[1].kind === "turn" ? items[1].turn : undefined;
@@ -60,8 +60,8 @@ test("a sub-agent's conversation reads as its own turn, and a live one runs", ()
 test("a failed push or pull request reads as failed, not done", () => {
   const push: Event[] = [
     { kind: "prompt", content: "push it" },
-    { kind: "tool_use", tool: "mcp__nvoi__push_branch", tool_id: "p", content: "{}" },
-    { kind: "tool_use", tool: "mcp__nvoi__create_pull_request", tool_id: "q", content: '{"title":"t"}' },
+    { kind: "tool_use", tool: "mcp__hz__push_branch", tool_id: "p", content: "{}" },
+    { kind: "tool_use", tool: "mcp__hz__create_pull_request", tool_id: "q", content: '{"title":"t"}' },
     { kind: "result", content: "done" },
     { kind: "prompt", content: "Outcome of the actions you asked for:\npush_branch: failed: exit 128\ncreate_pull_request: push failed: exit 128" },
   ];
@@ -73,7 +73,7 @@ test("a failed push or pull request reads as failed, not done", () => {
 });
 
 test("the preview shows only a page the plane said it showed", () => {
-  const nav = (id: string, path: string): Event => ({ kind: "tool_use", tool: "mcp__nvoi__navigate_preview", tool_id: id, content: JSON.stringify({ path }) });
+  const nav = (id: string, path: string): Event => ({ kind: "tool_use", tool: "mcp__hz__navigate_preview", tool_id: id, content: JSON.stringify({ path }) });
   const outcome = (...lines: string[]): Event => ({ kind: "prompt", content: ["Outcome of the actions you asked for:", ...lines].join("\n") });
   expect(shownPage([nav("a", "/a")])).toBeUndefined();
   expect(shownPage([nav("a", "/a"), outcome("navigate_preview: the preview shows /a")])).toEqual({ id: "a", path: "/a" });
@@ -105,10 +105,10 @@ test("a sub-agent's call takes its own outcome, not the main agent's", () => {
   const events: Event[] = [
     { kind: "prompt", content: "go" },
     { kind: "tool_use", tool: "Task", tool_id: "s", content: '{"description":"helper"}' },
-    { kind: "tool_use", tool: "mcp__nvoi__push_branch", tool_id: "sp", content: "{}", parent: "s" },
-    { kind: "tool_use", tool: "mcp__nvoi__push_branch", tool_id: "mp", content: "{}" },
+    { kind: "tool_use", tool: "mcp__hz__push_branch", tool_id: "sp", content: "{}", parent: "s" },
+    { kind: "tool_use", tool: "mcp__hz__push_branch", tool_id: "mp", content: "{}" },
     { kind: "result", content: "done" },
-    { kind: "prompt", content: "Outcome of the actions you asked for:\npush_branch: failed: exit 1\npush_branch: pushed nvoi/x" },
+    { kind: "prompt", content: "Outcome of the actions you asked for:\npush_branch: failed: exit 1\npush_branch: pushed hz/x" },
   ];
   const t = transcript(events, false)[1];
   const actions = t.kind === "turn" ? t.turn.actions : [];

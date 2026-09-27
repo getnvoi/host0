@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getnvoi/nvoi/shared/contract"
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/shared/contract"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // Minutes each actor spent per state per day, and worker minutes per pool, sampled every UsageEvery. The rest of

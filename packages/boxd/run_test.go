@@ -153,9 +153,9 @@ func TestCancel(t *testing.T) {
 }
 
 func TestEnviron(t *testing.T) {
-	t.Setenv("NVOI_BOX_TOKEN", "secret")
+	t.Setenv("HZ_BOX_TOKEN", "secret")
 	for _, kv := range command(Run{Argv: []string{"true"}}).Env {
-		if strings.HasPrefix(kv, "NVOI_BOX_TOKEN=") {
+		if strings.HasPrefix(kv, "HZ_BOX_TOKEN=") {
 			t.Fatal("token passed to the child")
 		}
 	}

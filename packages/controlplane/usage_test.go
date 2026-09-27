@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 type brokenState struct{ *fakeSandboxes }
@@ -32,7 +32,7 @@ func TestSample(t *testing.T) {
 	st.Put("seeds", "web", contract.Seed{Env: "web", Actor: "seed-web"})
 	sb := &fakeSandboxes{
 		states:  map[string]string{"wt-s1": "running", "wt-s2": "paused", "seed-web": "suspended", "wt-s4": "resuming"},
-		workers: []Worker{{Pool: "nvoi-large", Pod: "a"}, {Pool: "nvoi-large", Pod: "b"}, {Pod: "c"}},
+		workers: []Worker{{Pool: "hz-large", Pod: "a"}, {Pool: "hz-large", Pod: "b"}, {Pod: "c"}},
 	}
 	p := &Plane{Store: st, Sandboxes: brokenState{sb}}
 	now := time.Date(2026, 9, 25, 23, 59, 0, 0, time.UTC)
@@ -57,7 +57,7 @@ func TestSample(t *testing.T) {
 	}
 	var n nodes
 	st.Get("nodes", "2026-09-25", &n)
-	if !reflect.DeepEqual(n.Minutes, map[string]float64{"nvoi-large": 4, "worker": 2}) {
+	if !reflect.DeepEqual(n.Minutes, map[string]float64{"hz-large": 4, "worker": 2}) {
 		t.Fatalf("nodes: %+v", n)
 	}
 }
@@ -81,7 +81,7 @@ func usageStore() *fakeStore {
 	st.Put("usage", "2026-09-25/b", usage{Day: "2026-09-25", Session: "b", Env: "api", By: "ann", Running: 10, Paused: 1})
 	st.Put("usage", "2026-09-25/seed:web", usage{Day: "2026-09-25", Session: "seed:web", Env: "web", Running: 5, Suspended: 3})
 	st.Put("usage", "2026-09-01/a", usage{Day: "2026-09-01", Session: "a", Env: "web", By: "ben", Running: 999})
-	st.Put("nodes", "2026-09-25", nodes{Day: "2026-09-25", Minutes: map[string]float64{"nvoi-medium": 20, "worker": 1}})
+	st.Put("nodes", "2026-09-25", nodes{Day: "2026-09-25", Minutes: map[string]float64{"hz-medium": 20, "worker": 1}})
 	at := day("2026-09-24", 10)
 	st.Put("approvals", "x", contract.Approval{ID: "x", Session: "a", State: "done", At: at, Decided: at.Add(4 * time.Second)})
 	st.Put("approvals", "y", contract.Approval{ID: "y", Session: "b", State: "denied", At: at, Decided: at.Add(2 * time.Second)})

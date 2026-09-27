@@ -14,11 +14,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
-	"github.com/getnvoi/nvoi/controlplane/claude"
-	"github.com/getnvoi/nvoi/controlplane/llm"
-	"github.com/getnvoi/nvoi/shared/contract"
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/controlplane/box"
+	"github.com/getnvoi/host0/controlplane/claude"
+	"github.com/getnvoi/host0/controlplane/llm"
+	"github.com/getnvoi/host0/shared/contract"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // The agent CLIs a credential may name.
@@ -59,8 +59,8 @@ func schema(props map[string]string) map[string]any {
 const instructions = "You work inside a checkout of the repository, your working directory. The app runs from this " +
 	"checkout and reloads on change; the user watches it at %s. On your first turn call set_title. When a change shows " +
 	"on a page, call navigate_preview with its path so the user sees it. Commit your work. " +
-	"Anything that touches GitHub (push, pull request) goes through the nvoi tools: you have no credentials. " +
-	"A nvoi tool answering 'Queued' is normal: end your turn right after. Answer briefly."
+	"Anything that touches GitHub (push, pull request) goes through the hz tools: you have no credentials. " +
+	"A hz tool answering 'Queued' is normal: end your turn right after. Answer briefly."
 
 // Opens the prompt that tells a turn what its tools did.
 const outcome = "Outcome of the actions you asked for:"
@@ -89,7 +89,7 @@ func (p *Plane) Start(name, prompt, by string) (contract.Session, error) {
 		return contract.Session{}, err
 	}
 	sid := id()
-	s := contract.Session{ID: sid, Env: name, Actor: "wt-" + sid, Branch: "nvoi/" + sid, Preview: p.Preview(sid),
+	s := contract.Session{ID: sid, Env: name, Actor: "wt-" + sid, Branch: "hz/" + sid, Preview: p.Preview(sid),
 		Transcript: uuid(), State: "forking", At: time.Now(), Pending: prompt, By: by}
 	if err := p.save(&s); err != nil {
 		return s, err
@@ -282,7 +282,7 @@ func (p *Plane) turn(ctx context.Context, s *contract.Session, prompt string) st
 		add(s, contract.Event{Kind: "prompt", Content: prompt})
 	})
 	run := box.Run{Argv: argv, Dir: App, Env: runner.Env(values)}
-	run.Env["NVOI_TOOLS"] = string(tools)
+	run.Env["HZ_TOOLS"] = string(tools)
 	return p.follow(ctx, s, run)
 }
 

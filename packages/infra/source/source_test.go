@@ -8,11 +8,11 @@ import (
 	"testing"
 )
 
-// Needs the network; run with NVOI_CACHE set to a directory.
+// Needs the network; run with HZ_CACHE set to a directory.
 func TestSubstratePatches(t *testing.T) {
-	cache := os.Getenv("NVOI_CACHE")
+	cache := os.Getenv("HZ_CACHE")
 	if cache == "" {
-		t.Skip("NVOI_CACHE not set")
+		t.Skip("HZ_CACHE not set")
 	}
 	dir, err := Substrate.Dir(context.Background(), cache, io.Discard)
 	if err != nil {

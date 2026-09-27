@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
-	"github.com/getnvoi/nvoi/controlplane/llm"
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/controlplane/box"
+	"github.com/getnvoi/host0/controlplane/llm"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 func basic(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }

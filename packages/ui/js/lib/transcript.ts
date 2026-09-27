@@ -7,7 +7,7 @@ export const OUTCOME = "Outcome of the actions you asked for:";
 const RELAY = /^The user wrote to your sub-agent "(.*?)"\. Continue it with SendMessage to: '(\w+)'[\s\S]*?\n\nTheir message:\n([\s\S]*)$/;
 const AGENT_ID = /agentId: (\w+)/;
 const SPAWN = new Set(["Task", "Agent"]);
-export const NVOI = "mcp__nvoi__";
+export const HZ = "mcp__hz__";
 
 export type Call = { id: string; tool: string; input: string; result?: string; at?: string };
 
@@ -90,12 +90,12 @@ export function settle(said: string): "done" | "denied" | "stopped" | "failed" {
 }
 
 // The page the agent last asked the preview to show, once the plane said it did: a denied or failed call is not
-// shown. The plane answers every nvoi call of a turn in order, sub-agents' included, one line each.
+// shown. The plane answers every hz call of a turn in order, sub-agents' included, one line each.
 export function shownPage(events: Event[]): { id: string; path: string } | undefined {
   const waiting: Event[] = [];
   let shown: { id: string; path: string } | undefined;
   for (const e of events) {
-    if (e.kind === "tool_use" && e.tool === NVOI + "navigate_preview") waiting.push(e);
+    if (e.kind === "tool_use" && e.tool === HZ + "navigate_preview") waiting.push(e);
     else if (e.kind === "prompt" && e.content?.startsWith(OUTCOME)) {
       for (const said of outcomes(e.content).get("navigate_preview") ?? []) {
         const call = waiting.shift();
@@ -156,9 +156,9 @@ export function transcript(events: Event[], running: boolean, pending: Approval[
       return;
     }
     if (e.parent) {
-      // A sub-agent's nvoi call takes its place in the order the outcome prompt answers calls in.
-      if (e.kind === "tool_use" && e.tool?.startsWith(NVOI)) {
-        waiting.push({ id: e.tool_id ?? key, tool: e.tool, input: e.content ?? "", name: e.tool.slice(NVOI.length), state: "running" });
+      // A sub-agent's hz call takes its place in the order the outcome prompt answers calls in.
+      if (e.kind === "tool_use" && e.tool?.startsWith(HZ)) {
+        waiting.push({ id: e.tool_id ?? key, tool: e.tool, input: e.content ?? "", name: e.tool.slice(HZ.length), state: "running" });
       }
       const sid = owner.get(e.parent) ?? e.parent;
       const sub = subs.get(sid);
@@ -217,8 +217,8 @@ export function transcript(events: Event[], running: boolean, pending: Approval[
           const sub = [...subs.values()].find((s) => s.agentId && s.agentId === to);
           if (sub) owner.set(call.id, sub.id);
         }
-        if (call.tool.startsWith(NVOI)) {
-          const name = call.tool.slice(NVOI.length);
+        if (call.tool.startsWith(HZ)) {
+          const name = call.tool.slice(HZ.length);
           const approval = pending.find((a) => a.tool === name && a.input === call.input);
           const action: Action = { ...call, name, state: approval ? "pending" : "running", approval };
           t.actions.push(action);
@@ -257,7 +257,7 @@ export function transcript(events: Event[], running: boolean, pending: Approval[
       s.tokens = task.tokens;
       s.tools = task.tools;
       s.duration = task.duration_ms;
-      s.waiting = pending.some((a) => s.events.some((e) => e.kind === "tool_use" && e.tool === NVOI + a.tool && e.content === a.input));
+      s.waiting = pending.some((a) => s.events.some((e) => e.kind === "tool_use" && e.tool === HZ + a.tool && e.content === a.input));
       if (task.state === "notification") s.state = task.status === "completed" ? "done" : "failed";
       else if (call?.result !== undefined || !t.live) s.state = "done";
       else s.state = "running";
@@ -276,7 +276,7 @@ export function allSubs(items: Item[]): Sub[] {
   return items.flatMap((i) => (i.kind === "turn" ? i.turn.subs : []));
 }
 
-// A sub-agent's own conversation, read as one turn signed by it. Its nvoi actions are answered in the parent's outcome
+// A sub-agent's own conversation, read as one turn signed by it. Its hz actions are answered in the parent's outcome
 // prompt, which the plane words for every call of the turn, sub-agents' included.
 export function subTranscript(sub: Sub, running: boolean, pending: Approval[] = [], outcome?: Event): Item[] {
   const own = sub.events.map((e) => ({ ...e, parent: undefined }));

@@ -15,18 +15,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
-	"github.com/getnvoi/nvoi/controlplane/llm"
-	"github.com/getnvoi/nvoi/shared/contract"
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/controlplane/box"
+	"github.com/getnvoi/host0/controlplane/llm"
+	"github.com/getnvoi/host0/shared/contract"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 const (
 	App     = "/workspace/app"
-	Home    = "/workspace/.nvoi/home"
-	Boxd    = "/workspace/.nvoi/bin/boxd"
-	Ready   = "/workspace/.nvoi/ready"
-	Runs    = "/workspace/.nvoi/runs"
+	Home    = "/workspace/.hz/home"
+	Boxd    = "/workspace/.hz/bin/boxd"
+	Ready   = "/workspace/.hz/ready"
+	Runs    = "/workspace/.hz/runs"
 	pathEnv = Home + "/.local/bin:/usr/local/bundle/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 )
 
@@ -138,7 +138,7 @@ func (p *Plane) containers(ctx context.Context, env contract.Environment) ([]Con
 	}
 	cs := []Container{
 		{Name: "boxd", Image: p.BoxImage, Command: []string{"/ko-app/boxd", "install", Boxd}},
-		{Name: "agent", Image: image, Env: withPath(with(base, "NVOI_BOX_TOKEN", p.derive("env", env.Name))), Probe: box.Port,
+		{Name: "agent", Image: image, Env: withPath(with(base, "HZ_BOX_TOKEN", p.derive("env", env.Name))), Probe: box.Port,
 			// boxd comes back when it dies: its runs' logs are on /workspace, and it settles the ones it lost.
 			Command: sh(fmt.Sprintf("until [ -x %s ]; do sleep 0.2; done; while :; do %s; sleep 1; done", Boxd, Boxd))},
 	}
@@ -171,7 +171,7 @@ func (p *Plane) containers(ctx context.Context, env contract.Environment) ([]Con
 func seedScript(env contract.Environment) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "set -e\nmkdir -p %s\n", Home)
-	fmt.Fprintf(&b, "git config --global user.name nvoi && git config --global user.email agent@nvoi.to\n")
+	fmt.Fprintf(&b, "git config --global user.name hz && git config --global user.email agent@nvoi.to\n")
 	fmt.Fprintf(&b, "git config --global --add safe.directory '*'\n")
 	fmt.Fprintf(&b, "[ -d %s/.git ] || git clone -q --branch %s \"https://x-access-token:$GITHUB_TOKEN@github.com/%s\" %s\n", App, env.Branch, env.Repo, App)
 	fmt.Fprintf(&b, "git -C %s remote set-url origin https://github.com/%s\n", App, env.Repo)

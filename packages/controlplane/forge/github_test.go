@@ -15,14 +15,14 @@ func TestPullRequestReturnsOpen(t *testing.T) {
 			w.Write([]byte(`{"html_url":"https://github.com/o/r/pull/2"}`))
 			return
 		}
-		if r.URL.Query().Get("head") != "o:nvoi/x" {
+		if r.URL.Query().Get("head") != "o:hz/x" {
 			t.Errorf("head %q", r.URL.Query().Get("head"))
 		}
 		w.Write([]byte(`[{"html_url":"https://github.com/o/r/pull/1"}]`))
 	}))
 	defer srv.Close()
 	root = srv.URL
-	url, err := GitHub{}.PullRequest(context.Background(), "t", "o/r", "nvoi/x", "main", "T", "B")
+	url, err := GitHub{}.PullRequest(context.Background(), "t", "o/r", "hz/x", "main", "T", "B")
 	if err != nil || url != "https://github.com/o/r/pull/1" || posts != 0 {
 		t.Fatalf("url %q, err %v, posts %d", url, err, posts)
 	}
@@ -41,7 +41,7 @@ func TestPullRequestOpens(t *testing.T) {
 	}))
 	defer srv.Close()
 	root = srv.URL
-	url, err := GitHub{}.PullRequest(context.Background(), "t", "o/r", "nvoi/x", "main", "T", "B")
+	url, err := GitHub{}.PullRequest(context.Background(), "t", "o/r", "hz/x", "main", "T", "B")
 	if err != nil || url != "https://github.com/o/r/pull/2" {
 		t.Fatalf("url %q, err %v", url, err)
 	}

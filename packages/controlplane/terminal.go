@@ -8,7 +8,7 @@ import (
 	"net/http/httputil"
 	"regexp"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
+	"github.com/getnvoi/host0/controlplane/box"
 )
 
 var errBadTerminal = errors.New("bad terminal id")

@@ -7,7 +7,7 @@ import (
 	"io"
 	"slices"
 
-	"github.com/getnvoi/nvoi/shared/naming"
+	"github.com/getnvoi/host0/shared/naming"
 )
 
 type Server struct {

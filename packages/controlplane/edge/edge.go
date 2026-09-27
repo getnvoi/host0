@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/getnvoi/nvoi/controlplane"
+	"github.com/getnvoi/host0/controlplane"
 )
 
 type Cloudflare struct {
@@ -94,6 +94,6 @@ func (c Cloudflare) Route(ctx context.Context, host string) error {
 		}
 		return nil
 	}
-	rec := map[string]any{"type": "CNAME", "name": host, "content": target, "proxied": true, "ttl": 1, "comment": "nvoi"}
+	rec := map[string]any{"type": "CNAME", "name": host, "content": target, "proxied": true, "ttl": 1, "comment": "hz"}
 	return c.do(ctx, "POST", "/zones/"+z+"/dns_records", rec, nil)
 }

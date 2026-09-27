@@ -7,7 +7,7 @@ import (
 	"sort"
 	"text/template"
 
-	"github.com/getnvoi/nvoi/shared/naming"
+	"github.com/getnvoi/host0/shared/naming"
 )
 
 //go:embed k3s.sh
@@ -35,7 +35,7 @@ func Server() string { return render("server", "", nil) }
 
 // The labels a worker joins with; the autoscaler is told the same ones so it can plan for them.
 func Labels(substrateVersion string) map[string]string {
-	return map[string]string{"nvoi.dev/worker": "true", "ate.dev/substrate-version": substrateVersion}
+	return map[string]string{"hz.dev/worker": "true", "ate.dev/substrate-version": substrateVersion}
 }
 
 func Worker(token string, labels map[string]string) string {

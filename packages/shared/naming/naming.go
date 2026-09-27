@@ -7,14 +7,14 @@ import (
 )
 
 const (
-	Label     = "nvoi.cluster"
+	Label     = "hz.cluster"
 	NetRange  = "10.0.0.0/16"
 	Subnet    = "10.0.1.0/24"
 	ControlIP = "10.0.1.2"
 	// Images pushed from the laptop are named localhost:RegistryPort; atelet and containerd map it to Registry.
 	RegistryPort = 15001
 	Registry     = ControlIP + ":5001"
-	Namespace    = "nvoi-system"
+	Namespace    = "hz-system"
 )
 
 type Cluster struct{ Name string }
@@ -28,11 +28,11 @@ func New(name string) (Cluster, error) {
 	return Cluster{name}, nil
 }
 
-func (c Cluster) Prefix() string  { return "nvoi-" + c.Name }
+func (c Cluster) Prefix() string  { return "hz-" + c.Name }
 func (c Cluster) Control() string { return c.Prefix() + "-control" }
 
 // The Cloudflare tunnel: a name no other tool picks, since tunnels carry no labels and one found by name is ours.
-func (c Cluster) Tunnel() string   { return "nvoi-cluster-" + c.Name }
+func (c Cluster) Tunnel() string   { return "hz-cluster-" + c.Name }
 func (c Cluster) Selector() string { return Label + "=" + c.Name }
 func (c Cluster) Labels() map[string]string {
 	return map[string]string{Label: c.Name}

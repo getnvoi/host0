@@ -26,8 +26,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/getnvoi/nvoi/controlplane"
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/controlplane"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 type Config struct {

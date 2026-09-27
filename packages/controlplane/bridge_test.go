@@ -27,7 +27,7 @@ func inject(t *testing.T, body string) string {
 }
 
 func TestBridged(t *testing.T) {
-	tag := `<script src="/__nvoi/bridge.js"></script>`
+	tag := `<script src="/__hz/bridge.js"></script>`
 	if got := inject(t, `<!doctype html><HEAD lang="en"><title>x</title></head><body>hi</body>`); got !=
 		`<!doctype html><HEAD lang="en">`+tag+`<title>x</title></head><body>hi</body>` {
 		t.Fatalf("after head: %q", got)
@@ -46,7 +46,7 @@ func TestBridged(t *testing.T) {
 
 func TestBridgeScript(t *testing.T) {
 	s := bridgeScript("app-dev.host0.dev")
-	if !strings.Contains(s, `var O = "https://app-dev.host0.dev"`) || !strings.Contains(s, "nvoi:url") || !strings.Contains(s, "nvoi:ping") {
+	if !strings.Contains(s, `var O = "https://app-dev.host0.dev"`) || !strings.Contains(s, "hz:url") || !strings.Contains(s, "hz:ping") {
 		t.Fatalf("script: %s", s)
 	}
 }

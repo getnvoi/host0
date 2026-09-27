@@ -4,7 +4,7 @@ import axios from "axios";
 // no cross-site form can set it. A 401 means the session ended; the app sends the reader to sign in again.
 export const api = axios.create({
   baseURL: "/api",
-  headers: { Accept: "application/json", "Content-Type": "application/json", "X-Requested-With": "nvoi" },
+  headers: { Accept: "application/json", "Content-Type": "application/json", "X-Requested-With": "hz" },
 });
 
 api.interceptors.response.use(undefined, (error) => {

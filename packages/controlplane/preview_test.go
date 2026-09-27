@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/getnvoi/nvoi/controlplane/box"
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/controlplane/box"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 func TestPreviewStatus(t *testing.T) {

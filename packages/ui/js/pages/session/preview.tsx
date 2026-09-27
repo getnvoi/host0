@@ -52,7 +52,7 @@ export function Preview({ session, host }: { session: Session; host: string }) {
   const { t } = useTranslations();
   // The preview is served as this page is: https on a cluster, http on a port for a local one.
   const origin = `${location.protocol}//${host}${location.port ? `:${location.port}` : ""}`;
-  const pathKey = `nvoi.preview-path:${host}`;
+  const pathKey = `hz.preview-path:${host}`;
   const status = usePreviewStatus(session.id);
   const up = status.data?.up ?? false;
   const frame = useRef<HTMLIFrameElement>(null);
@@ -144,12 +144,12 @@ export function Preview({ session, host }: { session: Session; host: string }) {
     hangs.current = 0;
     setBridged(false);
     ping.current = Math.random().toString(36).slice(2);
-    post({ type: "nvoi:ping", id: ping.current });
+    post({ type: "hz:ping", id: ping.current });
   };
 
   useEffect(() => {
     const listen = (e: MessageEvent) => {
-      if (e.origin !== origin || e.data?.type !== "nvoi:url" || typeof e.data.path !== "string") return;
+      if (e.origin !== origin || e.data?.type !== "hz:url" || typeof e.data.path !== "string") return;
       heard.current = Date.now();
       // Only a ping's answer, or a history change (which comes after load), speaks for the page now in the frame.
       if ((e.data.reason === "ping" && e.data.id === ping.current) || /^(pushState|replaceState|popstate|hashchange)$/.test(e.data.reason)) {
@@ -183,10 +183,10 @@ export function Preview({ session, host }: { session: Session; host: string }) {
     setWhere((w) => ({ ...w, path: route }));
     remember(pathKey, route);
     visit(route);
-    if (live()) post({ type: "nvoi:navigate", path: route });
+    if (live()) post({ type: "hz:navigate", path: route });
     else load(route);
   };
-  const reload = () => (live() ? post({ type: "nvoi:reload" }) : load(where.path));
+  const reload = () => (live() ? post({ type: "hz:reload" }) : load(where.path));
   // The app's front page, loaded afresh with the token.
   const home = () => {
     setWhere((w) => ({ ...w, path: "/" }));
@@ -196,7 +196,7 @@ export function Preview({ session, host }: { session: Session; host: string }) {
   };
   // The page's own history when it has one; the visited addresses otherwise.
   const step = (delta: number) => {
-    if (live() && (delta < 0 ? where.back : where.forward)) return post({ type: "nvoi:history", delta });
+    if (live() && (delta < 0 ? where.back : where.forward)) return post({ type: "hz:history", delta });
     const v = visits.current;
     const at = v.at + delta;
     if (at < 0 || at >= v.list.length) return;
@@ -210,7 +210,7 @@ export function Preview({ session, host }: { session: Session; host: string }) {
 
   // The agent asked to show a page and the plane did: the latest such call, once. A denied or failed one is not shown.
   const asked = useMemo(() => shownPage(session.events), [session.events]);
-  const askedKey = `nvoi.preview-asked:${session.id}`;
+  const askedKey = `hz.preview-asked:${session.id}`;
   useEffect(() => {
     if (!asked || !src || remembered(askedKey) === asked.id) return;
     remember(askedKey, asked.id);

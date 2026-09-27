@@ -10,7 +10,7 @@ import (
 
 	gossh "golang.org/x/crypto/ssh"
 
-	"github.com/getnvoi/nvoi/infra"
+	"github.com/getnvoi/host0/infra"
 )
 
 type Client struct {

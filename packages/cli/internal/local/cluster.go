@@ -11,12 +11,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/getnvoi/nvoi/cloudflare"
-	"github.com/getnvoi/nvoi/hetzner"
-	"github.com/getnvoi/nvoi/infra"
-	"github.com/getnvoi/nvoi/infra/ssh"
-	"github.com/getnvoi/nvoi/infra/steps"
-	"github.com/getnvoi/nvoi/shared/naming"
+	"github.com/getnvoi/host0/cloudflare"
+	"github.com/getnvoi/host0/hetzner"
+	"github.com/getnvoi/host0/infra"
+	"github.com/getnvoi/host0/infra/ssh"
+	"github.com/getnvoi/host0/infra/steps"
+	"github.com/getnvoi/host0/shared/naming"
 )
 
 func Cluster() *cobra.Command {
@@ -100,7 +100,7 @@ func env(name string, cfg *infra.Config, key string, install bool) (*infra.Env, 
 		}
 		cfg.PublicKey = strings.TrimSpace(string(pub))
 	}
-	cache := filepath.Join(home, ".nvoi", "cache")
+	cache := filepath.Join(home, ".hz", "cache")
 	if err := os.MkdirAll(cache, 0o700); err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func env(name string, cfg *infra.Config, key string, install bool) (*infra.Env, 
 	}, nil
 }
 
-// The checkout this binary was built from: bin/nvoi sits beside go.work.
+// The checkout this binary was built from: bin/hz sits beside go.work.
 func source() string {
 	exe, _ := os.Executable()
 	exe, _ = filepath.EvalSymlinks(exe)

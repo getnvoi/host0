@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/getnvoi/nvoi/controlplane"
+	"github.com/getnvoi/host0/controlplane"
 )
 
 type Files struct {

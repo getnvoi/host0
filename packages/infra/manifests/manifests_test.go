@@ -7,8 +7,8 @@ import (
 
 func TestRenderAll(t *testing.T) {
 	pools := map[string]any{"Pools": []map[string]any{
-		{"Name": "nvoi-medium", "Namespace": "nvoi", "CPU": "2", "Memory": "4Gi", "CPURequest": "500m", "Replicas": 0},
-		{"Name": "nvoi-large", "Namespace": "nvoi", "CPU": "4", "Memory": "8Gi", "CPURequest": "1", "Replicas": 2}}}
+		{"Name": "hz-medium", "Namespace": "hz", "CPU": "2", "Memory": "4Gi", "CPURequest": "500m", "Replicas": 0},
+		{"Name": "hz-large", "Namespace": "hz", "CPU": "4", "Memory": "8Gi", "CPURequest": "1", "Replicas": 2}}}
 	data := map[string]any{
 		"namespace.yaml": nil, "cloudflared.yaml": nil,
 		"registry.yaml":    map[string]string{"Registry": "10.0.1.2:5001"},

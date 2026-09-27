@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 func TestEvents(t *testing.T) {
 	cases := map[string]string{
 		`{"type":"system","subtype":"init"}`: "status",
-		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__nvoi__create_pull_request","id":"t1","input":{"title":"x"}}]}}`: "tool_use",
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__hz__create_pull_request","id":"t1","input":{"title":"x"}}]}}`: "tool_use",
 		`{"type":"result","result":"done"}`: "result",
 		`not json`:                          "notice",
 	}
@@ -21,7 +21,7 @@ func TestEvents(t *testing.T) {
 			t.Errorf("%s: got %+v, want %s", line, ev, kind)
 		}
 	}
-	if name, ok := (Runner{}).Tool("mcp__nvoi__create_pull_request"); !ok || name != "create_pull_request" {
+	if name, ok := (Runner{}).Tool("mcp__hz__create_pull_request"); !ok || name != "create_pull_request" {
 		t.Errorf("Tool: %q %v", name, ok)
 	}
 }

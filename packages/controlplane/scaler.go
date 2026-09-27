@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/getnvoi/nvoi/shared/tiers"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // Pools start at zero: the plane grows one when an actor finds no worker, and shrinks it to what holds an actor.

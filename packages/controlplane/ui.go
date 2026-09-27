@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/getnvoi/nvoi/controlplane/web"
+	"github.com/getnvoi/host0/controlplane/web"
 )
 
 var dist, _ = fs.Sub(web.Dist, "dist")

@@ -5,7 +5,7 @@ import { messageFrom } from "@/contexts/api/errors";
 import { useApprovals, useQueue, useSay, useStop, useUnqueue } from "@/contexts/api/sessions";
 import { useLink } from "@/contexts/api/stream";
 import type { Approval, Environment, Session, State } from "@/contexts/api/types";
-import { allSubs, NVOI, outcomeFor, subTranscript, transcript } from "@/lib/transcript";
+import { allSubs, HZ, outcomeFor, subTranscript, transcript } from "@/lib/transcript";
 import { Markdown } from "@/ui/bits";
 import { Alert } from "@/ds/alert";
 import { Badge } from "@/ds/badge";
@@ -57,7 +57,7 @@ export function Chat({ session, env, head }: { session: Session; env?: Environme
     return `/s/${session.id}${q ? `?${q}` : ""}`;
   };
   const askedBy = (a: Approval) =>
-    subs.find((s) => s.events.some((e) => e.kind === "tool_use" && e.tool === NVOI + a.tool && e.content === a.input))?.name ?? agent.name;
+    subs.find((s) => s.events.some((e) => e.kind === "tool_use" && e.tool === HZ + a.tool && e.content === a.input))?.name ?? agent.name;
   const lastPrompt = [...session.events].reverse().find((e) => e.kind === "prompt")?.at ?? session.at;
   const held = session.state === "idle" || session.state === "failed";
 

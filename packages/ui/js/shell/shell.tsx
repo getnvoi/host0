@@ -46,11 +46,11 @@ function Side({ rail, place }: { rail: boolean; place: "home" | "session" }) {
   const location = useLocation();
   const [theme, setTheme] = useState<Theme>(readTheme);
   const current = location.pathname.match(/^\/s\/([^/]+)/)?.[1];
-  const name = me.data?.cluster ?? "nvoi";
+  const name = me.data?.cluster ?? "hz";
   const pick = (next: Theme) => {
     setTheme(next);
     try {
-      localStorage.setItem("nvoi.theme", next);
+      localStorage.setItem("hz.theme", next);
     } catch {
       // This page only.
     }
@@ -73,7 +73,7 @@ function Side({ rail, place }: { rail: boolean; place: "home" | "session" }) {
     <Sidebar
       key={place}
       collapsed={rail}
-      storageKey={`nvoi.rail.${place}`}
+      storageKey={`hz.rail.${place}`}
       recent={t("side.recent")}
       empty={t("side.none")}
       workspace={{ name, items: [{ label: t("home.title"), glyph: "session", href: "/", current: location.pathname === "/" }] }}
@@ -96,7 +96,7 @@ type Theme = "system" | "light" | "dark";
 
 function readTheme(): Theme {
   try {
-    return (localStorage.getItem("nvoi.theme") as Theme) || "system";
+    return (localStorage.getItem("hz.theme") as Theme) || "system";
   } catch {
     return "system";
   }

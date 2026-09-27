@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/getnvoi/nvoi/shared/contract"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 func handler(t *testing.T) (*Plane, http.Handler) {

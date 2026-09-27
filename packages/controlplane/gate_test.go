@@ -28,12 +28,12 @@ func TestGate(t *testing.T) {
 		t.Fatalf("document with token: %v %d %v", ok, w.Code, w.Header())
 	}
 	asset := httptest.NewRequest("GET", "/app.css", nil)
-	asset.Header.Set("Cookie", "nvoi_token="+token+"; theirs=1")
+	asset.Header.Set("Cookie", "hz_token="+token+"; theirs=1")
 	if ok, _ := pass(asset); !ok || asset.Header.Get("Cookie") != "theirs=1" {
 		t.Fatalf("cookie: %v %q", ok, asset.Header.Get("Cookie"))
 	}
 	other := httptest.NewRequest("GET", "/", nil)
-	other.Header.Set("x-nvoi-token", token)
+	other.Header.Set("x-hz-token", token)
 	if ok, _ := (&Plane{BoxToken: "secret"}).gate(httptest.NewRecorder(), other, "b-dev-preview.nvoi.to"), false; ok {
 		t.Fatal("token for another host passed")
 	}

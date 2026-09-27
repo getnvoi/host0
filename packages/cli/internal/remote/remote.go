@@ -1,4 +1,4 @@
-// The remote commands: thin calls to the plane, with the token the install left in ~/.nvoi/state.json.
+// The remote commands: thin calls to the plane, with the token the install left in ~/.hz/state.json.
 package remote
 
 import (
@@ -16,8 +16,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/getnvoi/nvoi/shared/contract"
-	"github.com/getnvoi/nvoi/shared/state"
+	"github.com/getnvoi/host0/shared/contract"
+	"github.com/getnvoi/host0/shared/state"
 )
 
 func call(method, path string, in, out any) error {
@@ -58,8 +58,8 @@ func credentials() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "credentials",
 		Short: "Hand the plane a GitHub token (default: gh auth token) and the agent's credential (default: claude setup-token)",
-		Example: `  nvoi credentials --set kind=api_key --secret token=ANTHROPIC_API_KEY
-  nvoi credentials --set kind=bearer --set base_url=https://api.z.ai/api/anthropic --secret token=ZAI_API_KEY`,
+		Example: `  hz credentials --set kind=api_key --secret token=ANTHROPIC_API_KEY
+  hz credentials --set kind=bearer --set base_url=https://api.z.ai/api/anthropic --secret token=ZAI_API_KEY`,
 		RunE: func(*cobra.Command, []string) error {
 			c := contract.Credentials{GitHub: os.Getenv(github), LLM: contract.LLM{Provider: provider, Values: map[string]string{}}}
 			if c.GitHub == "" {

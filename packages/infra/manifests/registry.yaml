@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: registry
-  namespace: nvoi-system
+  namespace: hz-system
 spec:
   replicas: 1
   strategy: { type: Recreate }
@@ -23,4 +23,4 @@ spec:
           volumeMounts: [{ name: data, mountPath: /var/lib/registry }]
       volumes:
         - name: data
-          hostPath: { path: /var/lib/nvoi/registry, type: DirectoryOrCreate }
+          hostPath: { path: /var/lib/hz/registry, type: DirectoryOrCreate }

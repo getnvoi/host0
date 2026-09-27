@@ -30,7 +30,7 @@ func MCP(tools json.RawMessage, in io.Reader, out io.Writer) error {
 		switch msg.Method {
 		case "initialize":
 			result = map[string]any{"protocolVersion": "2024-11-05", "capabilities": map[string]any{"tools": map[string]any{}},
-				"serverInfo": map[string]string{"name": "nvoi", "version": "1"}}
+				"serverInfo": map[string]string{"name": "hz", "version": "1"}}
 		case "tools/list":
 			result = map[string]any{"tools": tools}
 		case "tools/call":

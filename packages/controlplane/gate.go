@@ -14,7 +14,7 @@ import (
 // The preview gate: a token is { aud: "preview", host, exp }, HS256, bound to one preview host. Verified offline,
 // before anything is woken; it leaves the URL for a cookie at once and never reaches the app.
 const (
-	gateCookie   = "nvoi_token"
+	gateCookie   = "hz_token"
 	gateAudience = "preview"
 	gateSkew     = 60 * time.Second
 )
@@ -28,7 +28,7 @@ type gateClaims struct {
 }
 
 func (p *Plane) gateKey() []byte {
-	sum := sha256.Sum256([]byte("nvoi preview gate\x00" + p.BoxToken))
+	sum := sha256.Sum256([]byte("hz preview gate\x00" + p.BoxToken))
 	return sum[:]
 }
 
@@ -76,7 +76,7 @@ func (p *Plane) gate(w http.ResponseWriter, r *http.Request, host string) bool {
 	cookie, _ := r.Cookie(gateCookie)
 	var presented string
 	stale := false
-	for _, t := range []string{query, r.Header.Get("x-nvoi-token"), value(cookie)} {
+	for _, t := range []string{query, r.Header.Get("x-hz-token"), value(cookie)} {
 		if t == "" {
 			continue
 		}
@@ -94,9 +94,9 @@ func (p *Plane) gate(w http.ResponseWriter, r *http.Request, host string) bool {
 		if document(r) {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusUnauthorized)
-			msg := "This preview needs a link from nvoi."
+			msg := "This preview needs a link from hz."
 			if stale {
-				msg = "This preview link has expired. Ask nvoi for a new one."
+				msg = "This preview link has expired. Ask hz for a new one."
 			}
 			w.Write([]byte("<!doctype html><title>" + host + "</title><p style=\"font:16px system-ui;margin:3rem\">" + msg + "</p>"))
 		} else {
@@ -119,7 +119,7 @@ func (p *Plane) gate(w http.ResponseWriter, r *http.Request, host string) bool {
 		q.Del("token")
 		r.URL.RawQuery = q.Encode()
 	}
-	r.Header.Del("x-nvoi-token")
+	r.Header.Del("x-hz-token")
 	stripCookie(r, gateCookie)
 	return true
 }
