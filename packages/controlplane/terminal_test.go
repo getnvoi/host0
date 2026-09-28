@@ -39,7 +39,8 @@ func withBox(t *testing.T, boxd http.HandlerFunc) (*Plane, http.Handler) {
 	p.Sandboxes, p.BoxToken = boxed{addr: srv.Listener.Addr().String()}, "box"
 	p.Store.Put("environments", "web", contract.Environment{Name: "web", Branch: "main",
 		Services: []contract.Service{{Name: "rails"}, {Name: "worker"}}})
-	p.Store.Put("credentials", "default", testCreds)
+	p.Store.Put("credentials", "default", contract.Credentials{})
+	p.Store.Put("llm", testLLM.Name, testLLM)
 	p.Store.Put("seeds", "web", contract.Seed{Env: "web", Run: "seed-1"})
 	p.Store.Put("sessions", "s1", contract.Session{ID: "s1", Env: "web", Actor: "wt-s1"})
 	return p, h

@@ -254,12 +254,12 @@ func stopKey(sid string, turn int) string { return sid + "/" + strconv.Itoa(turn
 func (p *Plane) turn(ctx context.Context, s *contract.Session, prompt string) string {
 	// Saved before anything that can fail or take long: a plane that restarts from here runs the prompt again.
 	p.put(s, func() { s.State, s.Pending, s.Error = "running", prompt, "" })
-	env, creds, err := p.env(s.Env)
+	env, _, err := p.env(s.Env)
 	if err != nil {
 		p.fail(s, err)
 		return ""
 	}
-	runner, values, err := llm.Check(Runners, creds.LLM)
+	runner, values, err := p.runner()
 	if err != nil {
 		p.fail(s, err)
 		return ""
@@ -305,7 +305,7 @@ func (p *Plane) follow(ctx context.Context, s *contract.Session, run box.Run) st
 		p.fail(s, err)
 		return ""
 	}
-	runner, _, err := llm.Check(Runners, creds.LLM)
+	runner, _, err := p.runner()
 	if err != nil {
 		p.fail(s, err)
 		return ""

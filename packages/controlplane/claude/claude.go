@@ -26,13 +26,18 @@ type Runner struct{}
 func (Runner) Key() string   { return "claude_code" }
 func (Runner) Label() string { return "Claude Code" }
 
-// bearer with base_url is a third-party Anthropic-compatible endpoint (z.ai, Kimi, OpenRouter).
-func (Runner) Fields() []llm.Field {
-	return []llm.Field{
-		{Key: "kind", Required: true, Options: []string{"oauth", "api_key", "bearer"}},
-		{Key: "token", Required: true, Secret: true},
-		{Key: "base_url"},
-		{Key: "model", Options: []string{"sonnet", "opus", "haiku"}, Default: "sonnet"},
+func (Runner) Fields() []contract.Field {
+	return []contract.Field{
+		{Key: "kind", Label: "Credential kind", Type: "select", Required: true,
+			Help: "oauth for a Claude subscription, api_key for an Anthropic key, bearer for a third-party endpoint such as z.ai or Kimi",
+			Options: []contract.Option{{Value: "oauth", Label: "Claude subscription (OAuth)"},
+				{Value: "api_key", Label: "Anthropic API key"}, {Value: "bearer", Label: "Third-party endpoint (bearer)"}}},
+		{Key: "token", Label: "Token", Type: "password", Required: true, Secret: true, Placeholder: "sk-ant-..."},
+		{Key: "base_url", Label: "Base URL", Type: "text", Placeholder: "https://api.anthropic.com",
+			Help: "Only for a third-party endpoint. Leave empty for Anthropic."},
+		{Key: "model", Label: "Model", Type: "select", Default: "sonnet",
+			Help: "The vendor's alias; it follows their current model.",
+			Options: []contract.Option{{Value: "sonnet", Label: "Sonnet"}, {Value: "opus", Label: "Opus"}, {Value: "haiku", Label: "Haiku"}}},
 	}
 }
 

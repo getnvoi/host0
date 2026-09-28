@@ -19,13 +19,17 @@ type Runner struct{}
 func (Runner) Key() string   { return "codex" }
 func (Runner) Label() string { return "Codex" }
 
-// chatgpt is a ChatGPT sign-in: token is the whole of ~/.codex/auth.json. base_url is an OpenAI-compatible endpoint.
-func (Runner) Fields() []llm.Field {
-	return []llm.Field{
-		{Key: "kind", Required: true, Options: []string{"chatgpt", "api_key"}},
-		{Key: "token", Required: true, Secret: true},
-		{Key: "base_url"},
-		{Key: "model"},
+func (Runner) Fields() []contract.Field {
+	return []contract.Field{
+		{Key: "kind", Label: "Credential kind", Type: "select", Required: true,
+			Help: "chatgpt for a ChatGPT sign-in, api_key for an OpenAI key",
+			Options: []contract.Option{{Value: "chatgpt", Label: "ChatGPT sign-in"}, {Value: "api_key", Label: "OpenAI API key"}}},
+		{Key: "token", Label: "Token", Type: "password", Required: true, Secret: true, Placeholder: "sk-...",
+			Help: "For a ChatGPT sign-in, the whole of ~/.codex/auth.json."},
+		{Key: "base_url", Label: "Base URL", Type: "text", Placeholder: "https://api.openai.com/v1",
+			Help: "Only for an OpenAI-compatible endpoint. Leave empty for OpenAI."},
+		{Key: "model", Label: "Model", Type: "text", Placeholder: "gpt-5",
+			Help: "Empty runs codex's default."},
 	}
 }
 

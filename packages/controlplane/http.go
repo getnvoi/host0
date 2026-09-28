@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/getnvoi/host0/controlplane/box"
-	"github.com/getnvoi/host0/controlplane/llm"
 	"github.com/getnvoi/host0/shared/contract"
 )
 
@@ -78,14 +77,36 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	})
 	api.HandleFunc("PUT /credentials", func(w http.ResponseWriter, r *http.Request) {
 		var c contract.Credentials
-		reply(w, nil, read(r, &c, func() error {
-			_, values, err := llm.Check(Runners, c.LLM)
-			if err != nil {
-				return badRequest{err}
-			}
-			c.LLM.Values = values
-			return p.Store.Put("credentials", "default", c)
-		}))
+		reply(w, nil, read(r, &c, func() error { return p.Store.Put("credentials", "default", c) }))
+	})
+	api.HandleFunc("GET /llm/providers", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, p.Providers(), nil)
+	})
+	api.HandleFunc("GET /llm/configs", func(w http.ResponseWriter, r *http.Request) {
+		cs, err := p.Configs()
+		reply(w, cs, err)
+	})
+	api.HandleFunc("POST /llm/configs", func(w http.ResponseWriter, r *http.Request) {
+		var in, out contract.LLMConfig
+		reply(w, &out, read(r, &in, func() (err error) { out, err = p.AddConfig(in); return }))
+	})
+	api.HandleFunc("PUT /llm/configs/{name}", func(w http.ResponseWriter, r *http.Request) {
+		var in struct{ Values map[string]string }
+		var out contract.LLMConfig
+		reply(w, &out, read(r, &in, func() (err error) { out, err = p.UpdateConfig(r.PathValue("name"), in.Values); return }))
+	})
+	api.HandleFunc("POST /llm/configs/{name}/main", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, nil, p.UseConfig(r.PathValue("name")))
+	})
+	api.HandleFunc("POST /llm/configs/{name}/restore", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, nil, p.RestoreConfig(r.PathValue("name")))
+	})
+	api.HandleFunc("DELETE /llm/configs/{name}", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("remove") != "" {
+			reply(w, nil, p.RemoveConfig(r.PathValue("name")))
+			return
+		}
+		reply(w, nil, p.ArchiveConfig(r.PathValue("name")))
 	})
 	api.HandleFunc("PUT /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
 		var e contract.Environment

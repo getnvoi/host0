@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/user"
@@ -54,7 +55,7 @@ func Commands() []*cobra.Command {
 }
 
 func credentials() *cobra.Command {
-	var github, provider string
+	var github, provider, name string
 	var set, secret []string
 	cmd := &cobra.Command{
 		Use:   "credentials",
@@ -64,7 +65,8 @@ func credentials() *cobra.Command {
   hz credentials --llm codex
   hz credentials --llm codex --set kind=api_key --secret token=OPENAI_API_KEY --set model=gpt-5`,
 		RunE: func(*cobra.Command, []string) error {
-			c := contract.Credentials{GitHub: os.Getenv(github), LLM: contract.LLM{Provider: provider, Values: map[string]string{}}}
+			c := contract.Credentials{GitHub: os.Getenv(github)}
+			l := contract.LLMConfig{Name: name, Provider: provider, Values: map[string]string{}, Main: true}
 			if c.GitHub == "" {
 				out, err := exec.Command("gh", "auth", "token").Output()
 				if err != nil {
@@ -77,14 +79,14 @@ func credentials() *cobra.Command {
 				if !ok {
 					return fmt.Errorf("--set %s: want key=value", kv)
 				}
-				c.LLM.Values[k] = v
+				l.Values[k] = v
 			}
 			for _, kv := range secret {
 				k, name, ok := strings.Cut(kv, "=")
 				if !ok {
 					return fmt.Errorf("--secret %s: want key=VARIABLE", kv)
 				}
-				if c.LLM.Values[k] = os.Getenv(name); c.LLM.Values[k] == "" {
+				if l.Values[k] = os.Getenv(name); l.Values[k] == "" {
 					return fmt.Errorf("%s is not set in this shell", name)
 				}
 			}
@@ -95,7 +97,7 @@ func credentials() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					c.LLM.Values["kind"], c.LLM.Values["token"] = "oauth", token
+					l.Values["kind"], l.Values["token"] = "oauth", token
 				case "codex":
 					home, err := os.UserHomeDir()
 					if err != nil {
@@ -105,13 +107,43 @@ func credentials() *cobra.Command {
 					if err != nil {
 						return fmt.Errorf("codex sign-in: %w (run codex login)", err)
 					}
-					c.LLM.Values["kind"], c.LLM.Values["token"] = "chatgpt", string(auth)
+					l.Values["kind"], l.Values["token"] = "chatgpt", string(auth)
 				}
 			}
-			return call("PUT", "/credentials", c, nil)
+			if err := call("PUT", "/credentials", c, nil); err != nil {
+				return err
+			}
+			if l.Name == "" {
+				var ps []contract.Provider
+				if err := call("GET", "/llm/providers", nil, &ps); err != nil {
+					return err
+				}
+				for _, p := range ps {
+					if p.Key == provider {
+						l.Name = p.Label
+					}
+				}
+				if l.Name == "" {
+					return fmt.Errorf("the plane has no provider %s", provider)
+				}
+			}
+			var all []contract.LLMConfig
+			if err := call("GET", "/llm/configs", nil, &all); err != nil {
+				return err
+			}
+			for _, o := range all {
+				if o.Name == l.Name {
+					if err := call("PUT", "/llm/configs/"+url.PathEscape(l.Name), map[string]any{"values": l.Values}, nil); err != nil {
+						return err
+					}
+					return call("POST", "/llm/configs/"+url.PathEscape(l.Name)+"/main", nil, nil)
+				}
+			}
+			return call("POST", "/llm/configs", l, nil)
 		},
 	}
 	cmd.Flags().StringVar(&github, "github-env", "GITHUB_TOKEN", "variable holding the GitHub token")
+	cmd.Flags().StringVar(&name, "name", "", "the credential's label (default: the provider's name); it becomes the one in use")
 	cmd.Flags().StringVar(&provider, "llm", "claude_code", "the agent CLI the credential is for: claude_code or codex")
 	cmd.Flags().StringArrayVar(&set, "set", nil, "a credential field, key=value")
 	cmd.Flags().StringArrayVar(&secret, "secret", nil, "a credential field read from this shell, key=VARIABLE")

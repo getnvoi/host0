@@ -77,7 +77,10 @@ function Side({ rail, place }: { rail: boolean; place: "home" | "session" }) {
       recent={t("side.recent")}
       empty={t("side.none")}
       workspace={{ name, items: [{ label: t("home.title"), glyph: "session", href: "/", current: location.pathname === "/" }] }}
-      places={[{ label: t("usage.title"), icon: "tier", href: "/usage", active: location.pathname === "/usage" }]}
+      places={[
+        { label: t("usage.title"), icon: "tier", href: "/usage", active: location.pathname === "/usage" },
+        { label: t("llm.title"), icon: "llm", href: "/llm", active: location.pathname.startsWith("/llm") },
+      ]}
       sessions={(sessions.data ?? []).slice(0, 30).map((s) => ({
         id: s.id,
         title: s.title ?? s.prompt ?? t("session.untitled"),

@@ -33,13 +33,42 @@ type Environment struct {
 
 type Credentials struct {
 	GitHub string `json:"github,omitempty"`
-	LLM    LLM    `json:"llm"`
 }
 
-// The agent's credential: the runner it is for, and that runner's fields by key.
-type LLM struct {
+// An agent credential. Its name is its id; turns run on the one live credential that is main.
+type LLMConfig struct {
+	Name     string            `json:"name"`
 	Provider string            `json:"provider"`
 	Values   map[string]string `json:"values"`
+	// The secret fields holding a value; their values never leave the plane.
+	Stored   []string   `json:"stored,omitempty"`
+	Main     bool       `json:"main"`
+	Archived *time.Time `json:"archived_at,omitempty"`
+	At       time.Time  `json:"at"`
+}
+
+// An agent CLI a credential can be for, and the form of that credential.
+type Provider struct {
+	Key    string  `json:"key"`
+	Label  string  `json:"label"`
+	Fields []Field `json:"fields"`
+}
+
+type Field struct {
+	Key         string   `json:"key"`
+	Label       string   `json:"label"`
+	Type        string   `json:"type"` // text, password or select
+	Secret      bool     `json:"secret,omitempty"`
+	Required    bool     `json:"required,omitempty"`
+	Options     []Option `json:"options,omitempty"`
+	Default     string   `json:"default,omitempty"`
+	Placeholder string   `json:"placeholder,omitempty"`
+	Help        string   `json:"help,omitempty"`
+}
+
+type Option struct {
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
 
 type Seed struct {

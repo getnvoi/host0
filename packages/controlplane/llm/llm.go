@@ -3,20 +3,10 @@ package llm
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/getnvoi/host0/shared/contract"
 )
-
-// One value of a runner's credential. Options, when set, is the closed set it must be in.
-type Field struct {
-	Key      string
-	Secret   bool
-	Required bool
-	Options  []string
-	Default  string
-}
 
 type Turn struct {
 	Prompt, Session, Model, Instructions, MCP string
@@ -26,7 +16,8 @@ type Runner interface {
 	// The name a credential stores.
 	Key() string
 	Label() string
-	Fields() []Field
+	// The credential's form, in the order it is asked; the field keyed model is the model.
+	Fields() []contract.Field
 	// Shell that installs the CLI in the seed; does nothing when it is there.
 	Install() string
 	// The process environment a turn runs under, from values Check accepted.
@@ -36,12 +27,16 @@ type Runner interface {
 	Events(line string) []contract.Event
 	// The conversation id a line of output names, empty when it names none.
 	Transcript(line string) string
-	// The hz tool a tool_use calls, without the prefix the CLI adds.
+	// The nvoi tool a tool_use calls, without the prefix the CLI adds.
 	Tool(name string) (string, bool)
 	// Output saying the CLI lost its API rather than the turn failing.
 	Transient(text string) bool
 	// The prompt that has the agent pass a message to the sub-agent tool call to started.
 	Relay(events []contract.Event, to, prompt string) (string, error)
+}
+
+func Describe(r Runner) contract.Provider {
+	return contract.Provider{Key: r.Key(), Label: r.Label(), Fields: r.Fields()}
 }
 
 func Find(runners []Runner, key string) (Runner, error) {
@@ -52,15 +47,12 @@ func Find(runners []Runner, key string) (Runner, error) {
 		}
 		keys = append(keys, r.Key())
 	}
-	if key == "" {
-		return nil, fmt.Errorf("no agent credential: run hz credentials (providers: %s)", strings.Join(keys, ", "))
-	}
 	return nil, fmt.Errorf("no provider %q (providers: %s)", key, strings.Join(keys, ", "))
 }
 
-// The runner a credential names and its values with defaults filled; a value the runner does not declare is refused.
-func Check(runners []Runner, c contract.LLM) (Runner, map[string]string, error) {
-	r, err := Find(runners, c.Provider)
+// The runner a provider names and its values with defaults filled; a value the runner does not declare is refused.
+func Check(runners []Runner, provider string, values map[string]string) (Runner, map[string]string, error) {
+	r, err := Find(runners, provider)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -68,24 +60,33 @@ func Check(runners []Runner, c contract.LLM) (Runner, map[string]string, error) 
 	fields := map[string]bool{}
 	for _, f := range r.Fields() {
 		fields[f.Key] = true
-		v := c.Values[f.Key]
+		v := values[f.Key]
 		if v == "" {
 			v = f.Default
 		}
-		switch {
-		case v == "" && f.Required:
-			return nil, nil, fmt.Errorf("%s: %s is required", r.Key(), f.Key)
-		case v != "" && len(f.Options) > 0 && !slices.Contains(f.Options, v):
-			return nil, nil, fmt.Errorf("%s: %s must be one of %s", r.Key(), f.Key, strings.Join(f.Options, ", "))
+		if v == "" && f.Required {
+			return nil, nil, fmt.Errorf("%s is needed", f.Label)
+		}
+		if v != "" && len(f.Options) > 0 && !allowed(f.Options, v) {
+			return nil, nil, fmt.Errorf("%s is not one of the choices", f.Label)
 		}
 		if v != "" {
 			out[f.Key] = v
 		}
 	}
-	for k := range c.Values {
+	for k := range values {
 		if !fields[k] {
-			return nil, nil, fmt.Errorf("%s: no field %s", r.Key(), k)
+			return nil, nil, fmt.Errorf("%s has no field %s", r.Label(), k)
 		}
 	}
 	return r, out, nil
+}
+
+func allowed(options []contract.Option, v string) bool {
+	for _, o := range options {
+		if o.Value == v {
+			return true
+		}
+	}
+	return false
 }

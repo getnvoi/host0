@@ -31,6 +31,66 @@ const events = [
   { kind: "result", content: "done", meta: { duration_ms: 38200, tokens: 21400 }, at: ago(2) },
 ];
 
+const providers = [
+  { key: "claude_code", label: "Claude Code", fields: [
+    { key: "kind", label: "Credential kind", type: "select", required: true, help: "oauth for a Claude subscription, api_key for an Anthropic key, bearer for a third-party endpoint such as z.ai or Kimi",
+      options: [{ value: "oauth", label: "Claude subscription (OAuth)" }, { value: "api_key", label: "Anthropic API key" }, { value: "bearer", label: "Third-party endpoint (bearer)" }] },
+    { key: "token", label: "Token", type: "password", required: true, secret: true, placeholder: "sk-ant-..." },
+    { key: "base_url", label: "Base URL", type: "text", placeholder: "https://api.anthropic.com", help: "Only for a third-party endpoint. Leave empty for Anthropic." },
+    { key: "model", label: "Model", type: "select", default: "sonnet", help: "The vendor's alias; it follows their current model.",
+      options: [{ value: "sonnet", label: "Sonnet" }, { value: "opus", label: "Opus" }, { value: "haiku", label: "Haiku" }] },
+  ] },
+  { key: "codex", label: "Codex", fields: [
+    { key: "kind", label: "Credential kind", type: "select", required: true, help: "chatgpt for a ChatGPT sign-in, api_key for an OpenAI key",
+      options: [{ value: "chatgpt", label: "ChatGPT sign-in" }, { value: "api_key", label: "OpenAI API key" }] },
+    { key: "token", label: "Token", type: "password", required: true, secret: true, placeholder: "sk-...", help: "For a ChatGPT sign-in, the whole of ~/.codex/auth.json." },
+    { key: "base_url", label: "Base URL", type: "text", placeholder: "https://api.openai.com/v1", help: "Only for an OpenAI-compatible endpoint. Leave empty for OpenAI." },
+    { key: "model", label: "Model", type: "text", placeholder: "gpt-5", help: "Empty runs codex's default." },
+  ] },
+];
+
+type Config = { name: string; provider: string; values: Record<string, string>; stored: string[]; main: boolean; archived_at?: string; at: string };
+const configs: Config[] = [
+  { name: "Claude Code", provider: "claude_code", values: { kind: "oauth", model: "sonnet" }, stored: ["token"], main: true, at: ago(600) },
+  { name: "Codex", provider: "codex", values: { kind: "chatgpt" }, stored: ["token"], main: false, at: ago(60) },
+];
+
+// The plane's rules for which credential is in use, enough to click through the pages.
+function handOver() {
+  if (!configs.some((c) => c.main && !c.archived_at)) {
+    const first = configs.find((c) => !c.archived_at);
+    if (first) first.main = true;
+  }
+}
+
+async function llm(req: Request, path: string): Promise<Response> {
+  if (path === "/llm/providers") return json(providers);
+  if (path === "/llm/configs" && req.method === "GET") return json(configs);
+  if (path === "/llm/configs" && req.method === "POST") {
+    const c = await req.json();
+    if (configs.some((o) => o.name === c.name)) return new Response(`Another credential is called ${c.name}. Pick another label.`, { status: 409 });
+    if (!c.values.token) return new Response("Token is needed", { status: 400 });
+    const { token, ...values } = c.values;
+    configs.push({ name: c.name, provider: c.provider, values, stored: ["token"], main: false, at: new Date().toISOString() });
+    handOver();
+    return json(configs.at(-1));
+  }
+  const m = path.match(/^\/llm\/configs\/([^/]+)(\/main|\/restore)?$/);
+  const c = m && configs.find((o) => o.name === decodeURIComponent(m[1]));
+  if (!m || !c) return new Response("not found", { status: 404 });
+  if (req.method === "PUT") {
+    const { token, ...values } = (await req.json()).values;
+    c.values = values;
+    return json(c);
+  }
+  if (m[2] === "/main") configs.forEach((o) => (o.main = o === c));
+  else if (m[2] === "/restore") delete c.archived_at;
+  else if (new URL(req.url).searchParams.get("remove")) configs.splice(configs.indexOf(c), 1);
+  else Object.assign(c, { archived_at: new Date().toISOString(), main: false });
+  handOver();
+  return new Response(null, { status: 204 });
+}
+
 const summaries = [
   { id: "4ca708e1", env: "dummy-rails", title: "Add /health route", state: "awaiting_approval", last: ago(1), queued: 0 },
   { id: "01a0ce80", env: "dummy-rails", title: "Survey codebase with 4 parallel agents", state: "running", last: ago(12), queued: 1 },
@@ -150,6 +210,7 @@ Bun.serve<Data, never>({
     const url = new URL(req.url);
     const path = url.pathname.replace(/^\/api/, "");
     let m: RegExpMatchArray | null;
+    if (path.startsWith("/llm/")) return llm(req, path);
     if (path === "/me") return json({ cluster: "dev", zone: "nvoi.to" });
     if (path === "/stream") return new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode("id: 1\nretry: 2000\n\n")); } }), { headers: { "content-type": "text/event-stream" } });
     if (path === "/sessions") return json(summaries);

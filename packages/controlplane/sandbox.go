@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/getnvoi/host0/controlplane/box"
-	"github.com/getnvoi/host0/controlplane/llm"
 	"github.com/getnvoi/host0/shared/contract"
 	"github.com/getnvoi/host0/shared/tiers"
 )
@@ -188,15 +187,6 @@ func seedScript(env contract.Environment) string {
 	}
 	fmt.Fprintf(&b, "touch %s\n", Ready)
 	return b.String()
-}
-
-// The runner the stored credential names, and its values.
-func (p *Plane) runner() (llm.Runner, map[string]string, error) {
-	var c contract.Credentials
-	if err := p.Store.Get("credentials", "default", &c); err != nil && err != ErrNotFound {
-		return nil, nil, err
-	}
-	return llm.Check(Runners, c.LLM)
 }
 
 func (p *Plane) env(name string) (contract.Environment, contract.Credentials, error) {

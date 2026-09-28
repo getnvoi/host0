@@ -102,3 +102,26 @@ export type Usage = {
 };
 
 export type PreviewStatus = { up: boolean; status?: number; error?: string };
+
+export type Option = { value: string; label: string };
+export type Field = {
+  key: string;
+  label: string;
+  type: "text" | "password" | "select";
+  secret?: boolean;
+  required?: boolean;
+  options?: Option[];
+  default?: string;
+  placeholder?: string;
+  help?: string;
+};
+export type Provider = { key: string; label: string; fields: Field[] };
+export type LlmConfig = {
+  name: string;
+  provider: string;
+  values: Record<string, string>;
+  stored?: string[];
+  main: boolean;
+  archived_at?: string;
+  at: string;
+};
