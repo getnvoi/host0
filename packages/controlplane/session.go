@@ -16,13 +16,14 @@ import (
 
 	"github.com/getnvoi/host0/controlplane/box"
 	"github.com/getnvoi/host0/controlplane/claude"
+	"github.com/getnvoi/host0/controlplane/codex"
 	"github.com/getnvoi/host0/controlplane/llm"
 	"github.com/getnvoi/host0/shared/contract"
 	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // The agent CLIs a credential may name.
-var Runners = []llm.Runner{claude.Runner{}}
+var Runners = []llm.Runner{claude.Runner{}, codex.Runner{}}
 
 // The tools the agent sees; what each does is Plane.perform.
 var Tools = []map[string]any{
@@ -90,7 +91,7 @@ func (p *Plane) Start(name, prompt, by string) (contract.Session, error) {
 	}
 	sid := id()
 	s := contract.Session{ID: sid, Env: name, Actor: "wt-" + sid, Branch: "hz/" + sid, Preview: p.Preview(sid),
-		Transcript: uuid(), State: "forking", At: time.Now(), Pending: prompt, By: by}
+		State: "forking", At: time.Now(), Pending: prompt, By: by}
 	if err := p.save(&s); err != nil {
 		return s, err
 	}
@@ -272,7 +273,7 @@ func (p *Plane) turn(ctx context.Context, s *contract.Session, prompt string) st
 		p.end(s.Actor, fmt.Sprintf("turn-%d", s.Turns))
 	}
 	tools, _ := json.Marshal(Tools)
-	argv := runner.Argv(llm.Turn{Prompt: prompt, Session: s.Transcript, Resume: s.Turns > 0, Model: values["model"],
+	argv := runner.Argv(llm.Turn{Prompt: prompt, Session: s.Transcript, Model: values["model"],
 		Instructions: fmt.Sprintf(instructions, origin(s.Preview)), MCP: Boxd})
 	stops.Delete(stopKey(s.ID, s.Turns+1))
 	p.put(s, func() {
@@ -321,12 +322,18 @@ func (p *Plane) follow(ctx context.Context, s *contract.Session, run box.Run) st
 	var ended atomic.Bool
 	code, err := p.box(s.Actor).Exec(ctx, rid, run, 0, func(line string) {
 		evs := runner.Events(line)
-		if len(evs) == 0 {
+		id := runner.Transcript(line)
+		if len(evs) == 0 && (id == "" || id == s.Transcript) {
 			return
 		}
 		unlock := lock(s.ID)
 		add(s, evs...)
-		p.keep(s, false)
+		// The next turn resumes this conversation, so its id is saved at once.
+		fresh := id != "" && id != s.Transcript
+		if fresh {
+			s.Transcript = id
+		}
+		p.keep(s, fresh)
 		unlock()
 		for _, ev := range evs {
 			if ev.Kind == "result" {

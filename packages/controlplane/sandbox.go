@@ -372,14 +372,6 @@ func id() string {
 	return hex.EncodeToString(b)
 }
 
-func uuid() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	b[6], b[8] = b[6]&0x0f|0x40, b[8]&0x3f|0x80
-	h := hex.EncodeToString(b)
-	return h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
-}
-
 func keys(m map[string]string) []string {
 	out := make([]string, 0, len(m))
 	for k := range m {

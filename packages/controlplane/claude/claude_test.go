@@ -1,10 +1,13 @@
 package claude
 
 import (
+	"os"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/getnvoi/host0/controlplane/llm"
 	"github.com/getnvoi/host0/shared/contract"
 )
 
@@ -105,4 +108,58 @@ func TestEnv(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v", got)
 	}
+}
+
+// Runs the plane's command line against the claude on this machine; HZ_BOXD is a built boxd.
+func TestLive(t *testing.T) {
+	boxd := os.Getenv("HZ_BOXD")
+	if boxd == "" {
+		t.Skip("HZ_BOXD not set")
+	}
+	dir := t.TempDir()
+	run := func(prompt, session string) ([]contract.Event, string) {
+		argv := Runner{}.Argv(llm.Turn{Prompt: prompt, Session: session, MCP: boxd, Model: "haiku", Instructions: "Answer in one word."})
+		cmd := exec.Command(argv[0], argv[1:]...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), `HZ_TOOLS=[{"name":"set_title","description":"Name this task.","inputSchema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}}]`)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("%v: %s", err, out)
+		}
+		var evs []contract.Event
+		id := ""
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			evs = append(evs, Runner{}.Events(line)...)
+			if s := (Runner{}).Transcript(line); s != "" {
+				id = s
+			}
+		}
+		return evs, id
+	}
+	evs, id := run("Call set_title with title ok, then reply ok.", "")
+	if id == "" || !has(evs, "tool_use", "mcp__hz__set_title") || !has(evs, "result", "") {
+		t.Fatalf("first turn %s: %+v", id, evs)
+	}
+	evs, _ = run("What title did you set? One word.", id)
+	if !has(evs, "result", "") || !strings.Contains(strings.ToLower(last(evs, "message")), "ok") {
+		t.Fatalf("resume: %+v", evs)
+	}
+}
+
+func has(evs []contract.Event, kind, tool string) bool {
+	for _, e := range evs {
+		if e.Kind == kind && (tool == "" || e.Tool == tool) {
+			return true
+		}
+	}
+	return false
+}
+
+func last(evs []contract.Event, kind string) string {
+	for i := len(evs) - 1; i >= 0; i-- {
+		if evs[i].Kind == kind {
+			return evs[i].Content
+		}
+	}
+	return ""
 }

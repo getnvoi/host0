@@ -18,10 +18,10 @@ func TestCheck(t *testing.T) {
 	}
 	refused := map[string]contract.LLM{
 		"no agent credential: run hz credentials (providers: claude_code)": {},
-		`no provider "codex" (providers: claude_code)`:                       {Provider: "codex"},
-		"claude_code: token is required":                                     {Provider: "claude_code", Values: map[string]string{"kind": "oauth"}},
-		"claude_code: kind must be one of oauth, api_key, bearer":            {Provider: "claude_code", Values: map[string]string{"kind": "x", "token": "k"}},
-		"claude_code: no field region":                                       {Provider: "claude_code", Values: map[string]string{"kind": "oauth", "token": "k", "region": "eu"}},
+		`no provider "codex" (providers: claude_code)`:                     {Provider: "codex"},
+		"claude_code: token is required":                                   {Provider: "claude_code", Values: map[string]string{"kind": "oauth"}},
+		"claude_code: kind must be one of oauth, api_key, bearer":          {Provider: "claude_code", Values: map[string]string{"kind": "x", "token": "k"}},
+		"claude_code: no field region":                                     {Provider: "claude_code", Values: map[string]string{"kind": "oauth", "token": "k", "region": "eu"}},
 	}
 	for want, c := range refused {
 		if _, _, err := llm.Check(runners, c); err == nil || err.Error() != want {

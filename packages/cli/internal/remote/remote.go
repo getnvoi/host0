@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -57,9 +58,11 @@ func credentials() *cobra.Command {
 	var set, secret []string
 	cmd := &cobra.Command{
 		Use:   "credentials",
-		Short: "Hand the plane a GitHub token (default: gh auth token) and the agent's credential (default: claude setup-token)",
+		Short: "Hand the plane a GitHub token (default: gh auth token) and the agent's credential (default: claude setup-token, or codex's sign-in)",
 		Example: `  hz credentials --set kind=api_key --secret token=ANTHROPIC_API_KEY
-  hz credentials --set kind=bearer --set base_url=https://api.z.ai/api/anthropic --secret token=ZAI_API_KEY`,
+  hz credentials --set kind=bearer --set base_url=https://api.z.ai/api/anthropic --secret token=ZAI_API_KEY
+  hz credentials --llm codex
+  hz credentials --llm codex --set kind=api_key --secret token=OPENAI_API_KEY --set model=gpt-5`,
 		RunE: func(*cobra.Command, []string) error {
 			c := contract.Credentials{GitHub: os.Getenv(github), LLM: contract.LLM{Provider: provider, Values: map[string]string{}}}
 			if c.GitHub == "" {
@@ -85,18 +88,31 @@ func credentials() *cobra.Command {
 					return fmt.Errorf("%s is not set in this shell", name)
 				}
 			}
-			if provider == "claude_code" && len(set)+len(secret) == 0 {
-				token, err := claudeToken()
-				if err != nil {
-					return err
+			if len(set)+len(secret) == 0 {
+				switch provider {
+				case "claude_code":
+					token, err := claudeToken()
+					if err != nil {
+						return err
+					}
+					c.LLM.Values["kind"], c.LLM.Values["token"] = "oauth", token
+				case "codex":
+					home, err := os.UserHomeDir()
+					if err != nil {
+						return err
+					}
+					auth, err := os.ReadFile(filepath.Join(home, ".codex", "auth.json"))
+					if err != nil {
+						return fmt.Errorf("codex sign-in: %w (run codex login)", err)
+					}
+					c.LLM.Values["kind"], c.LLM.Values["token"] = "chatgpt", string(auth)
 				}
-				c.LLM.Values["kind"], c.LLM.Values["token"] = "oauth", token
 			}
 			return call("PUT", "/credentials", c, nil)
 		},
 	}
 	cmd.Flags().StringVar(&github, "github-env", "GITHUB_TOKEN", "variable holding the GitHub token")
-	cmd.Flags().StringVar(&provider, "llm", "claude_code", "the agent CLI the credential is for")
+	cmd.Flags().StringVar(&provider, "llm", "claude_code", "the agent CLI the credential is for: claude_code or codex")
 	cmd.Flags().StringArrayVar(&set, "set", nil, "a credential field, key=value")
 	cmd.Flags().StringArrayVar(&secret, "secret", nil, "a credential field read from this shell, key=VARIABLE")
 	return cmd

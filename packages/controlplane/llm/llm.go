@@ -20,7 +20,6 @@ type Field struct {
 
 type Turn struct {
 	Prompt, Session, Model, Instructions, MCP string
-	Resume                                    bool
 }
 
 type Runner interface {
@@ -32,8 +31,11 @@ type Runner interface {
 	Install() string
 	// The process environment a turn runs under, from values Check accepted.
 	Env(values map[string]string) map[string]string
+	// Session empty starts a conversation; otherwise the turn continues it.
 	Argv(t Turn) []string
 	Events(line string) []contract.Event
+	// The conversation id a line of output names, empty when it names none.
+	Transcript(line string) string
 	// The hz tool a tool_use calls, without the prefix the CLI adds.
 	Tool(name string) (string, bool)
 	// Output saying the CLI lost its API rather than the turn failing.

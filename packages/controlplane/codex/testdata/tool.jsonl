@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"01a0e62c-4336-7d80-bd76-a8277d7304fb"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_0","type":"mcp_tool_call","server":"hz","tool":"set_title","arguments":{"title":"ok"},"result":null,"error":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_0","type":"mcp_tool_call","server":"hz","tool":"set_title","arguments":{"title":"ok"},"result":{"content":[{"type":"text","text":"Queued. This action is performed for you once your turn ends and you will be told the outcome. End your turn now with a one-line summary of what you asked for."}],"structured_content":null},"error":null,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"ok"}}
+{"type":"turn.completed","usage":{"input_tokens":45560,"cached_input_tokens":35072,"cache_write_input_tokens":0,"output_tokens":69,"reasoning_output_tokens":0}}

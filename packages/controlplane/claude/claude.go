@@ -66,10 +66,18 @@ func (Runner) Argv(t llm.Turn) []string {
 	if t.Instructions != "" {
 		argv = append(argv, "--append-system-prompt", t.Instructions)
 	}
-	if t.Resume {
-		return append(argv, "--resume", t.Session)
+	if t.Session != "" {
+		argv = append(argv, "--resume", t.Session)
 	}
-	return append(argv, "--session-id", t.Session)
+	return argv
+}
+
+func (Runner) Transcript(line string) string {
+	var d struct {
+		Session string `json:"session_id"`
+	}
+	json.Unmarshal([]byte(line), &d)
+	return d.Session
 }
 
 func (Runner) Events(line string) []contract.Event { return events(line) }
