@@ -36,7 +36,7 @@ func (Runner) Fields() []contract.Field {
 		{Key: "base_url", Label: "Base URL", Type: "text", Placeholder: "https://api.anthropic.com",
 			Help: "Only for a third-party endpoint. Leave empty for Anthropic."},
 		{Key: "model", Label: "Model", Type: "select", Default: "sonnet",
-			Help: "The vendor's alias; it follows their current model.",
+			Help:    "The vendor's alias; it follows their current model.",
 			Options: []contract.Option{{Value: "sonnet", Label: "Sonnet"}, {Value: "opus", Label: "Opus"}, {Value: "haiku", Label: "Haiku"}}},
 	}
 }

@@ -22,7 +22,7 @@ func (Runner) Label() string { return "Codex" }
 func (Runner) Fields() []contract.Field {
 	return []contract.Field{
 		{Key: "kind", Label: "Credential kind", Type: "select", Required: true,
-			Help: "chatgpt for a ChatGPT sign-in, api_key for an OpenAI key",
+			Help:    "chatgpt for a ChatGPT sign-in, api_key for an OpenAI key",
 			Options: []contract.Option{{Value: "chatgpt", Label: "ChatGPT sign-in"}, {Value: "api_key", Label: "OpenAI API key"}}},
 		{Key: "token", Label: "Token", Type: "password", Required: true, Secret: true, Placeholder: "sk-...",
 			Help: "For a ChatGPT sign-in, the whole of ~/.codex/auth.json."},
