@@ -37,7 +37,7 @@ plane_up() { for i in $(seq 90); do [ "$(curl -s -o /dev/null -w "%{http_code}" 
 | 1 | `go build -C packages/cli -o ../../bin/hz ./cmd/hz`; `go test ./...` in `packages/{shared,infra,hetzner,cloudflare,controlplane,boxd}` | builds, tests pass |
 | 2 | `install` | ends with `api at https://api-dev.nvoi.to` |
 | 3 | `./bin/hz credentials && ./bin/hz env apply examples/dummy-rails.yml` | no output, exit 0 |
-| 4 | `./bin/hz seed dummy` | `seed ready:` link in about 2 min |
+| 4 | `./bin/hz env seed dummy` | `seed ready:` link in about 2 min |
 | 5 | Gate: `curl -s -o /dev/null -w "%{http_code}" https://dummy-dev-preview.nvoi.to/`, then `open_preview dummy-dev-preview.nvoi.to`, then `curl -H "x-hz-token: <token of another host>"` | 401; 200 through the 302; 401 |
 | 6 | Fork: `api /sessions -d '{"env":"dummy","prompt":"Reply ok."}'`, poll `api /sessions/<id>` until `state` is not `forking` | `running` in under 10 s |
 | 7 | `./bin/hz session start dummy "<task that ends in a pull request>"` | calls `mcp__hz__set_title`, commits, stops at `awaiting_approval` |
