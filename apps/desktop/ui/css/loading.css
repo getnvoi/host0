@@ -1,0 +1,33 @@
+/* What is not loaded yet pulses between full and half opacity once a second; what loaded in its place fades in out of
+   a light blur (transitions.dev, skeleton loader and reveal), kept under 300ms and ease-out as our motion notes ask
+   (.claude/design-notes/emil-kowalski-great-animations.md). */
+@keyframes skeleton-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.5; }
+}
+.skeleton { animation: skeleton-pulse 1000ms ease-in-out infinite alternate; }
+
+@keyframes reveal {
+  from { opacity: 0; filter: blur(2px); }
+  to { opacity: 1; filter: blur(0); }
+}
+.reveal { animation: reveal 280ms var(--ease-enter) both; }
+
+/* The mic while it listens: a ring in its ink breathes out from its face, about once a second. */
+@keyframes listening-ring {
+  from { box-shadow: 0 0 0 0 var(--listening-ink); }
+  to { box-shadow: 0 0 0 6px transparent; }
+}
+.listening { position: relative; display: inline-flex; }
+.listening::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-control);
+  pointer-events: none;
+  animation: listening-ring 1100ms var(--ease-enter) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .reveal, .listening::before { animation: none; }
+}

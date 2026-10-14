@@ -1,0 +1,49 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./fonts.css";
+@import "./theme.css";
+@import "./clickable.css";
+@import "./icons.css";
+@import "./presence.css";
+@import "./loading.css";
+@import "./slider.css";
+
+@source "../src";
+
+@layer base {
+  *, ::after, ::before { border-color: var(--color-line); }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: normal;
+    color: var(--color-ink);
+    background: var(--color-page);
+    -webkit-font-smoothing: antialiased;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  input, textarea, [contenteditable] { user-select: text; -webkit-user-select: text; }
+  /* Keyboard focus only; a control that draws its own (inputs, the composer) sets outline-none. */
+  :focus-visible { outline: 3px solid var(--color-focus); outline-offset: 0; }
+}
+
+/* Reduced motion: transitions and entrances end at once; a spinner keeps turning, slower, since it says work is going on. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin, [class*="animate-[spin_"] {
+    animation-duration: 2.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* Set on the root for one frame while the theme changes, so colours switch at once instead of animating. */
+html.theme-switching, html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after {
+  transition: none !important;
+}
