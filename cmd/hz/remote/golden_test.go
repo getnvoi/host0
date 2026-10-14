@@ -109,6 +109,11 @@ var goldens = []golden{
 		Step: "setup: npm ci", Actor: "shop-1a2b3c4d5e", At: archived}},
 	{"env-suspend", []string{"env", "suspend", "shop"}, "POST /seeds/shop/suspend", map[string]string{"actor": "shop-1a2b3c4d5e"}},
 	{"llm-use", []string{"llm", "use", "OpenAI"}, "POST /llm/configs/OpenAI/main", nil},
+	{"browsers", []string{"browsers"}, "GET /browsers", []map[string]any{{"label": "ben", "at": archived,
+		"until": archived.AddDate(0, 0, 30)}}},
+	{"invite", []string{"invite", "ann"}, "POST /login-links", map[string]string{"url": "https://app-dev.nvoi.to/login?code=c0de"}},
+	{"logout", []string{"logout", "ben"}, "DELETE /browsers/ben", map[string]int{"count": 2}},
+	{"logout-all", []string{"logout", "--all"}, "DELETE /browsers", map[string]int{"count": 3}},
 }
 
 var archived = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)

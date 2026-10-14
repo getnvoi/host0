@@ -45,5 +45,4 @@ var moving = []string{"api GET /stream", "api GET /sessions", "api GET /sessions
 	"api GET /sessions/{id}/preview", "api POST /previews", "api GET /sessions/{id}/changes",
 	"api GET /sessions/{id}/logs", "api GET /sessions/{id}/logs/{name}", "api GET /sessions/{id}/terminals",
 	"api DELETE /sessions/{id}/terminals/{tid}", "api GET /approvals", "api GET /approvals/{id}", "api GET /usage",
-	"api POST /approvals/{id}/{decision}", "bearer /", "bearer POST /login-links", "bearer GET /browsers",
-	"bearer DELETE /browsers", "bearer DELETE /browsers/{label}"}
+	"api POST /approvals/{id}/{decision}"}

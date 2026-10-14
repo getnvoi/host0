@@ -22,6 +22,7 @@ import (
 // Every other host is a preview.
 func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	ws := p.ws
+	p.app = appHost
 	mux := http.NewServeMux()
 	p.API(mux)
 	api := p.outside("api", mux)
@@ -183,30 +184,7 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		json.NewEncoder(w).Encode(&a)
 	})
 
-	bearer := p.outside("bearer", http.NewServeMux())
-	bearer.Handle("/", mux)
-	bearer.HandleFunc("POST /login-links", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Label string }
-		var out struct {
-			URL string `json:"url"`
-		}
-		reply(w, &out, read(r, &in, func() (err error) { out.URL, err = p.auth.LoginLink(appHost, in.Label); return }))
-	})
-	bearer.HandleFunc("GET /browsers", func(w http.ResponseWriter, r *http.Request) {
-		bs, err := p.auth.Browsers()
-		reply(w, &bs, err)
-	})
-	signOut := func(w http.ResponseWriter, r *http.Request) {
-		var out struct {
-			Count int `json:"count"`
-		}
-		var err error
-		out.Count, err = p.auth.SignOut(r.PathValue("label"))
-		reply(w, &out, err)
-	}
-	bearer.HandleFunc("DELETE /browsers", signOut)
-	bearer.HandleFunc("DELETE /browsers/{label}", signOut)
-	cli := auth.Bearer(tokenSHA256, bearer)
+	cli := auth.Bearer(tokenSHA256, mux)
 	app := p.outside("app", http.NewServeMux())
 	app.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Has("code") {

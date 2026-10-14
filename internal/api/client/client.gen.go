@@ -17,6 +17,16 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Browser defines model for Browser.
+type Browser struct {
+	// At When it signed in
+	At    time.Time `json:"at"`
+	Label string    `json:"label"`
+
+	// Until When its cookie expires
+	Until time.Time `json:"until"`
+}
+
 // CredentialsInput defines model for CredentialsInput.
 type CredentialsInput struct {
 	Github *string `json:"github,omitempty"`
@@ -160,6 +170,18 @@ type LLMConfigValues struct {
 	Values *map[string]string `json:"values,omitempty"`
 }
 
+// LoginLink defines model for LoginLink.
+type LoginLink struct {
+	// Url Signs one browser in, once, within 60 seconds
+	Url string `json:"url"`
+}
+
+// LoginLinkInput defines model for LoginLinkInput.
+type LoginLinkInput struct {
+	// Label Who the browser signs in as
+	Label string `json:"label"`
+}
+
 // Me defines model for Me.
 type Me struct {
 	Cluster string `json:"cluster"`
@@ -206,6 +228,12 @@ type Service struct {
 	Port    *int64             `json:"port,omitempty"`
 }
 
+// SignedOut defines model for SignedOut.
+type SignedOut struct {
+	// Count How many browsers were signed out
+	Count int64 `json:"count"`
+}
+
 // Suspended defines model for Suspended.
 type Suspended struct {
 	// Actor The actor suspended
@@ -232,6 +260,9 @@ type LlmAddJSONRequestBody = LLMConfigInput
 
 // LlmSetJSONRequestBody defines body for LlmSet for application/json ContentType.
 type LlmSetJSONRequestBody = LLMConfigValues
+
+// InviteJSONRequestBody defines body for Invite for application/json ContentType.
+type InviteJSONRequestBody = LoginLinkInput
 
 // RequestEditorFn is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -306,6 +337,21 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+
+	// LogoutAll Sign out every browser
+	//
+	// Corresponds with DELETE /browsers (the `LogoutAll` operationId).
+	LogoutAll(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Browsers Browsers signed in to the web UI
+	//
+	// Corresponds with GET /browsers (the `Browsers` operationId).
+	Browsers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Logout Sign out the browsers under label
+	//
+	// Corresponds with DELETE /browsers/{label} (the `Logout` operationId).
+	Logout(ctx context.Context, label string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CredentialsGet Which credentials hold a value, never the values
 	//
@@ -437,6 +483,20 @@ type ClientInterface interface {
 	// Corresponds with GET /llm/providers (the `LlmProviders` operationId).
 	LlmProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// InviteWithBody A one-time link that signs a browser in to the web UI
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /login-links (the `Invite` operationId).
+	InviteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Invite A one-time link that signs a browser in to the web UI
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /login-links (the `Invite` operationId).
+	Invite(ctx context.Context, body InviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Me The cluster and zone this plane serves
 	//
 	// Corresponds with GET /me (the `Me` operationId).
@@ -446,6 +506,51 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
 	EnvSuspend(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// LogoutAll Sign out every browser
+//
+// Corresponds with DELETE /browsers (the `LogoutAll` operationId).
+func (c *Client) LogoutAll(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLogoutAllRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Browsers Browsers signed in to the web UI
+//
+// Corresponds with GET /browsers (the `Browsers` operationId).
+func (c *Client) Browsers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBrowsersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Logout Sign out the browsers under label
+//
+// Corresponds with DELETE /browsers/{label} (the `Logout` operationId).
+func (c *Client) Logout(ctx context.Context, label string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLogoutRequest(c.Server, label)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // CredentialsGet Which credentials hold a value, never the values
@@ -798,6 +903,40 @@ func (c *Client) LlmProviders(ctx context.Context, reqEditors ...RequestEditorFn
 	return c.Client.Do(req)
 }
 
+// InviteWithBody A one-time link that signs a browser in to the web UI
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /login-links (the `Invite` operationId).
+func (c *Client) InviteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInviteRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Invite A one-time link that signs a browser in to the web UI
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /login-links (the `Invite` operationId).
+func (c *Client) Invite(ctx context.Context, body InviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInviteRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // Me The cluster and zone this plane serves
 //
 // Corresponds with GET /me (the `Me` operationId).
@@ -826,6 +965,94 @@ func (c *Client) EnvSuspend(ctx context.Context, name string, reqEditors ...Requ
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewLogoutAllRequest constructs an http.Request for the LogoutAll method
+func NewLogoutAllRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/browsers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewBrowsersRequest constructs an http.Request for the Browsers method
+func NewBrowsersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/browsers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLogoutRequest constructs an http.Request for the Logout method
+func NewLogoutRequest(server string, label string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "label", label, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/browsers/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewCredentialsGetRequest constructs an http.Request for the CredentialsGet method
@@ -1456,6 +1683,46 @@ func NewLlmProvidersRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewInviteRequest calls the generic Invite builder with application/json body
+func NewInviteRequest(server string, body InviteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewInviteRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewInviteRequestWithBody constructs an http.Request for the Invite method, with any body, and a specified content type
+func NewInviteRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/login-links")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewMeRequest constructs an http.Request for the Me method
 func NewMeRequest(server string) (*http.Request, error) {
 	var err error
@@ -1560,6 +1827,27 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+
+	// LogoutAllWithResponse Sign out every browser
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /browsers (the `LogoutAll` operationId).
+	LogoutAllWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LogoutAllResponse, error)
+
+	// BrowsersWithResponse Browsers signed in to the web UI
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /browsers (the `Browsers` operationId).
+	BrowsersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*BrowsersResponse, error)
+
+	// LogoutWithResponse Sign out the browsers under label
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /browsers/{label} (the `Logout` operationId).
+	LogoutWithResponse(ctx context.Context, label string, reqEditors ...RequestEditorFn) (*LogoutResponse, error)
 
 	// CredentialsGetWithResponse Which credentials hold a value, never the values
 	//
@@ -1715,6 +2003,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /llm/providers (the `LlmProviders` operationId).
 	LlmProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LlmProvidersResponse, error)
 
+	// InviteWithBodyWithResponse A one-time link that signs a browser in to the web UI
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /login-links (the `Invite` operationId).
+	InviteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InviteResponse, error)
+
+	// InviteWithResponse A one-time link that signs a browser in to the web UI
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /login-links (the `Invite` operationId).
+	InviteWithResponse(ctx context.Context, body InviteJSONRequestBody, reqEditors ...RequestEditorFn) (*InviteResponse, error)
+
 	// MeWithResponse The cluster and zone this plane serves
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -1728,6 +2030,150 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
 	EnvSuspendWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvSuspendResponse, error)
+}
+
+type LogoutAllResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SignedOut
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LogoutAllResponse) GetJSON200() *SignedOut {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LogoutAllResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LogoutAllResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LogoutAllResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LogoutAllResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LogoutAllResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type BrowsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Browser
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r BrowsersResponse) GetJSON200() *[]Browser {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r BrowsersResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r BrowsersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r BrowsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r BrowsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r BrowsersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LogoutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SignedOut
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LogoutResponse) GetJSON200() *SignedOut {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LogoutResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LogoutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LogoutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LogoutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LogoutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type CredentialsGetResponse struct {
@@ -2490,6 +2936,54 @@ func (r LlmProvidersResponse) ContentType() string {
 	return ""
 }
 
+type InviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LoginLink
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r InviteResponse) GetJSON200() *LoginLink {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r InviteResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r InviteResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r InviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InviteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InviteResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type MeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2584,6 +3078,45 @@ func (r EnvSuspendResponse) ContentType() string {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
+}
+
+// LogoutAllWithResponse Sign out every browser
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /browsers (the `LogoutAll` operationId).
+func (c *ClientWithResponses) LogoutAllWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LogoutAllResponse, error) {
+	rsp, err := c.LogoutAll(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLogoutAllResponse(rsp)
+}
+
+// BrowsersWithResponse Browsers signed in to the web UI
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /browsers (the `Browsers` operationId).
+func (c *ClientWithResponses) BrowsersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*BrowsersResponse, error) {
+	rsp, err := c.Browsers(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBrowsersResponse(rsp)
+}
+
+// LogoutWithResponse Sign out the browsers under label
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /browsers/{label} (the `Logout` operationId).
+func (c *ClientWithResponses) LogoutWithResponse(ctx context.Context, label string, reqEditors ...RequestEditorFn) (*LogoutResponse, error) {
+	rsp, err := c.Logout(ctx, label, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLogoutResponse(rsp)
 }
 
 // CredentialsGetWithResponse Which credentials hold a value, never the values
@@ -2872,6 +3405,32 @@ func (c *ClientWithResponses) LlmProvidersWithResponse(ctx context.Context, reqE
 	return ParseLlmProvidersResponse(rsp)
 }
 
+// InviteWithBodyWithResponse A one-time link that signs a browser in to the web UI
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /login-links (the `Invite` operationId).
+func (c *ClientWithResponses) InviteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InviteResponse, error) {
+	rsp, err := c.InviteWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInviteResponse(rsp)
+}
+
+// InviteWithResponse A one-time link that signs a browser in to the web UI
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /login-links (the `Invite` operationId).
+func (c *ClientWithResponses) InviteWithResponse(ctx context.Context, body InviteJSONRequestBody, reqEditors ...RequestEditorFn) (*InviteResponse, error) {
+	rsp, err := c.Invite(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInviteResponse(rsp)
+}
+
 // MeWithResponse The cluster and zone this plane serves
 //
 // Returns a wrapper object for the known response body format(s).
@@ -2896,6 +3455,105 @@ func (c *ClientWithResponses) EnvSuspendWithResponse(ctx context.Context, name s
 		return nil, err
 	}
 	return ParseEnvSuspendResponse(rsp)
+}
+
+// ParseLogoutAllResponse parses an HTTP response from a LogoutAllWithResponse call
+func ParseLogoutAllResponse(rsp *http.Response) (*LogoutAllResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LogoutAllResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SignedOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseBrowsersResponse parses an HTTP response from a BrowsersWithResponse call
+func ParseBrowsersResponse(rsp *http.Response) (*BrowsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &BrowsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Browser
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLogoutResponse parses an HTTP response from a LogoutWithResponse call
+func ParseLogoutResponse(rsp *http.Response) (*LogoutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LogoutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SignedOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseCredentialsGetResponse parses an HTTP response from a CredentialsGetWithResponse call
@@ -3410,6 +4068,39 @@ func ParseLlmProvidersResponse(rsp *http.Response) (*LlmProvidersResponse, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest []Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseInviteResponse parses an HTTP response from a InviteWithResponse call
+func ParseInviteResponse(rsp *http.Response) (*InviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LoginLink
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

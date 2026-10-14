@@ -12,8 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
-	"os/user"
 	"regexp"
 	"strings"
 	"time"
@@ -65,8 +63,8 @@ func send(method, path string, in any) (*http.Response, error) {
 
 // The commands not yet generated from the spec.
 func legacy() map[string]func() *cobra.Command {
-	return map[string]func() *cobra.Command{"session": session, "approval": approval, "preview": preview, "open": open, "invite": invite, "ls": status,
-		"pods": pods, "logs": podLogs, "usage": usage, "browsers": browsers, "logout": logout}
+	return map[string]func() *cobra.Command{"session": session, "approval": approval, "preview": preview, "ls": status,
+		"pods": pods, "logs": podLogs, "usage": usage}
 }
 
 func init() { written["env seed"] = seed }
@@ -457,58 +455,6 @@ func visit(host, link string, out io.Writer) error {
 		return fmt.Errorf("%s answers %s with the cookie: %q", host, res.Status, said)
 	}
 	return nil
-}
-
-func loginLink(label string) (string, error) {
-	var out struct{ URL string }
-	err := call("POST", "/login-links", map[string]string{"label": label}, &out)
-	return out.URL, err
-}
-
-func open() *cobra.Command {
-	return &cobra.Command{
-		Use:   "open",
-		Short: "Sign this machine's browser in to the web UI",
-		RunE: func(*cobra.Command, []string) error {
-			url, err := loginLink(me())
-			if err != nil {
-				return err
-			}
-			if err := exec.Command("open", url).Run(); err != nil {
-				if err := exec.Command("xdg-open", url).Run(); err != nil {
-					fmt.Println(url)
-				}
-			}
-			return nil
-		},
-	}
-}
-
-// The local user's name: what the plane records this browser's sessions and decisions under.
-func me() string {
-	if u, err := user.Current(); err == nil && u.Username != "" {
-		return u.Username
-	}
-	if name := os.Getenv("USER"); name != "" {
-		return name
-	}
-	host, _ := os.Hostname()
-	return host
-}
-
-func invite() *cobra.Command {
-	return &cobra.Command{
-		Use:   "invite <name>",
-		Short: "A sign-in link for someone else's browser, valid 60 seconds and once",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			url, err := loginLink(args[0])
-			if err == nil {
-				fmt.Println(url)
-			}
-			return err
-		},
-	}
 }
 
 func approval() *cobra.Command {

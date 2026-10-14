@@ -87,7 +87,7 @@ func usageStore(t *testing.T) data {
 	st.Put("approvals", "x", workspace.Approval{ID: "x", Session: "a", State: "done", At: at, Decided: at.Add(4 * time.Second)})
 	st.Put("approvals", "y", workspace.Approval{ID: "y", Session: "b", State: "denied", At: at, Decided: at.Add(2 * time.Second)})
 	st.Put("approvals", "z", workspace.Approval{ID: "z", Session: "a", State: "pending", At: at})
-	st.Put("browsers", "h", map[string]string{"label": "carol"})
+	st.DB.Create(&db.SignIn{Digest: "h", Kind: "browser", Label: "carol", ExpiresAt: day("2026-09-01", 0)})
 	return st
 }
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/getnvoi/host0/internal/auth"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
@@ -94,53 +93,6 @@ func usage() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&days, "days", 30, "how many days back")
 	cmd.Flags().StringVar(&by, "by", "", "one person's usage")
-	return cmd
-}
-
-func browsers() *cobra.Command {
-	return &cobra.Command{
-		Use:   "browsers",
-		Short: "Browsers signed in to the web UI",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			var bs []auth.Browser
-			if err := call("GET", "/browsers", nil, &bs); err != nil {
-				return err
-			}
-			w := table(os.Stdout)
-			fmt.Fprintln(w, "LABEL\tSIGNED IN\tUNTIL")
-			for _, b := range bs {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", b.Label, b.At.Local().Format(time.DateTime), b.Until.Local().Format(time.DateTime))
-			}
-			return w.Flush()
-		},
-	}
-}
-
-func logout() *cobra.Command {
-	var all bool
-	cmd := &cobra.Command{
-		Use:   "logout [label]",
-		Short: "Sign out the browsers under label, or with --all every browser",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			path := "/browsers"
-			switch {
-			case all && len(args) == 0:
-			case !all && len(args) == 1:
-				path += "/" + url.PathEscape(args[0])
-			default:
-				return fmt.Errorf("give a label, or --all")
-			}
-			var out struct{ Count int }
-			if err := call("DELETE", path, nil, &out); err != nil {
-				return err
-			}
-			fmt.Printf("signed out %d\n", out.Count)
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&all, "all", false, "every browser")
 	return cmd
 }
 

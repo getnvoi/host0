@@ -152,6 +152,8 @@ type plane struct {
 	auth *auth.Auth
 	gate preview.Gate
 	bus  *stream.Broker
+	// The web UI's host, which a sign-in link opens.
+	app string
 	// The routes served outside Huma, as "<mux> <pattern>".
 	raw []string
 }
@@ -172,7 +174,7 @@ func wire(gdb *gorm.DB, st store.Store, sb sandbox.Sandboxes, pools workers.Pool
 		Runners: runners, BoxToken: boxToken, Cluster: cluster, Zone: zone, Suffix: suffix}
 	sc.Named, sc.Woken = ws.Named, ws.Unkeyed
 	return &plane{DB: gdb, Store: st, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
-		ws: ws, sc: sc, auth: &auth.Auth{Store: st}, gate: preview.Gate{Secret: boxToken}, bus: bus}
+		ws: ws, sc: sc, auth: &auth.Auth{DB: gdb}, gate: preview.Gate{Secret: boxToken}, bus: bus}
 }
 
 // One label under the zone, which its universal certificate covers: api-dev.nvoi.to.

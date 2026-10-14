@@ -8,6 +8,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/getnvoi/host0/internal/auth"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/store"
 	"github.com/getnvoi/host0/internal/workers"
@@ -45,9 +46,10 @@ func status(err error) int {
 		shape    workers.Invalid
 		conflict workspace.Conflict
 		missing  workspace.NotFound
+		nobody   auth.NotFound
 	)
 	switch {
-	case errors.Is(err, store.ErrNotFound), errors.Is(err, sandbox.ErrNotFound), errors.As(err, &missing):
+	case errors.Is(err, store.ErrNotFound), errors.Is(err, sandbox.ErrNotFound), errors.As(err, &missing), errors.As(err, &nobody):
 		return http.StatusNotFound
 	case errors.As(err, &bad), errors.As(err, &invalid), errors.As(err, &shape):
 		return http.StatusBadRequest

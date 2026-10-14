@@ -12,6 +12,16 @@ import (
 
 var operations = []operation{
 	{
+		ID:     "browsers",
+		Short:  "Browsers signed in to the web UI",
+		Method: "GET",
+		Route:  "/browsers",
+		HZ:     hz{Output: "table", Columns: []string{"label", "at", "until"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Browsers(ctx, edit)
+		},
+	},
+	{
 		ID:     "credentials.get",
 		Short:  "Which credentials hold a value, never the values",
 		Method: "GET",
@@ -136,6 +146,18 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:          "invite",
+		Short:       "A one-time link that signs a browser in to the web UI",
+		Method:      "POST",
+		Route:       "/login-links",
+		HZ:          hz{By: []string{"open", "invite"}},
+		ContentType: "application/json",
+		Body:        []param{{Name: "label", Kind: "string", Help: "Who the browser signs in as"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.InviteWithBody(ctx, "application/json", body, edit)
+		},
+	},
+	{
 		ID:          "llm.add",
 		Short:       "Add an agent credential; the first live one is in use",
 		Method:      "POST",
@@ -211,6 +233,27 @@ var operations = []operation{
 		Args:   []string{"name"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.LlmUse(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "logout",
+		Short:  "Sign out the browsers under label",
+		Method: "DELETE",
+		Route:  "/browsers/{label}",
+		HZ:     hz{By: []string{"logout"}},
+		Args:   []string{"label"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Logout(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "logout.all",
+		Short:  "Sign out every browser",
+		Method: "DELETE",
+		Route:  "/browsers",
+		HZ:     hz{By: []string{"logout"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LogoutAll(ctx, edit)
 		},
 	},
 	{

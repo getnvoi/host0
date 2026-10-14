@@ -1,5 +1,23 @@
 components:
   schemas:
+    Browser:
+      additionalProperties: false
+      properties:
+        at:
+          description: When it signed in
+          format: date-time
+          type: string
+        label:
+          type: string
+        until:
+          description: When its cookie expires
+          format: date-time
+          type: string
+      required:
+        - label
+        - at
+        - until
+      type: object
     CredentialsInput:
       additionalProperties: false
       properties:
@@ -289,6 +307,25 @@ components:
       required:
         - values
       type: object
+    LoginLink:
+      additionalProperties: false
+      properties:
+        url:
+          description: Signs one browser in, once, within 60 seconds
+          type: string
+      required:
+        - url
+      type: object
+    LoginLinkInput:
+      additionalProperties: false
+      properties:
+        label:
+          description: Who the browser signs in as
+          minLength: 1
+          type: string
+      required:
+        - label
+      type: object
     Me:
       additionalProperties: false
       properties:
@@ -389,6 +426,16 @@ components:
         - name
         - command
       type: object
+    SignedOut:
+      additionalProperties: false
+      properties:
+        count:
+          description: How many browsers were signed out
+          format: int64
+          type: integer
+      required:
+        - count
+      type: object
     Suspended:
       additionalProperties: false
       properties:
@@ -413,6 +460,85 @@ info:
   version: "1"
 openapi: 3.0.3
 paths:
+  /browsers:
+    delete:
+      operationId: logout.all
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignedOut"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Sign out every browser
+      x-hz:
+        by:
+          - logout
+    get:
+      operationId: browsers
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Browser"
+                nullable: true
+                type: array
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Browsers signed in to the web UI
+      x-hz:
+        columns:
+          - label
+          - at
+          - until
+        output: table
+  /browsers/{label}:
+    delete:
+      operationId: logout
+      parameters:
+        - description: The label their link was asked with
+          in: path
+          name: label
+          required: true
+          schema:
+            description: The label their link was asked with
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignedOut"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Sign out the browsers under label
+      x-hz:
+        by:
+          - logout
   /credentials:
     get:
       operationId: credentials.get
@@ -895,6 +1021,35 @@ paths:
           - key
           - label
         output: table
+  /login-links:
+    post:
+      operationId: invite
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginLinkInput"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginLink"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: A one-time link that signs a browser in to the web UI
+      x-hz:
+        by:
+          - open
+          - invite
   /me:
     get:
       operationId: me
