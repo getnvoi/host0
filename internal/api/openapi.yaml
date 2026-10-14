@@ -290,6 +290,9 @@ components:
         - kind
         - at
       type: object
+      x-go-type: llm.Event
+      x-go-type-import:
+        path: github.com/getnvoi/host0/internal/llm
     Field:
       additionalProperties: false
       properties:
@@ -319,6 +322,9 @@ components:
         - label
         - type
       type: object
+      x-go-type: llm.Field
+      x-go-type-import:
+        path: github.com/getnvoi/host0/internal/llm
     FileChange:
       additionalProperties: false
       properties:
@@ -448,6 +454,9 @@ components:
         - value
         - label
       type: object
+      x-go-type: llm.Option
+      x-go-type-import:
+        path: github.com/getnvoi/host0/internal/llm
     PreviewStatus:
       additionalProperties: false
       properties:
@@ -478,6 +487,9 @@ components:
         - label
         - fields
       type: object
+      x-go-type: llm.Provider
+      x-go-type-import:
+        path: github.com/getnvoi/host0/internal/llm
     Seed:
       additionalProperties: false
       properties:

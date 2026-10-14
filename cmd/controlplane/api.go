@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -80,5 +82,26 @@ type Me struct {
 
 // The spec of the plane's API, as internal/api/openapi.yaml holds it.
 func spec() ([]byte, error) {
-	return (&plane{}).API(http.NewServeMux()).OpenAPI().DowngradeYAML()
+	o := (&plane{}).API(http.NewServeMux()).OpenAPI()
+	reuse(o.Components.Schemas)
+	return o.DowngradeYAML()
+}
+
+// The contracts whose types the generated client takes as they are rather than generating its own.
+var contracts = []string{"github.com/getnvoi/host0/internal/llm", "github.com/getnvoi/host0/internal/sandbox"}
+
+// Marks each schema of a contract's type with x-go-type, so oapi-codegen imports the type.
+func reuse(r huma.Registry) {
+	for name, s := range r.Map() {
+		t := r.TypeFromRef("#/components/schemas/" + name)
+		if t == nil || !slices.Contains(contracts, t.PkgPath()) {
+			continue
+		}
+		if s.Extensions == nil {
+			s.Extensions = map[string]any{}
+		}
+		pkg := t.PkgPath()[strings.LastIndex(t.PkgPath(), "/")+1:]
+		s.Extensions["x-go-type"] = pkg + "." + t.Name()
+		s.Extensions["x-go-type-import"] = map[string]string{"path": t.PkgPath()}
+	}
 }

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getnvoi/host0/internal/llm"
 	"github.com/oapi-codegen/runtime"
 )
 
@@ -151,28 +152,10 @@ type ErrorModel struct {
 }
 
 // Event defines model for Event.
-type Event struct {
-	At      time.Time   `json:"at"`
-	Content *string     `json:"content,omitempty"`
-	Kind    string      `json:"kind"`
-	Meta    interface{} `json:"meta,omitempty"`
-	Parent  *string     `json:"parent,omitempty"`
-	Tool    *string     `json:"tool,omitempty"`
-	ToolId  *string     `json:"tool_id,omitempty"`
-}
+type Event = llm.Event
 
 // Field defines model for Field.
-type Field struct {
-	Default     *string   `json:"default,omitempty"`
-	Help        *string   `json:"help,omitempty"`
-	Key         string    `json:"key"`
-	Label       string    `json:"label"`
-	Options     *[]Option `json:"options,omitempty"`
-	Placeholder *string   `json:"placeholder,omitempty"`
-	Required    *bool     `json:"required,omitempty"`
-	Secret      *bool     `json:"secret,omitempty"`
-	Type        string    `json:"type"`
-}
+type Field = llm.Field
 
 // FileChange defines model for FileChange.
 type FileChange struct {
@@ -229,10 +212,7 @@ type Message struct {
 }
 
 // Option defines model for Option.
-type Option struct {
-	Label string `json:"label"`
-	Value string `json:"value"`
-}
+type Option = llm.Option
 
 // PreviewStatus defines model for PreviewStatus.
 type PreviewStatus struct {
@@ -242,11 +222,7 @@ type PreviewStatus struct {
 }
 
 // Provider defines model for Provider.
-type Provider struct {
-	Fields *[]Field `json:"fields"`
-	Key    string   `json:"key"`
-	Label  string   `json:"label"`
-}
+type Provider = llm.Provider
 
 // Seed defines model for Seed.
 type Seed struct {
