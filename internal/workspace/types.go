@@ -72,6 +72,21 @@ type LLMConfig struct {
 	At       time.Time  `json:"at"`
 }
 
+// A new agent credential; the first live one, or one given main, is the one turns run on.
+type LLMConfigInput struct {
+	Name     string            `json:"name"`
+	Provider string            `json:"provider"`
+	Values   map[string]string `json:"values" writeOnly:"true"`
+	Main     bool              `json:"main,omitempty"`
+}
+
+// A credential's values; a secret left empty keeps the stored one.
+type LLMConfigValues struct {
+	Values map[string]string `json:"values" writeOnly:"true"`
+}
+
+type CredentialsInput Credentials
+
 type Seed struct {
 	Env      string    `json:"env"`
 	Run      string    `json:"run,omitempty"` // the seed script's boxd run id

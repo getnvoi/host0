@@ -66,6 +66,7 @@ func (p *plane) API(mux *http.ServeMux) huma.API {
 			return &body[Me]{Me{Cluster: p.Cluster, Zone: p.Zone}}, nil
 		})
 	p.environments(a)
+	p.credentials(a)
 	return a
 }
 

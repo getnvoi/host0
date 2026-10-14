@@ -1,0 +1,4 @@
+> GET /llm/configs
+NAME         PROVIDER     MAIN   ARCHIVED_AT           STORED  VALUES
+Claude Code  claude_code  true                         token   kind=oauth
+OpenAI       codex        false  2026-10-01T09:00:00Z  token   kind=api_key model=gpt-5

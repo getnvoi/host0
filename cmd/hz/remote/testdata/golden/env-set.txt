@@ -1,0 +1,1 @@
+> PATCH /environments/shop {"image":"ruby:3"}

@@ -245,12 +245,11 @@ func announce(step string) string {
 }
 
 func (ws *Workspace) env(name string) (Environment, Credentials, error) {
-	var creds Credentials
 	env, err := ws.environment(ws.DB, name)
 	if err != nil {
-		return env, creds, err
+		return env, Credentials{}, err
 	}
-	err = ws.Store.Get("credentials", "default", &creds)
+	creds, err := ws.credentials()
 	return env, creds, err
 }
 

@@ -47,6 +47,14 @@ type LLMConfig struct {
 	Values     map[string]string `gorm:"type:text;serializer:sealed"`
 	Main       bool              `gorm:"not null;default:false"`
 	ArchivedAt *time.Time
+	CreatedAt  time.Time
+}
+
+// A credential of the workspace's own, by name: github.
+type Credential struct {
+	ID    uint
+	Name  string `gorm:"not null;uniqueIndex"`
+	Value string `gorm:"type:text;serializer:sealed"`
 }
 
 type Environment struct {

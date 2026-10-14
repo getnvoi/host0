@@ -87,7 +87,6 @@ func TestSeedAnnouncesEachStep(t *testing.T) {
 	p := newWorkspace(t, seeder{&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}})
 	env(t, p, Environment{Name: "shop", Repo: "acme/shop", Branch: "main",
 		Setup: []string{"npm ci"}, Services: []Service{{Name: "web"}}, Preview: 3000})
-	p.Store.Put("credentials", "default", Credentials{})
 	c := p.Bus.(*bus).tap(t)
 	if err := p.Reseed("shop"); err != nil {
 		t.Fatal(err)
@@ -131,7 +130,6 @@ func TestSeedSilentStepFails(t *testing.T) {
 	p := newWorkspace(t, seeder{&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}})
 	env(t, p, Environment{Name: "shop", Repo: "acme/shop", Branch: "main",
 		Setup: []string{"npm ci"}, Preview: 3000})
-	p.Store.Put("credentials", "default", Credentials{})
 	c := p.Bus.(*bus).tap(t)
 	if err := p.Reseed("shop"); err != nil {
 		t.Fatal(err)
@@ -222,7 +220,6 @@ func TestRestartAfterSeedBuildsNothing(t *testing.T) {
 	p := newWorkspace(t, sb)
 	p.BoxImage = "boxd@1"
 	env(t, p, Environment{Name: "shop", Repo: "acme/shop", Branch: "main", Preview: 3000})
-	p.Store.Put("credentials", "default", Credentials{})
 	c := p.Bus.(*bus).tap(t)
 	if err := p.Reseed("shop"); err != nil {
 		t.Fatal(err)

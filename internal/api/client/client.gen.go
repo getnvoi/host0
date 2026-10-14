@@ -12,9 +12,20 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 )
+
+// CredentialsInput defines model for CredentialsInput.
+type CredentialsInput struct {
+	Github *string `json:"github,omitempty"`
+}
+
+// CredentialsSet defines model for CredentialsSet.
+type CredentialsSet struct {
+	Stored *[]string `json:"stored"`
+}
 
 // Environment defines model for Environment.
 type Environment struct {
@@ -112,10 +123,60 @@ type ErrorModel struct {
 	Type *string `json:"type,omitempty"`
 }
 
+// Field defines model for Field.
+type Field struct {
+	Default     *string   `json:"default,omitempty"`
+	Help        *string   `json:"help,omitempty"`
+	Key         string    `json:"key"`
+	Label       string    `json:"label"`
+	Options     *[]Option `json:"options,omitempty"`
+	Placeholder *string   `json:"placeholder,omitempty"`
+	Required    *bool     `json:"required,omitempty"`
+	Secret      *bool     `json:"secret,omitempty"`
+	Type        string    `json:"type"`
+}
+
+// LLMConfig defines model for LLMConfig.
+type LLMConfig struct {
+	ArchivedAt *time.Time        `json:"archived_at,omitempty"`
+	At         time.Time         `json:"at"`
+	Main       bool              `json:"main"`
+	Name       string            `json:"name"`
+	Provider   string            `json:"provider"`
+	Stored     *[]string         `json:"stored,omitempty"`
+	Values     map[string]string `json:"values"`
+}
+
+// LLMConfigInput defines model for LLMConfigInput.
+type LLMConfigInput struct {
+	Main     *bool              `json:"main,omitempty"`
+	Name     string             `json:"name"`
+	Provider string             `json:"provider"`
+	Values   *map[string]string `json:"values,omitempty"`
+}
+
+// LLMConfigValues defines model for LLMConfigValues.
+type LLMConfigValues struct {
+	Values *map[string]string `json:"values,omitempty"`
+}
+
 // Me defines model for Me.
 type Me struct {
 	Cluster string `json:"cluster"`
 	Zone    string `json:"zone"`
+}
+
+// Option defines model for Option.
+type Option struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+// Provider defines model for Provider.
+type Provider struct {
+	Fields *[]Field `json:"fields"`
+	Key    string   `json:"key"`
+	Label  string   `json:"label"`
 }
 
 // Service defines model for Service.
@@ -128,11 +189,26 @@ type Service struct {
 	Port    *int64             `json:"port,omitempty"`
 }
 
+// LlmRmParams defines parameters for LlmRm.
+type LlmRmParams struct {
+	// Remove Delete it rather than archive it
+	Remove *bool `form:"remove,omitempty" json:"remove,omitempty"`
+}
+
+// CredentialsPutJSONRequestBody defines body for CredentialsPut for application/json ContentType.
+type CredentialsPutJSONRequestBody = CredentialsInput
+
 // EnvSetApplicationMergePatchPlusJSONRequestBody defines body for EnvSet for application/merge-patch+json ContentType.
 type EnvSetApplicationMergePatchPlusJSONRequestBody = EnvironmentPatch
 
 // EnvPutJSONRequestBody defines body for EnvPut for application/json ContentType.
 type EnvPutJSONRequestBody = EnvironmentInput
+
+// LlmAddJSONRequestBody defines body for LlmAdd for application/json ContentType.
+type LlmAddJSONRequestBody = LLMConfigInput
+
+// LlmSetJSONRequestBody defines body for LlmSet for application/json ContentType.
+type LlmSetJSONRequestBody = LLMConfigValues
 
 // RequestEditorFn is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -208,6 +284,30 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
+	// CredentialsGet Which credentials hold a value, never the values
+	//
+	// Corresponds with GET /credentials (the `CredentialsGet` operationId).
+	CredentialsGet(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CredentialsPutWithBody Replace the workspace's credentials; one given empty is removed
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
+	CredentialsPutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CredentialsPut Replace the workspace's credentials; one given empty is removed
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
+	CredentialsPut(ctx context.Context, body CredentialsPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CredentialsRm Remove a credential: github (agent credentials: hz llm rm)
+	//
+	// Corresponds with DELETE /credentials/{name} (the `CredentialsRm` operationId).
+	CredentialsRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// EnvLs Every environment, and whether a session can fork from it now
 	//
 	// Corresponds with GET /environments (the `EnvLs` operationId).
@@ -251,10 +351,127 @@ type ClientInterface interface {
 	// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
 	EnvPut(ctx context.Context, name string, body EnvPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// LlmLs The agent credentials: live first, then archived; secrets left out
+	//
+	// Corresponds with GET /llm/configs (the `LlmLs` operationId).
+	LlmLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LlmAddWithBody Add an agent credential; the first live one is in use
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /llm/configs (the `LlmAdd` operationId).
+	LlmAddWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LlmAdd Add an agent credential; the first live one is in use
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /llm/configs (the `LlmAdd` operationId).
+	LlmAdd(ctx context.Context, body LlmAddJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LlmRm Archive the credential; --remove deletes it
+	//
+	// Corresponds with DELETE /llm/configs/{name} (the `LlmRm` operationId).
+	LlmRm(ctx context.Context, name string, params *LlmRmParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LlmSetWithBody Change a credential's values; a secret left empty keeps the stored one
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /llm/configs/{name} (the `LlmSet` operationId).
+	LlmSetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LlmSet Change a credential's values; a secret left empty keeps the stored one
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /llm/configs/{name} (the `LlmSet` operationId).
+	LlmSet(ctx context.Context, name string, body LlmSetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LlmUse Run turns on this credential
+	//
+	// Corresponds with POST /llm/configs/{name}/main (the `LlmUse` operationId).
+	LlmUse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LlmRestore Bring an archived credential back
+	//
+	// Corresponds with POST /llm/configs/{name}/restore (the `LlmRestore` operationId).
+	LlmRestore(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LlmProviders The agent CLIs a credential can be for, and their fields
+	//
+	// Corresponds with GET /llm/providers (the `LlmProviders` operationId).
+	LlmProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Me The cluster and zone this plane serves
 	//
 	// Corresponds with GET /me (the `Me` operationId).
 	Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// CredentialsGet Which credentials hold a value, never the values
+//
+// Corresponds with GET /credentials (the `CredentialsGet` operationId).
+func (c *Client) CredentialsGet(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCredentialsGetRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CredentialsPutWithBody Replace the workspace's credentials; one given empty is removed
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
+func (c *Client) CredentialsPutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCredentialsPutRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CredentialsPut Replace the workspace's credentials; one given empty is removed
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
+func (c *Client) CredentialsPut(ctx context.Context, body CredentialsPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCredentialsPutRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CredentialsRm Remove a credential: github (agent credentials: hz llm rm)
+//
+// Corresponds with DELETE /credentials/{name} (the `CredentialsRm` operationId).
+func (c *Client) CredentialsRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCredentialsRmRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // EnvLs Every environment, and whether a session can fork from it now
@@ -370,6 +587,149 @@ func (c *Client) EnvPut(ctx context.Context, name string, body EnvPutJSONRequest
 	return c.Client.Do(req)
 }
 
+// LlmLs The agent credentials: live first, then archived; secrets left out
+//
+// Corresponds with GET /llm/configs (the `LlmLs` operationId).
+func (c *Client) LlmLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmLsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LlmAddWithBody Add an agent credential; the first live one is in use
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /llm/configs (the `LlmAdd` operationId).
+func (c *Client) LlmAddWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmAddRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LlmAdd Add an agent credential; the first live one is in use
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /llm/configs (the `LlmAdd` operationId).
+func (c *Client) LlmAdd(ctx context.Context, body LlmAddJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmAddRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LlmRm Archive the credential; --remove deletes it
+//
+// Corresponds with DELETE /llm/configs/{name} (the `LlmRm` operationId).
+func (c *Client) LlmRm(ctx context.Context, name string, params *LlmRmParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmRmRequest(c.Server, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LlmSetWithBody Change a credential's values; a secret left empty keeps the stored one
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /llm/configs/{name} (the `LlmSet` operationId).
+func (c *Client) LlmSetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmSetRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LlmSet Change a credential's values; a secret left empty keeps the stored one
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /llm/configs/{name} (the `LlmSet` operationId).
+func (c *Client) LlmSet(ctx context.Context, name string, body LlmSetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmSetRequest(c.Server, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LlmUse Run turns on this credential
+//
+// Corresponds with POST /llm/configs/{name}/main (the `LlmUse` operationId).
+func (c *Client) LlmUse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmUseRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LlmRestore Bring an archived credential back
+//
+// Corresponds with POST /llm/configs/{name}/restore (the `LlmRestore` operationId).
+func (c *Client) LlmRestore(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmRestoreRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LlmProviders The agent CLIs a credential can be for, and their fields
+//
+// Corresponds with GET /llm/providers (the `LlmProviders` operationId).
+func (c *Client) LlmProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLlmProvidersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // Me The cluster and zone this plane serves
 //
 // Corresponds with GET /me (the `Me` operationId).
@@ -383,6 +743,107 @@ func (c *Client) Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.R
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewCredentialsGetRequest constructs an http.Request for the CredentialsGet method
+func NewCredentialsGetRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/credentials")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCredentialsPutRequest calls the generic CredentialsPut builder with application/json body
+func NewCredentialsPutRequest(server string, body CredentialsPutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCredentialsPutRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCredentialsPutRequestWithBody constructs an http.Request for the CredentialsPut method, with any body, and a specified content type
+func NewCredentialsPutRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/credentials")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCredentialsRmRequest constructs an http.Request for the CredentialsRm method
+func NewCredentialsRmRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/credentials/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewEnvLsRequest constructs an http.Request for the EnvLs method
@@ -574,6 +1035,276 @@ func NewEnvPutRequestWithBody(server string, name string, contentType string, bo
 	return req, nil
 }
 
+// NewLlmLsRequest constructs an http.Request for the LlmLs method
+func NewLlmLsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/llm/configs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLlmAddRequest calls the generic LlmAdd builder with application/json body
+func NewLlmAddRequest(server string, body LlmAddJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLlmAddRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLlmAddRequestWithBody constructs an http.Request for the LlmAdd method, with any body, and a specified content type
+func NewLlmAddRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/llm/configs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewLlmRmRequest constructs an http.Request for the LlmRm method
+func NewLlmRmRequest(server string, name string, params *LlmRmParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/llm/configs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Remove != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "remove", *params.Remove, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLlmSetRequest calls the generic LlmSet builder with application/json body
+func NewLlmSetRequest(server string, name string, body LlmSetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLlmSetRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewLlmSetRequestWithBody constructs an http.Request for the LlmSet method, with any body, and a specified content type
+func NewLlmSetRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/llm/configs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewLlmUseRequest constructs an http.Request for the LlmUse method
+func NewLlmUseRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/llm/configs/%s/main", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLlmRestoreRequest constructs an http.Request for the LlmRestore method
+func NewLlmRestoreRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/llm/configs/%s/restore", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLlmProvidersRequest constructs an http.Request for the LlmProviders method
+func NewLlmProvidersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/llm/providers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewMeRequest constructs an http.Request for the Me method
 func NewMeRequest(server string) (*http.Request, error) {
 	var err error
@@ -645,6 +1376,34 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// CredentialsGetWithResponse Which credentials hold a value, never the values
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /credentials (the `CredentialsGet` operationId).
+	CredentialsGetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CredentialsGetResponse, error)
+
+	// CredentialsPutWithBodyWithResponse Replace the workspace's credentials; one given empty is removed
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
+	CredentialsPutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CredentialsPutResponse, error)
+
+	// CredentialsPutWithResponse Replace the workspace's credentials; one given empty is removed
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
+	CredentialsPutWithResponse(ctx context.Context, body CredentialsPutJSONRequestBody, reqEditors ...RequestEditorFn) (*CredentialsPutResponse, error)
+
+	// CredentialsRmWithResponse Remove a credential: github (agent credentials: hz llm rm)
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /credentials/{name} (the `CredentialsRm` operationId).
+	CredentialsRmWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*CredentialsRmResponse, error)
+
 	// EnvLsWithResponse Every environment, and whether a session can fork from it now
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -694,12 +1453,205 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
 	EnvPutWithResponse(ctx context.Context, name string, body EnvPutJSONRequestBody, reqEditors ...RequestEditorFn) (*EnvPutResponse, error)
 
+	// LlmLsWithResponse The agent credentials: live first, then archived; secrets left out
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /llm/configs (the `LlmLs` operationId).
+	LlmLsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LlmLsResponse, error)
+
+	// LlmAddWithBodyWithResponse Add an agent credential; the first live one is in use
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /llm/configs (the `LlmAdd` operationId).
+	LlmAddWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LlmAddResponse, error)
+
+	// LlmAddWithResponse Add an agent credential; the first live one is in use
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /llm/configs (the `LlmAdd` operationId).
+	LlmAddWithResponse(ctx context.Context, body LlmAddJSONRequestBody, reqEditors ...RequestEditorFn) (*LlmAddResponse, error)
+
+	// LlmRmWithResponse Archive the credential; --remove deletes it
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /llm/configs/{name} (the `LlmRm` operationId).
+	LlmRmWithResponse(ctx context.Context, name string, params *LlmRmParams, reqEditors ...RequestEditorFn) (*LlmRmResponse, error)
+
+	// LlmSetWithBodyWithResponse Change a credential's values; a secret left empty keeps the stored one
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /llm/configs/{name} (the `LlmSet` operationId).
+	LlmSetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LlmSetResponse, error)
+
+	// LlmSetWithResponse Change a credential's values; a secret left empty keeps the stored one
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /llm/configs/{name} (the `LlmSet` operationId).
+	LlmSetWithResponse(ctx context.Context, name string, body LlmSetJSONRequestBody, reqEditors ...RequestEditorFn) (*LlmSetResponse, error)
+
+	// LlmUseWithResponse Run turns on this credential
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /llm/configs/{name}/main (the `LlmUse` operationId).
+	LlmUseWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*LlmUseResponse, error)
+
+	// LlmRestoreWithResponse Bring an archived credential back
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /llm/configs/{name}/restore (the `LlmRestore` operationId).
+	LlmRestoreWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*LlmRestoreResponse, error)
+
+	// LlmProvidersWithResponse The agent CLIs a credential can be for, and their fields
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /llm/providers (the `LlmProviders` operationId).
+	LlmProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LlmProvidersResponse, error)
+
 	// MeWithResponse The cluster and zone this plane serves
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /me (the `Me` operationId).
 	MeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*MeResponse, error)
+}
+
+type CredentialsGetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *CredentialsSet
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CredentialsGetResponse) GetJSON200() *CredentialsSet {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r CredentialsGetResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CredentialsGetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CredentialsGetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CredentialsGetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CredentialsGetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CredentialsPutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r CredentialsPutResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CredentialsPutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CredentialsPutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CredentialsPutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CredentialsPutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CredentialsRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r CredentialsRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r CredentialsRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CredentialsRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CredentialsRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CredentialsRmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type EnvLsResponse struct {
@@ -928,6 +1880,321 @@ func (r EnvPutResponse) ContentType() string {
 	return ""
 }
 
+type LlmLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]LLMConfig
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LlmLsResponse) GetJSON200() *[]LLMConfig {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LlmLsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LlmLsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LlmLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LlmLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LlmLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LlmAddResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LLMConfig
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LlmAddResponse) GetJSON200() *LLMConfig {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LlmAddResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LlmAddResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LlmAddResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LlmAddResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LlmAddResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LlmRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LlmRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LlmRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LlmRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LlmRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LlmRmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LlmSetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LLMConfig
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LlmSetResponse) GetJSON200() *LLMConfig {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LlmSetResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LlmSetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LlmSetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LlmSetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LlmSetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LlmUseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LlmUseResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LlmUseResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LlmUseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LlmUseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LlmUseResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LlmRestoreResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LlmRestoreResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LlmRestoreResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LlmRestoreResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LlmRestoreResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LlmRestoreResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LlmProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Provider
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LlmProvidersResponse) GetJSON200() *[]Provider {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LlmProvidersResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LlmProvidersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LlmProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LlmProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LlmProvidersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type MeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -974,6 +2241,58 @@ func (r MeResponse) ContentType() string {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
+}
+
+// CredentialsGetWithResponse Which credentials hold a value, never the values
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /credentials (the `CredentialsGet` operationId).
+func (c *ClientWithResponses) CredentialsGetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CredentialsGetResponse, error) {
+	rsp, err := c.CredentialsGet(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCredentialsGetResponse(rsp)
+}
+
+// CredentialsPutWithBodyWithResponse Replace the workspace's credentials; one given empty is removed
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
+func (c *ClientWithResponses) CredentialsPutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CredentialsPutResponse, error) {
+	rsp, err := c.CredentialsPutWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCredentialsPutResponse(rsp)
+}
+
+// CredentialsPutWithResponse Replace the workspace's credentials; one given empty is removed
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
+func (c *ClientWithResponses) CredentialsPutWithResponse(ctx context.Context, body CredentialsPutJSONRequestBody, reqEditors ...RequestEditorFn) (*CredentialsPutResponse, error) {
+	rsp, err := c.CredentialsPut(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCredentialsPutResponse(rsp)
+}
+
+// CredentialsRmWithResponse Remove a credential: github (agent credentials: hz llm rm)
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /credentials/{name} (the `CredentialsRm` operationId).
+func (c *ClientWithResponses) CredentialsRmWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*CredentialsRmResponse, error) {
+	rsp, err := c.CredentialsRm(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCredentialsRmResponse(rsp)
 }
 
 // EnvLsWithResponse Every environment, and whether a session can fork from it now
@@ -1067,6 +2386,123 @@ func (c *ClientWithResponses) EnvPutWithResponse(ctx context.Context, name strin
 	return ParseEnvPutResponse(rsp)
 }
 
+// LlmLsWithResponse The agent credentials: live first, then archived; secrets left out
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /llm/configs (the `LlmLs` operationId).
+func (c *ClientWithResponses) LlmLsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LlmLsResponse, error) {
+	rsp, err := c.LlmLs(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmLsResponse(rsp)
+}
+
+// LlmAddWithBodyWithResponse Add an agent credential; the first live one is in use
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /llm/configs (the `LlmAdd` operationId).
+func (c *ClientWithResponses) LlmAddWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LlmAddResponse, error) {
+	rsp, err := c.LlmAddWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmAddResponse(rsp)
+}
+
+// LlmAddWithResponse Add an agent credential; the first live one is in use
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /llm/configs (the `LlmAdd` operationId).
+func (c *ClientWithResponses) LlmAddWithResponse(ctx context.Context, body LlmAddJSONRequestBody, reqEditors ...RequestEditorFn) (*LlmAddResponse, error) {
+	rsp, err := c.LlmAdd(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmAddResponse(rsp)
+}
+
+// LlmRmWithResponse Archive the credential; --remove deletes it
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /llm/configs/{name} (the `LlmRm` operationId).
+func (c *ClientWithResponses) LlmRmWithResponse(ctx context.Context, name string, params *LlmRmParams, reqEditors ...RequestEditorFn) (*LlmRmResponse, error) {
+	rsp, err := c.LlmRm(ctx, name, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmRmResponse(rsp)
+}
+
+// LlmSetWithBodyWithResponse Change a credential's values; a secret left empty keeps the stored one
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /llm/configs/{name} (the `LlmSet` operationId).
+func (c *ClientWithResponses) LlmSetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LlmSetResponse, error) {
+	rsp, err := c.LlmSetWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmSetResponse(rsp)
+}
+
+// LlmSetWithResponse Change a credential's values; a secret left empty keeps the stored one
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /llm/configs/{name} (the `LlmSet` operationId).
+func (c *ClientWithResponses) LlmSetWithResponse(ctx context.Context, name string, body LlmSetJSONRequestBody, reqEditors ...RequestEditorFn) (*LlmSetResponse, error) {
+	rsp, err := c.LlmSet(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmSetResponse(rsp)
+}
+
+// LlmUseWithResponse Run turns on this credential
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /llm/configs/{name}/main (the `LlmUse` operationId).
+func (c *ClientWithResponses) LlmUseWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*LlmUseResponse, error) {
+	rsp, err := c.LlmUse(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmUseResponse(rsp)
+}
+
+// LlmRestoreWithResponse Bring an archived credential back
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /llm/configs/{name}/restore (the `LlmRestore` operationId).
+func (c *ClientWithResponses) LlmRestoreWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*LlmRestoreResponse, error) {
+	rsp, err := c.LlmRestore(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmRestoreResponse(rsp)
+}
+
+// LlmProvidersWithResponse The agent CLIs a credential can be for, and their fields
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /llm/providers (the `LlmProviders` operationId).
+func (c *ClientWithResponses) LlmProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LlmProvidersResponse, error) {
+	rsp, err := c.LlmProviders(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLlmProvidersResponse(rsp)
+}
+
 // MeWithResponse The cluster and zone this plane serves
 //
 // Returns a wrapper object for the known response body format(s).
@@ -1078,6 +2514,97 @@ func (c *ClientWithResponses) MeWithResponse(ctx context.Context, reqEditors ...
 		return nil, err
 	}
 	return ParseMeResponse(rsp)
+}
+
+// ParseCredentialsGetResponse parses an HTTP response from a CredentialsGetWithResponse call
+func ParseCredentialsGetResponse(rsp *http.Response) (*CredentialsGetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CredentialsGetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CredentialsSet
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCredentialsPutResponse parses an HTTP response from a CredentialsPutWithResponse call
+func ParseCredentialsPutResponse(rsp *http.Response) (*CredentialsPutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CredentialsPutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCredentialsRmResponse parses an HTTP response from a CredentialsRmWithResponse call
+func ParseCredentialsRmResponse(rsp *http.Response) (*CredentialsRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CredentialsRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseEnvLsResponse parses an HTTP response from a EnvLsWithResponse call
@@ -1224,6 +2751,225 @@ func ParseEnvPutResponse(rsp *http.Response) (*EnvPutResponse, error) {
 	switch {
 	case rsp.StatusCode == 204:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLlmLsResponse parses an HTTP response from a LlmLsWithResponse call
+func ParseLlmLsResponse(rsp *http.Response) (*LlmLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LlmLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []LLMConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLlmAddResponse parses an HTTP response from a LlmAddWithResponse call
+func ParseLlmAddResponse(rsp *http.Response) (*LlmAddResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LlmAddResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLlmRmResponse parses an HTTP response from a LlmRmWithResponse call
+func ParseLlmRmResponse(rsp *http.Response) (*LlmRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LlmRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLlmSetResponse parses an HTTP response from a LlmSetWithResponse call
+func ParseLlmSetResponse(rsp *http.Response) (*LlmSetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LlmSetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMConfig
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLlmUseResponse parses an HTTP response from a LlmUseWithResponse call
+func ParseLlmUseResponse(rsp *http.Response) (*LlmUseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LlmUseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLlmRestoreResponse parses an HTTP response from a LlmRestoreWithResponse call
+func ParseLlmRestoreResponse(rsp *http.Response) (*LlmRestoreResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LlmRestoreResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLlmProvidersResponse parses an HTTP response from a LlmProvidersWithResponse call
+func ParseLlmProvidersResponse(rsp *http.Response) (*LlmProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LlmProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Provider
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel

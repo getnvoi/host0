@@ -280,6 +280,26 @@ func cell(v any) string {
 		return strconv.FormatFloat(v, 'f', -1, 64)
 	case bool:
 		return strconv.FormatBool(v)
+	case []any:
+		cells := make([]string, len(v))
+		for i, e := range v {
+			if _, nested := e.(map[string]any); nested {
+				b, _ := json.Marshal(v)
+				return string(b)
+			}
+			cells[i] = cell(e)
+		}
+		return strings.Join(cells, ",")
+	case map[string]any:
+		var pairs []string
+		for _, k := range columns(nil, v) {
+			if _, nested := v[k].(map[string]any); nested {
+				b, _ := json.Marshal(v)
+				return string(b)
+			}
+			pairs = append(pairs, k+"="+cell(v[k]))
+		}
+		return strings.Join(pairs, " ")
 	}
 	b, _ := json.Marshal(v)
 	return string(b)

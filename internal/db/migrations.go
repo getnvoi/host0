@@ -21,6 +21,7 @@ func migrator(db *gorm.DB) *gormigrate.Gormigrate {
 var migrations = []*gormigrate.Migration{
 	{ID: "0001", Migrate: migrate0001},
 	{ID: "0002", Migrate: migrate0002},
+	{ID: "0003", Migrate: migrate0003},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -56,6 +57,28 @@ type m2Environment struct {
 }
 
 func (m2Environment) TableName() string { return "environments" }
+
+// The workspace's own credentials, and when each agent credential was added.
+func migrate0003(tx *gorm.DB) error {
+	if err := tx.Migrator().AddColumn(&m3LLMConfig{}, "CreatedAt"); err != nil {
+		return err
+	}
+	return tx.Migrator().CreateTable(&m3Credential{})
+}
+
+type m3LLMConfig struct {
+	CreatedAt time.Time
+}
+
+func (m3LLMConfig) TableName() string { return "llm_configs" }
+
+type m3Credential struct {
+	ID    uint
+	Name  string `gorm:"not null;uniqueIndex"`
+	Value string `gorm:"type:text"`
+}
+
+func (m3Credential) TableName() string { return "credentials" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {

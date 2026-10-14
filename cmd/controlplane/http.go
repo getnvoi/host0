@@ -15,7 +15,6 @@ import (
 	"github.com/getnvoi/host0/internal/box"
 	"github.com/getnvoi/host0/internal/preview"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/store"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -46,35 +45,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	})
 	api.HandleFunc("POST /sessions/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, nil, ws.Stop(r.Context(), r.PathValue("id")))
-	})
-	api.HandleFunc("PUT /credentials", func(w http.ResponseWriter, r *http.Request) {
-		var c workspace.Credentials
-		reply(w, nil, read(r, &c, func() error { return p.Store.Put("credentials", "default", c) }))
-	})
-	api.HandleFunc("GET /credentials", func(w http.ResponseWriter, r *http.Request) {
-		out := workspace.CredentialsSet{Stored: []string{}}
-		var c workspace.Credentials
-		err := p.Store.Get("credentials", "default", &c)
-		if err == store.ErrNotFound {
-			err = nil
-		}
-		if c.GitHub != "" {
-			out.Stored = append(out.Stored, "github")
-		}
-		reply(w, &out, err)
-	})
-	api.HandleFunc("DELETE /credentials/{name}", func(w http.ResponseWriter, r *http.Request) {
-		if r.PathValue("name") != "github" {
-			reply(w, nil, store.ErrNotFound)
-			return
-		}
-		var c workspace.Credentials
-		err := p.Store.Get("credentials", "default", &c)
-		if err == nil {
-			c.GitHub = ""
-			err = p.Store.Put("credentials", "default", c)
-		}
-		reply(w, nil, err)
 	})
 	api.HandleFunc("PUT /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
 		var s sandbox.Shape
@@ -107,35 +77,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	api.HandleFunc("GET /cluster", func(w http.ResponseWriter, r *http.Request) {
 		c, err := p.Status(r.Context())
 		reply(w, &c, err)
-	})
-	api.HandleFunc("GET /llm/providers", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, ws.Providers(), nil)
-	})
-	api.HandleFunc("GET /llm/configs", func(w http.ResponseWriter, r *http.Request) {
-		cs, err := ws.Configs()
-		reply(w, cs, err)
-	})
-	api.HandleFunc("POST /llm/configs", func(w http.ResponseWriter, r *http.Request) {
-		var in, out workspace.LLMConfig
-		reply(w, &out, read(r, &in, func() (err error) { out, err = ws.AddConfig(in); return }))
-	})
-	api.HandleFunc("PUT /llm/configs/{name}", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Values map[string]string }
-		var out workspace.LLMConfig
-		reply(w, &out, read(r, &in, func() (err error) { out, err = ws.UpdateConfig(r.PathValue("name"), in.Values); return }))
-	})
-	api.HandleFunc("POST /llm/configs/{name}/main", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.UseConfig(r.PathValue("name")))
-	})
-	api.HandleFunc("POST /llm/configs/{name}/restore", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.RestoreConfig(r.PathValue("name")))
-	})
-	api.HandleFunc("DELETE /llm/configs/{name}", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("remove") != "" {
-			reply(w, nil, ws.RemoveConfig(r.PathValue("name")))
-			return
-		}
-		reply(w, nil, ws.ArchiveConfig(r.PathValue("name")))
 	})
 	api.HandleFunc("POST /environments/{name}/seed", func(w http.ResponseWriter, r *http.Request) {
 		if err := ws.Reseed(r.PathValue("name")); err != nil {

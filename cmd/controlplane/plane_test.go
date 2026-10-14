@@ -166,7 +166,7 @@ func (f *fakePools) Replicas(_ context.Context, pool string) (int, error) {
 func (f *fakePools) Ready(_ context.Context, pool string) (int, error) { return f.ready[pool], nil }
 func (f *fakePools) Nodes(context.Context) ([]kube.Node, error)        { return f.nodes, nil }
 
-var testLLM = workspace.LLMConfig{Name: "Claude Code", Provider: "claude_code", Main: true, Values: map[string]string{"kind": "oauth", "token": "t"}}
+var testLLM = workspace.LLMConfigInput{Name: "Claude Code", Provider: "claude_code", Main: true, Values: map[string]string{"kind": "oauth", "token": "t"}}
 
 func TestLogin(t *testing.T) {
 	_, h := handler(t)
@@ -431,8 +431,8 @@ func TestConfigSecrets(t *testing.T) {
 	if res.Code != 200 || !reflect.DeepEqual(c.Stored, []string{"token"}) || c.Values["model"] != "opus" || c.Values["token"] != "" {
 		t.Fatalf("update: %d %s", res.Code, res.Body)
 	}
-	var stored workspace.LLMConfig
-	if p.Store.Get("llm", "work", &stored); stored.Values["token"] != "sk-1" {
+	var stored db.LLMConfig
+	if p.DB.Where("name = ?", "work").First(&stored); stored.Values["token"] != "sk-1" {
 		t.Fatalf("an empty secret keeps the stored one: %v", stored.Values)
 	}
 	res = call(h, "POST", "api-dev.nvoi.to", "/llm/configs", `{"name":"x","provider":"claude_code","values":{"kind":"oauth"}}`, bearer)

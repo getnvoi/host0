@@ -1,5 +1,22 @@
 components:
   schemas:
+    CredentialsInput:
+      additionalProperties: false
+      properties:
+        github:
+          type: string
+      type: object
+    CredentialsSet:
+      additionalProperties: false
+      properties:
+        stored:
+          items:
+            type: string
+          nullable: true
+          type: array
+      required:
+        - stored
+      type: object
     Environment:
       additionalProperties: false
       properties:
@@ -182,6 +199,96 @@ components:
           format: uri
           type: string
       type: object
+    Field:
+      additionalProperties: false
+      properties:
+        default:
+          type: string
+        help:
+          type: string
+        key:
+          type: string
+        label:
+          type: string
+        options:
+          items:
+            $ref: "#/components/schemas/Option"
+          nullable: true
+          type: array
+        placeholder:
+          type: string
+        required:
+          type: boolean
+        secret:
+          type: boolean
+        type:
+          type: string
+      required:
+        - key
+        - label
+        - type
+      type: object
+    LLMConfig:
+      additionalProperties: false
+      properties:
+        archived_at:
+          format: date-time
+          type: string
+        at:
+          format: date-time
+          type: string
+        main:
+          type: boolean
+        name:
+          type: string
+        provider:
+          type: string
+        stored:
+          items:
+            type: string
+          nullable: true
+          type: array
+        values:
+          additionalProperties:
+            type: string
+          type: object
+      required:
+        - name
+        - provider
+        - values
+        - main
+        - at
+      type: object
+    LLMConfigInput:
+      additionalProperties: false
+      properties:
+        main:
+          type: boolean
+        name:
+          type: string
+        provider:
+          type: string
+        values:
+          additionalProperties:
+            type: string
+          type: object
+          writeOnly: true
+      required:
+        - name
+        - provider
+        - values
+      type: object
+    LLMConfigValues:
+      additionalProperties: false
+      properties:
+        values:
+          additionalProperties:
+            type: string
+          type: object
+          writeOnly: true
+      required:
+        - values
+      type: object
     Me:
       additionalProperties: false
       properties:
@@ -192,6 +299,34 @@ components:
       required:
         - cluster
         - zone
+      type: object
+    Option:
+      additionalProperties: false
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+      required:
+        - value
+        - label
+      type: object
+    Provider:
+      additionalProperties: false
+      properties:
+        fields:
+          items:
+            $ref: "#/components/schemas/Field"
+          nullable: true
+          type: array
+        key:
+          type: string
+        label:
+          type: string
+      required:
+        - key
+        - label
+        - fields
       type: object
     Service:
       additionalProperties: false
@@ -230,6 +365,70 @@ info:
   version: "1"
 openapi: 3.0.3
 paths:
+  /credentials:
+    get:
+      operationId: credentials.get
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CredentialsSet"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Which credentials hold a value, never the values
+      x-hz:
+        by:
+          - credentials ls
+    put:
+      operationId: credentials.put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CredentialsInput"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Replace the workspace's credentials; one given empty is removed
+      x-hz:
+        by:
+          - credentials
+  /credentials/{name}:
+    delete:
+      operationId: credentials.rm
+      parameters:
+        - description: github
+          in: path
+          name: name
+          required: true
+          schema:
+            description: github
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "Remove a credential: github (agent credentials: hz llm rm)"
+      x-hz:
+        output: none
   /environments:
     get:
       operationId: env.ls
@@ -392,6 +591,201 @@ paths:
         by:
           - env apply
           - env create
+  /llm/configs:
+    get:
+      operationId: llm.ls
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/LLMConfig"
+                nullable: true
+                type: array
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "The agent credentials: live first, then archived; secrets left out"
+      x-hz:
+        by:
+          - credentials
+          - credentials ls
+        columns:
+          - name
+          - provider
+          - main
+          - archived_at
+          - stored
+          - values
+        output: table
+    post:
+      operationId: llm.add
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LLMConfigInput"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMConfig"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Add an agent credential; the first live one is in use
+      x-hz:
+        by:
+          - credentials
+  /llm/configs/{name}:
+    delete:
+      operationId: llm.rm
+      parameters:
+        - description: The credential's label
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The credential's label
+            type: string
+        - description: Delete it rather than archive it
+          explode: false
+          in: query
+          name: remove
+          schema:
+            description: Delete it rather than archive it
+            type: boolean
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Archive the credential; --remove deletes it
+      x-hz:
+        output: none
+    put:
+      operationId: llm.set
+      parameters:
+        - description: The credential's label
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The credential's label
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LLMConfigValues"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMConfig"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Change a credential's values; a secret left empty keeps the stored one
+      x-hz:
+        by:
+          - credentials
+  /llm/configs/{name}/main:
+    post:
+      operationId: llm.use
+      parameters:
+        - description: The credential's label
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The credential's label
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Run turns on this credential
+      x-hz:
+        by:
+          - credentials
+        output: none
+  /llm/configs/{name}/restore:
+    post:
+      operationId: llm.restore
+      parameters:
+        - description: The credential's label
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The credential's label
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Bring an archived credential back
+      x-hz:
+        output: none
+  /llm/providers:
+    get:
+      operationId: llm.providers
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Provider"
+                nullable: true
+                type: array
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: The agent CLIs a credential can be for, and their fields
+      x-hz:
+        by:
+          - credentials
+        columns:
+          - key
+          - label
+        output: table
   /me:
     get:
       operationId: me

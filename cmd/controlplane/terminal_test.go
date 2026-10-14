@@ -26,8 +26,9 @@ func withBox(t *testing.T, boxd http.HandlerFunc) (*plane, http.Handler) {
 	p, h := serve(newStore(t), boxed{addr: srv.Listener.Addr().String()}, nil, nil)
 	putEnv(t, p, workspace.Environment{Name: "web", Branch: "main",
 		Services: []workspace.Service{{Name: "rails"}, {Name: "worker"}}})
-	p.Store.Put("credentials", "default", workspace.Credentials{})
-	p.Store.Put("llm", testLLM.Name, testLLM)
+	if _, err := p.ws.AddConfig(testLLM); err != nil {
+		t.Fatal(err)
+	}
 	p.Store.Put("seeds", "web", workspace.Seed{Env: "web", Run: "seed-1"})
 	p.Store.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", Actor: "wt-s1"})
 	return p, h

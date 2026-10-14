@@ -12,6 +12,39 @@ import (
 
 var operations = []operation{
 	{
+		ID:     "credentials.get",
+		Short:  "Which credentials hold a value, never the values",
+		Method: "GET",
+		Route:  "/credentials",
+		HZ:     hz{By: []string{"credentials ls"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.CredentialsGet(ctx, edit)
+		},
+	},
+	{
+		ID:          "credentials.put",
+		Short:       "Replace the workspace's credentials; one given empty is removed",
+		Method:      "PUT",
+		Route:       "/credentials",
+		HZ:          hz{By: []string{"credentials"}},
+		ContentType: "application/json",
+		Body:        []param{{Name: "github", Kind: "string", Help: ""}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.CredentialsPutWithBody(ctx, "application/json", body, edit)
+		},
+	},
+	{
+		ID:     "credentials.rm",
+		Short:  "Remove a credential: github (agent credentials: hz llm rm)",
+		Method: "DELETE",
+		Route:  "/credentials/{name}",
+		HZ:     hz{Output: "none"},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.CredentialsRm(ctx, args[0], edit)
+		},
+	},
+	{
 		ID:     "env.get",
 		Short:  "The environment, its secrets' values left out",
 		Method: "GET",
@@ -67,6 +100,84 @@ var operations = []operation{
 		Body:        []param{{Name: "branch", Kind: "string", Help: ""}, {Name: "env", Kind: "map", Help: ""}, {Name: "image", Kind: "string", Help: ""}, {Name: "preview", Kind: "int", Help: ""}, {Name: "repo", Kind: "string", Help: ""}, {Name: "setup", Kind: "list", Help: ""}, {Name: "tier", Kind: "string", Help: ""}, {Name: "tools", Kind: "map", Help: ""}},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.EnvSetWithBody(ctx, args[0], "application/merge-patch+json", body, edit)
+		},
+	},
+	{
+		ID:          "llm.add",
+		Short:       "Add an agent credential; the first live one is in use",
+		Method:      "POST",
+		Route:       "/llm/configs",
+		HZ:          hz{By: []string{"credentials"}},
+		ContentType: "application/json",
+		Body:        []param{{Name: "main", Kind: "bool", Help: ""}, {Name: "name", Kind: "string", Help: ""}, {Name: "provider", Kind: "string", Help: ""}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LlmAddWithBody(ctx, "application/json", body, edit)
+		},
+	},
+	{
+		ID:     "llm.ls",
+		Short:  "The agent credentials: live first, then archived; secrets left out",
+		Method: "GET",
+		Route:  "/llm/configs",
+		HZ:     hz{Output: "table", Columns: []string{"name", "provider", "main", "archived_at", "stored", "values"}, By: []string{"credentials", "credentials ls"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LlmLs(ctx, edit)
+		},
+	},
+	{
+		ID:     "llm.providers",
+		Short:  "The agent CLIs a credential can be for, and their fields",
+		Method: "GET",
+		Route:  "/llm/providers",
+		HZ:     hz{Output: "table", Columns: []string{"key", "label"}, By: []string{"credentials"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LlmProviders(ctx, edit)
+		},
+	},
+	{
+		ID:     "llm.restore",
+		Short:  "Bring an archived credential back",
+		Method: "POST",
+		Route:  "/llm/configs/{name}/restore",
+		HZ:     hz{Output: "none"},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LlmRestore(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "llm.rm",
+		Short:  "Archive the credential; --remove deletes it",
+		Method: "DELETE",
+		Route:  "/llm/configs/{name}",
+		HZ:     hz{Output: "none"},
+		Args:   []string{"name"},
+		Query:  []param{{Name: "remove", Kind: "bool", Help: "Delete it rather than archive it"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LlmRm(ctx, args[0], &client.LlmRmParams{}, edit)
+		},
+	},
+	{
+		ID:          "llm.set",
+		Short:       "Change a credential's values; a secret left empty keeps the stored one",
+		Method:      "PUT",
+		Route:       "/llm/configs/{name}",
+		HZ:          hz{By: []string{"credentials"}},
+		Args:        []string{"name"},
+		ContentType: "application/json",
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LlmSetWithBody(ctx, args[0], "application/json", body, edit)
+		},
+	},
+	{
+		ID:     "llm.use",
+		Short:  "Run turns on this credential",
+		Method: "POST",
+		Route:  "/llm/configs/{name}/main",
+		HZ:     hz{Output: "none", By: []string{"credentials"}},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LlmUse(ctx, args[0], edit)
 		},
 	},
 	{
