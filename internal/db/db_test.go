@@ -119,7 +119,7 @@ func TestMigrate(t *testing.T) {
 	}
 	var ran []string
 	must(t, db.Raw("SELECT id FROM migrations").Scan(&ran).Error)
-	if !reflect.DeepEqual(ran, []string{"0001", "0002", "0003", "0004"}) {
+	if !reflect.DeepEqual(ran, []string{"0001", "0002", "0003", "0004", "0005"}) {
 		t.Fatalf("migrations recorded: %v", ran)
 	}
 
@@ -141,7 +141,7 @@ func TestMigrate(t *testing.T) {
 		"setup_steps": "environment_id,position", "services": "environment_id,name", "sessions": "public_id",
 		"events": "session_id,position", "queued_messages": "session_id,position", "approvals": "public_id",
 		"artifacts": "session_id,name", "artifact_versions": "artifact_id,number", "routes": "host",
-		"sign_ins": "digest", "usage_hours": "hour,tier", "credentials": "name",
+		"sign_ins": "digest", "usage_hours": "hour,tier,session", "credentials": "name",
 	}
 	for n, cols := range uniques {
 		found := false

@@ -23,6 +23,7 @@ var migrations = []*gormigrate.Migration{
 	{ID: "0002", Migrate: migrate0002},
 	{ID: "0003", Migrate: migrate0003},
 	{ID: "0004", Migrate: migrate0004},
+	{ID: "0005", Migrate: migrate0005},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -97,6 +98,53 @@ type m4Seed struct {
 }
 
 func (m4Seed) TableName() string { return "seeds" }
+
+// A route's port and tier, the workers' location, when a sign-in began, and usage per session and per pool.
+func migrate0005(tx *gorm.DB) error {
+	m := tx.Migrator()
+	for _, c := range []struct {
+		model any
+		field string
+	}{{&m5Route{}, "Port"}, {&m5Route{}, "Tier"}, {&m5Shape{}, "WorkersLocation"}, {&m5SignIn{}, "CreatedAt"},
+		{&m5UsageHour{}, "Session"}, {&m5UsageHour{}, "Env"}, {&m5UsageHour{}, "By"}, {&m5UsageHour{}, "SuspendedS"},
+		{&m5UsageHour{}, "WorkerS"}} {
+		if err := m.AddColumn(c.model, c.field); err != nil {
+			return err
+		}
+	}
+	if err := m.DropIndex(&m5UsageHour{}, "idx_usage_hours_hour_tier"); err != nil {
+		return err
+	}
+	return m.CreateIndex(&m5UsageHour{}, "idx_usage_hours_hour_tier_session")
+}
+
+type m5Route struct {
+	Port int
+	Tier string
+}
+
+type m5Shape struct {
+	WorkersLocation string
+}
+
+type m5SignIn struct {
+	CreatedAt time.Time
+}
+
+type m5UsageHour struct {
+	Hour       time.Time `gorm:"not null;uniqueIndex:idx_usage_hours_hour_tier_session"`
+	Tier       string    `gorm:"not null;uniqueIndex:idx_usage_hours_hour_tier_session"`
+	Session    string    `gorm:"not null;default:'';uniqueIndex:idx_usage_hours_hour_tier_session"`
+	Env        string
+	By         string
+	SuspendedS int64 `gorm:"column:suspended_s;not null;default:0"`
+	WorkerS    int64 `gorm:"column:worker_s;not null;default:0"`
+}
+
+func (m5Route) TableName() string     { return "routes" }
+func (m5Shape) TableName() string     { return "shapes" }
+func (m5SignIn) TableName() string    { return "sign_ins" }
+func (m5UsageHour) TableName() string { return "usage_hours" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {
