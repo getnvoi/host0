@@ -112,33 +112,56 @@ waiting for running", and ten minutes went into finding a sentence that had
 already been written. If a caller has to go and look, the CLI is missing a
 command.
 
-## Modules follow who implements what
+## Packages follow who implements what
+
+One module, `github.com/getnvoi/host0`, one `go.mod` at the root.
 
 ```
-apps/plane/      the api, sandboxes, turns, approvals; embeds the ui    runs in the cluster
-apps/boxd/       commands and their durable output in each actor        runs in the cluster
-apps/proxy/      TLS for the public edge, every request to the plane    runs in the cluster
-apps/hz/         the hz binary
-apps/ui/         the web UI, built into apps/plane/web/dist
-packages/shared/ names, the api contract                                everyone
-packages/cloud/  the contract, conformance, hetzner, scaleway
-packages/edge/   the contract, cloudflare, dns
-packages/infra/  the install: steps, manifests                          local commands only
+cmd/hz/               the CLI: commands, ~/.hz                                  the laptop
+cmd/controlplane/     the plane: HTTP API, usage, cluster status, UI, wiring     runs in the cluster
+cmd/boxd/             commands and their durable output in each actor            runs in the cluster
+cmd/proxy/            TLS for the public edge, every request to the plane        runs in the cluster
+internal/workspace/   environments, seeds, sessions, turns, queues, approvals, LLM configs, changes, logs
+internal/auth/        sign-in links, cookies, the bearer token
+internal/tools/       the tools the agent sees, one file each
+internal/workers/     pools and worker servers, the idle pause and suspend
+internal/preview/     preview tokens and the page bridge
+internal/stream/      the event broker
+internal/infra/       the install: steps, manifests                              cmd/hz/local only
+internal/sandbox/     contract: Sandboxes, tiers, the shape; substrate/
+internal/llm/         contract: Runner; claude/, codex/
+internal/scm/         contract: Forge; github/
+internal/store/       contract: Store; files/
+internal/edge/        contract: the install's Edge, the plane's Router; cloudflare/, dns/
+internal/cloud/       contract: Cloud; conformance/, hetzner/, scaleway/, clouds/
+internal/box/         client: boxd, and the terminal relay
+internal/kube/        client: the cluster's own API
+internal/shared/      naming, seal
+apps/ui/              the web UI, built into cmd/controlplane/web/dist
 ```
 
-`apps/` holds what runs; `packages/` holds what they share.
+A binary's own code lives entirely in `cmd/<binary>`. `internal/` holds only what features, contracts, clients
+or several binaries use.
 
-**A contract lives with its consumer; a provider is its own module.** `infra` declares `Shell` and imports no
-provider; the cli wires the providers in. The plane declares `Sandboxes`, `llm.Runner` and its own `Edge`
-(`Route`, `Check`) the same way; `substrate`, `claude` and `codex`, and `plane/edge` implement them.
+**Dependencies point one way.** `layout_test.go` at the root enforces these on every import, tests included:
 
-**A contract with several providers lives in its own module, with its conformance suite.** `cloud` declares
-`Cloud`, each provider implements it under `cloud/` and passes `cloud/conformance` against a cassette recorded
-from a real run; `infra` and the plane consume it. `edge` declares the install's `Edge`; `edge/cloudflare` and
-`edge/dns` implement it, and `edge` imports no `infra`.
+1. `cmd/*` may import anything in `internal/`; nothing imports `cmd/`.
+2. A feature (`workspace`, `auth`, `tools`, `workers`, `preview`, `stream`, `infra`) imports only contracts (the
+   package itself, never a subfolder), clients and `shared`. Never another feature, never an implementation.
+3. A contract (`sandbox`, `llm`, `scm`, `store`, `edge`, `cloud`) imports only `shared`.
+4. An implementation (any subfolder of a contract) imports only its own contract, `shared` and its own
+   subpackages; a provider's tests may import `cloud/conformance`.
+5. A client (`box`, `kube`) imports only `shared` and contracts.
+6. `shared` imports nothing of ours.
+7. `internal/infra` is imported by `cmd/hz/local` alone.
 
-**`plane` must not import `infra`.** Anything the plane needs from the install is in `shared` or `edge`,
-or it does not exist.
+**A type that crosses lives in the contract; an interface lives with its consumer.** `workspace` declares
+`Workers`, `Tools` and `Bus`, `infra` declares `Laptop`, `workers` declares `Pools`; `cmd/controlplane` and
+`cmd/hz` wire the features into each other. An exception the rules cannot avoid is an entry in the test's
+allow-list, with its reason.
+
+**A contract with several providers carries its conformance suite.** Each provider under `cloud/` passes
+`cloud/conformance` against a cassette recorded from a real run.
 
 ## Two kinds of command, and no command is both
 
@@ -301,8 +324,8 @@ One namespace per worktree, from day one, even with one worktree.
 ## Working here
 
 ```
-go build -C apps/hz -o ../../bin/hz ./cmd/hz
-go test -C packages/infra ./...
+go build -o bin/hz ./cmd/hz
+go test ./...
 ```
 
 Nothing is stubbed. Third parties are mocked from captured real responses, never from invented ones.

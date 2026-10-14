@@ -27,13 +27,16 @@ hz cluster destroy dev --zone example.com
 ## Layout
 
 ```
-apps/plane       the api, sandboxes, turns, approvals; serves the web UI
-apps/boxd        commands and their durable output in each actor
-apps/proxy       TLS for the public edge
-apps/hz          the hz binary
-apps/ui          the web UI, embedded in the plane
-packages/shared  names and the API contract
-packages/cloud   the Cloud contract: hetzner, scaleway
-packages/edge    the Edge contract: cloudflare, dns
-packages/infra   the install: Shell, steps, manifests, the node script
+cmd/hz               the hz binary
+cmd/controlplane     the plane: the api and the web UI it serves
+cmd/boxd             commands and their durable output in each actor
+cmd/proxy            TLS for the public edge
+internal/            what they share: features (workspace, auth, tools, workers, preview, stream, infra),
+                     contracts and their providers (sandbox, llm, scm, store, edge, cloud), clients (box, kube)
+apps/ui              the web UI, embedded in the plane
+```
+
+```sh
+go build -o bin/hz ./cmd/hz
+go test ./...
 ```

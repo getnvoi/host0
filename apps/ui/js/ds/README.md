@@ -1,6 +1,6 @@
 # ds
 
-React copies of vrcl's nvoi-ui components (packages/gems/nvoi-ui/app/components/ds in the vrcl repo). The CSS in
+React copies of vrcl's nvoi-ui components (the nvoi-ui gem's app/components/ds, in the vrcl repo). The CSS in
 css/ds is theirs, unchanged; the markup here must produce the same elements, classes and attributes as each
 component.rb (and its .erb, if any), so that CSS applies as is.
 

@@ -1,4 +1,4 @@
-// Mirrors packages/shared/contract and the plane's JSON. The Go types are the source; change both together.
+// Mirrors the Go types of internal/workspace, llm, auth, kube and workers, and the plane's JSON. The Go types are the source; change both together.
 
 export type State = "forking" | "running" | "idle" | "awaiting_approval" | "failed";
 

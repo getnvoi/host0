@@ -3,5 +3,4 @@
 .env
 
 /apps/ui/node_modules/
-/apps/plane/web/dist/*
-!/apps/plane/web/dist/.gitkeep
+/cmd/controlplane/web/dist/

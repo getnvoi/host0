@@ -34,7 +34,7 @@ plane_up() { for i in $(seq 90); do [ "$(curl -s -o /dev/null -w "%{http_code}" 
 
 | # | Command | Passes when |
 |---|---|---|
-| 1 | `go build -C apps/hz -o ../../bin/hz ./cmd/hz`; `go test ./...` in every module of `go.work` | builds, tests pass |
+| 1 | `go build -o bin/hz ./cmd/hz`; `go test ./...` | builds, tests pass |
 | 2 | `install` | ends with `api at https://api-dev.nvoi.to` |
 | 3 | `./bin/hz credentials && ./bin/hz env apply examples/dummy-rails.yml` | no output, exit 0 |
 | 4 | `./bin/hz env seed dummy` | `seed ready:` link in about 2 min |

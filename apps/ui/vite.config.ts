@@ -16,5 +16,5 @@ export default defineConfig({
       ? { "/api": { target: process.env.HZ_APP, changeOrigin: true, secure: true, ws: true } }
       : undefined,
   },
-  build: { outDir: path.join(root, "../plane/web/dist"), emptyOutDir: true },
+  build: { outDir: path.join(root, "../../cmd/controlplane/web/dist"), emptyOutDir: true },
 });
