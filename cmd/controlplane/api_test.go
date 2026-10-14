@@ -6,8 +6,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/getnvoi/host0/internal/api"
