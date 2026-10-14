@@ -17,7 +17,6 @@ import (
 	"github.com/getnvoi/host0/internal/preview"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/store"
-	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -418,11 +417,11 @@ func (p *plane) terminal(appHost string) http.HandlerFunc {
 		p.ws.ActorToken)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if o := r.Header.Get("Origin"); o != "" && o != "https://"+appHost {
-			http.Error(w, "origin not allowed", http.StatusForbidden)
+			writeProblem(w, refusal(http.StatusForbidden, "origin "+o+" is not the app's"))
 			return
 		}
 		if !box.TerminalID.MatchString(r.PathValue("tid")) {
-			http.Error(w, box.ErrBadTerminal.Error(), http.StatusBadRequest)
+			writeProblem(w, refusal(http.StatusBadRequest, box.ErrBadTerminal.Error()))
 			return
 		}
 		s, env, err := p.ws.Awake(r.Context(), r.PathValue("id"))
@@ -455,17 +454,8 @@ type badRequest struct{ error }
 
 func reply(w http.ResponseWriter, v any, err error) {
 	switch {
-	case err == store.ErrNotFound || err == sandbox.ErrNotFound:
-		http.Error(w, err.Error(), http.StatusNotFound)
 	case err != nil:
-		code := http.StatusUnprocessableEntity
-		switch err.(type) {
-		case badRequest, workspace.Invalid, workers.Invalid:
-			code = http.StatusBadRequest
-		case workspace.Conflict:
-			code = http.StatusConflict
-		}
-		http.Error(w, err.Error(), code)
+		writeProblem(w, refusal(status(err), err.Error()))
 	case v == nil:
 		w.WriteHeader(http.StatusNoContent)
 	default:

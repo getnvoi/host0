@@ -75,6 +75,16 @@ func signIn(t *testing.T, h http.Handler, label string) *http.Cookie {
 	return cookies[0]
 }
 
+// The sentence of a problem the plane answered, or the whole body when it is not one.
+func detail(res *httptest.ResponseRecorder) string {
+	var p struct{ Detail string }
+	if !strings.HasPrefix(res.Header().Get("Content-Type"), "application/problem+json") ||
+		json.Unmarshal(res.Body.Bytes(), &p) != nil {
+		return res.Body.String()
+	}
+	return p.Detail
+}
+
 type checking map[string]error
 
 func (c checking) Route(context.Context, string) error        { return nil }
@@ -388,7 +398,7 @@ func TestConfigSecrets(t *testing.T) {
 		t.Fatalf("an empty secret keeps the stored one: %v", stored.Values)
 	}
 	res = call(h, "POST", "api-dev.nvoi.to", "/llm/configs", `{"name":"x","provider":"claude_code","values":{"kind":"oauth"}}`, bearer)
-	if res.Code != 400 || strings.TrimSpace(res.Body.String()) != "Token is needed" {
+	if res.Code != 400 || detail(res) != "Token is needed" {
 		t.Fatalf("missing token: %d %s", res.Code, res.Body)
 	}
 }
