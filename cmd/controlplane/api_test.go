@@ -82,16 +82,9 @@ func TestOutside(t *testing.T) {
 		"app /api/",                              // the API, for a signed-in browser
 		"app /",                                  // the web UI
 	}
-	want = append(want, moving...)
 	slices.Sort(want)
 	raw := slices.Sorted(slices.Values(p.raw))
 	if !slices.Equal(raw, want) {
 		t.Fatalf("outside Huma:\n%q\nwant\n%q", raw, want)
 	}
 }
-
-// The routes still to move into Huma.
-var moving = []string{"api PUT /cluster/shape", "api GET /cluster/shape", "api GET /cluster/pods",
-	"api GET /cluster/pods/{namespace}/{pod}/log", "api GET /cluster", "api POST /previews", "api GET /usage",
-	"bearer /", "bearer POST /login-links", "bearer GET /browsers",
-	"bearer DELETE /browsers", "bearer DELETE /browsers/{label}"}

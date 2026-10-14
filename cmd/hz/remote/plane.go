@@ -1,33 +1,44 @@
 package remote
 
 import (
+	"context"
 	"fmt"
-	"net/url"
-	"os"
-	"strconv"
+	"io"
+	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/getnvoi/host0/internal/auth"
-	"github.com/getnvoi/host0/internal/kube"
+	"github.com/getnvoi/host0/internal/api/client"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
 )
+
+func init() {
+	written["ls"] = status
+	written["usage"] = usage
+	written["preview"] = preview
+}
 
 func status() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ls",
 		Short: "The cluster now: its nodes, worker pools, workers and the plane's hosts",
 		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			var c workers.Cluster
-			if err := call("GET", "/cluster", nil, &c); err != nil {
+		RunE: func(cc *cobra.Command, _ []string) error {
+			pl, err := api()
+			if err != nil {
 				return err
 			}
-			fmt.Printf("cluster %s, zone %s\n\n", c.Name, c.Zone)
-			w := table(os.Stdout)
+			c, err := client.Read[workers.Cluster](pl.Ls(cc.Context()))
+			if err != nil {
+				return err
+			}
+			out := cc.OutOrStdout()
+			fmt.Fprintf(out, "cluster %s, zone %s\n\n", c.Name, c.Zone)
+			w := table(out)
 			fmt.Fprintln(w, "NODE\tROLES\tREADY\tAGE\tADDRESSES\tPROVIDER ID")
 			for _, n := range c.Nodes {
 				fmt.Fprintf(w, "%s\t%s\t%t\t%s\t%s\t%s\n", n.Name, strings.Join(n.Roles, ","), n.Ready,
@@ -62,24 +73,29 @@ func status() *cobra.Command {
 }
 
 func usage() *cobra.Command {
-	var days int
+	var days int64
 	var by string
 	cmd := &cobra.Command{
 		Use:   "usage",
 		Short: "Sessions, compute, pull requests and tokens over the last days",
 		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			q := url.Values{"days": {strconv.Itoa(days)}}
-			if by != "" {
-				q.Set("by", by)
+		RunE: func(cc *cobra.Command, _ []string) error {
+			pl, err := api()
+			if err != nil {
+				return err
 			}
-			var u workspace.Usage
-			if err := call("GET", "/usage?"+q.Encode(), nil, &u); err != nil {
+			q := &client.UsageParams{Days: &days}
+			if by != "" {
+				q.By = &by
+			}
+			u, err := client.Read[workspace.Usage](pl.Usage(cc.Context(), q))
+			if err != nil {
 				return err
 			}
 			t := u.Totals
-			fmt.Printf("%s to %s\n\n", u.From, u.To)
-			w := table(os.Stdout)
+			out := cc.OutOrStdout()
+			fmt.Fprintf(out, "%s to %s\n\n", u.From, u.To)
+			w := table(out)
 			fmt.Fprintf(w, "sessions\t%d\ncompute\t%.0f min\npull requests\t%d\ntokens\t%d\napprovals\t%d\napproval wait\t%s (median)\n",
 				t.Sessions, t.Compute, t.PullRequests, t.Tokens, t.Approvals, time.Duration(t.ApprovalWaitMS)*time.Millisecond)
 			if len(u.People) > 0 {
@@ -92,103 +108,121 @@ func usage() *cobra.Command {
 			return w.Flush()
 		},
 	}
-	cmd.Flags().IntVar(&days, "days", 30, "how many days back")
+	cmd.Flags().Int64Var(&days, "days", 30, "how many days back, at most 365")
 	cmd.Flags().StringVar(&by, "by", "", "one person's usage")
 	return cmd
 }
 
-func browsers() *cobra.Command {
-	return &cobra.Command{
-		Use:   "browsers",
-		Short: "Browsers signed in to the web UI",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			var bs []auth.Browser
-			if err := call("GET", "/browsers", nil, &bs); err != nil {
-				return err
-			}
-			w := table(os.Stdout)
-			fmt.Fprintln(w, "LABEL\tSIGNED IN\tUNTIL")
-			for _, b := range bs {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", b.Label, b.At.Local().Format(time.DateTime), b.Until.Local().Format(time.DateTime))
-			}
-			return w.Flush()
-		},
+// A link to host carrying a gate token; the bare host answers 401.
+func previewLink(ctx context.Context, host string) (string, error) {
+	pl, err := api()
+	if err != nil {
+		return "", err
 	}
+	l, err := client.Read[client.PreviewLink](pl.Preview(ctx, client.PreviewInput{Host: host}))
+	return l.Url, err
 }
 
-func logout() *cobra.Command {
-	var all bool
-	cmd := &cobra.Command{
-		Use:   "logout [label]",
-		Short: "Sign out the browsers under label, or with --all every browser",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			path := "/browsers"
-			switch {
-			case all && len(args) == 0:
-			case !all && len(args) == 1:
-				path += "/" + url.PathEscape(args[0])
-			default:
-				return fmt.Errorf("give a label, or --all")
-			}
-			var out struct{ Count int }
-			if err := call("DELETE", path, nil, &out); err != nil {
-				return err
-			}
-			fmt.Printf("signed out %d\n", out.Count)
-			return nil
-		},
+// The preview link, or the bare host with why there is none.
+func link(host string) string {
+	u, err := previewLink(context.Background(), host)
+	if err != nil {
+		return "https://" + host + " (" + err.Error() + ")"
 	}
-	cmd.Flags().BoolVar(&all, "all", false, "every browser")
-	return cmd
+	return u
 }
 
-func pods() *cobra.Command {
-	var node string
+func preview() *cobra.Command {
+	var check bool
 	cmd := &cobra.Command{
-		Use:   "pods",
-		Short: "Every pod in the cluster, or one node's",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			var ps []kube.Pod
-			if err := call("GET", "/cluster/pods?node="+url.QueryEscape(node), nil, &ps); err != nil {
-				return err
-			}
-			w := table(os.Stdout)
-			fmt.Fprintln(w, "NAMESPACE\tPOD\tNODE\tPHASE\t")
-			for _, p := range ps {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", p.Namespace, p.Name, p.Node, p.Phase)
-			}
-			return w.Flush()
-		},
-	}
-	cmd.Flags().StringVar(&node, "node", "", "only this node's pods")
-	return cmd
-}
-
-func podLogs() *cobra.Command {
-	var container string
-	var tail int
-	cmd := &cobra.Command{
-		Use:   "logs <namespace>/<pod>",
-		Short: "The end of a cluster pod's log",
+		Use:   "preview <host>",
+		Short: "A 12-hour link to a preview; --check opens it as a visitor would",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			ns, pod, ok := strings.Cut(args[0], "/")
-			if !ok {
-				return fmt.Errorf("%s: want <namespace>/<pod>, as hz pods prints them", args[0])
-			}
-			q := url.Values{"tail": {strconv.Itoa(tail)}, "container": {container}}
-			var out struct{ Log string }
-			if err := call("GET", "/cluster/pods/"+url.PathEscape(ns)+"/"+url.PathEscape(pod)+"/log?"+q.Encode(), nil, &out); err != nil {
+		RunE: func(cc *cobra.Command, args []string) error {
+			u, err := previewLink(cc.Context(), args[0])
+			if err != nil {
 				return err
 			}
-			fmt.Print(out.Log)
+			if check {
+				return visit(args[0], u, cc.OutOrStdout())
+			}
+			fmt.Fprintln(cc.OutOrStdout(), u)
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&container, "container", "c", "", "the container, when the pod has several")
-	cmd.Flags().IntVar(&tail, "tail", 200, "lines from the end")
+	cmd.Flags().BoolVar(&check, "check", false, "the gate refuses no token, the link sets the cookie, the cookie opens the app")
 	return cmd
+}
+
+// nil is http.DefaultTransport; tests trust their own server with theirs.
+var transport http.RoundTripper
+
+var title = regexp.MustCompile(`(?is)<title>(.*?)</title>`)
+
+// Visits host as a browser does: refused without a token, cookie from the link, the app with the cookie.
+func visit(host, link string, out io.Writer) error {
+	// A suspended sandbox resumes on the first request; that is the slowest answer a visitor waits for.
+	client := &http.Client{Transport: transport, Timeout: 2 * time.Minute, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	get := func(url, cookie string) (*http.Response, string, error) {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, "", err
+		}
+		req.Header.Set("Accept", "text/html")
+		if cookie != "" {
+			req.Header.Set("Cookie", cookie)
+		}
+		res, err := client.Do(req)
+		if err != nil {
+			return nil, "", err
+		}
+		defer res.Body.Close()
+		b, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+		return res, string(b), err
+	}
+	root := "https://" + host + "/"
+	res, _, err := get(root, "")
+	if err != nil {
+		return err
+	}
+	if c := res.TLS; c != nil && len(c.PeerCertificates) > 0 {
+		cert := c.PeerCertificates[0]
+		fmt.Fprintf(out, "tls        %s, issued by %s, until %s\n", cert.Subject.CommonName, cert.Issuer.CommonName, cert.NotAfter.Format("2006-01-02"))
+	}
+	fmt.Fprintf(out, "no token   %s\n", res.Status)
+	if res.StatusCode != http.StatusUnauthorized {
+		return fmt.Errorf("%s answers %s without a token; the gate is open", host, res.Status)
+	}
+	res, _, err = get(link, "")
+	if err != nil {
+		return err
+	}
+	var cookie string
+	for _, c := range res.Cookies() {
+		if c.Name == "hz_token" {
+			cookie = c.Name + "=" + c.Value
+		}
+	}
+	fmt.Fprintf(out, "link       %s, cookie %t\n", res.Status, cookie != "")
+	if cookie == "" {
+		return fmt.Errorf("the link to %s answered %s and set no hz_token cookie", host, res.Status)
+	}
+	start := time.Now()
+	res, body, err := get(root, cookie)
+	if err != nil {
+		return err
+	}
+	t := ""
+	if m := title.FindStringSubmatch(body); m != nil {
+		t = strings.TrimSpace(m[1])
+	}
+	fmt.Fprintf(out, "cookie     %s in %s, title %q\n", res.Status, time.Since(start).Round(time.Millisecond), t)
+	if res.StatusCode != http.StatusOK {
+		said := strings.TrimSpace(body)
+		if len(said) > 300 {
+			said = said[:300] + "…"
+		}
+		return fmt.Errorf("%s answers %s with the cookie: %q", host, res.Status, said)
+	}
+	return nil
 }

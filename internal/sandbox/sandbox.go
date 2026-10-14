@@ -74,7 +74,7 @@ func (w Worker) Assigned() bool {
 	return false
 }
 
-// A preview host's way in: the actor, the port its app answers on, the tier it wakes at. Stored under "routes".
+// A preview host's way in: the actor, the port its app answers on, the tier it wakes at. A row of routes holds it.
 type Route struct {
 	Actor string `json:"actor"`
 	Port  int    `json:"port"`

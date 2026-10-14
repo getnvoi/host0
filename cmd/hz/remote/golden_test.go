@@ -126,6 +126,28 @@ var goldens = []golden{
 	{"approval-ls", []string{"approval", "ls", "--session", "a1b2c3d4"}, "GET /approvals", []workspace.Approval{{ID: "ap1",
 		Session: "a1b2c3d4", Tool: "push_branch", Input: `{"branch":"fix-cart"}`, State: "pending", At: archived}}},
 	{"llm-use", []string{"llm", "use", "OpenAI"}, "POST /llm/configs/OpenAI/main", nil},
+	{"browsers", []string{"browsers"}, "GET /browsers", []map[string]any{{"label": "ben", "at": archived,
+		"until": archived.AddDate(0, 0, 30)}}},
+	{"invite", []string{"invite", "ann"}, "POST /login-links", map[string]string{"url": "https://app-dev.nvoi.to/login?code=c0de"}},
+	{"logout", []string{"logout", "ben"}, "DELETE /browsers/ben", map[string]int{"count": 2}},
+	{"logout-all", []string{"logout", "--all"}, "DELETE /browsers", map[string]int{"count": 3}},
+	{"ls", []string{"ls"}, "GET /cluster", map[string]any{"name": "dev", "zone": "nvoi.to", "nodes": []any{},
+		"pools":   []map[string]any{{"name": "hz-medium", "replicas": 2, "ready": 1}},
+		"workers": []map[string]any{{"pool": "hz-medium", "pod": "w-1", "assigned": true, "actors": []string{"wt-1a2b (running)"}}},
+		"edge":    []map[string]any{{"name": "api-dev.nvoi.to"}, {"name": "app-dev.nvoi.to"}}}},
+	{"usage", []string{"usage", "--days", "7", "--by", "ben"}, "GET /usage", workspace.Usage{From: "2026-09-25", To: "2026-10-01",
+		People: []string{"ann", "ben"}, Totals: workspace.UsageTotal{Sessions: 2, Compute: 45, PullRequests: 1, Tokens: 107,
+			Approvals: 2, ApprovalWaitMS: 3000}, Environments: []workspace.UsageEnv{{Name: "web", Compute: 45, Sessions: 2,
+			PullRequests: 1, Tokens: 107}}}},
+	{"preview", []string{"preview", "1a2b-dev-preview.nvoi.to"}, "POST /previews",
+		map[string]string{"url": "https://1a2b-dev-preview.nvoi.to/?token=t"}},
+	{"pods", []string{"pods", "--node", "w1"}, "GET /cluster/pods", []map[string]string{
+		{"namespace": "wt-1a2b", "name": "wt-1a2b-0", "node": "w1", "phase": "Running"}}},
+	{"logs", []string{"logs", "hz", "plane-7c9", "--tail", "2"}, "GET /cluster/pods/hz/plane-7c9/log",
+		map[string]string{"log": "listening on :8080\nserving api-dev.nvoi.to\n"}},
+	{"cluster-shape", []string{"cluster", "shape"}, "GET /cluster/shape", map[string]any{
+		"workers": map[string]any{"type": "cx33", "location": "nbg1", "max": 2, "idle": 600000000000},
+		"tiers":   []map[string]any{{"name": "medium", "cpu": "2", "memory": "4Gi", "cpuRequest": "500m", "default": true}}}},
 }
 
 var archived = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)

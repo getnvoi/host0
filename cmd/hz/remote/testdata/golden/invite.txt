@@ -1,0 +1,2 @@
+> POST /login-links {"label":"ann"}
+https://app-dev.nvoi.to/login?code=c0de

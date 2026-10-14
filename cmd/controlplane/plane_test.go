@@ -29,7 +29,7 @@ import (
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
-// What the plane keeps, in fresh files: its store, holding the shape install writes, and its database.
+// What the plane keeps, in fresh files: its store, and its database holding the shape install writes.
 type data struct {
 	store.Store
 	DB *gorm.DB
@@ -53,9 +53,19 @@ func newStore(t *testing.T) data {
 	if err := db.Migrate(gdb); err != nil {
 		t.Fatal(err)
 	}
-	st.Put("cluster", "shape", sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 2, Idle: time.Minute},
-		Tiers: sandbox.DefaultTiers})
+	if err := (&workers.Scaler{DB: gdb}).SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1",
+		Max: 2, Idle: time.Minute}, Tiers: sandbox.DefaultTiers}); err != nil {
+		t.Fatal(err)
+	}
 	return data{st, gdb}
+}
+
+// Routes host to rt, as a fork or a seed build does.
+func routeTo(t *testing.T, p *plane, host string, rt sandbox.Route) {
+	t.Helper()
+	if err := p.DB.Create(&db.Route{Host: host, Actor: rt.Actor, Port: rt.Port, Tier: rt.Tier}).Error; err != nil {
+		t.Fatal(err)
+	}
 }
 
 // Declares e, as PUT /environments/{name} does.
@@ -280,16 +290,15 @@ func TestEnvironmentCRUD(t *testing.T) {
 	p.DB.Unscoped().Where("public_id = ?", "s1").Delete(&db.Session{})
 	seedRow(t, p, "web", db.Seed{Actor: "tpl-a", State: "ready"})
 	seedRow(t, p, "web", db.Seed{Actor: "tpl-b", State: "building"})
-	p.Store.Put("routes", p.ws.Preview("web"), sandbox.Route{Actor: "tpl-a", Port: 3000, Tier: "medium"})
+	routeTo(t, p, p.ws.Preview("web"), sandbox.Route{Actor: "tpl-a", Port: 3000, Tier: "medium"})
 	if code, body := api("DELETE", "/environments/web", ""); code != 204 {
 		t.Fatalf("delete: %d %s", code, body)
 	}
 	if !reflect.DeepEqual(sb.gone, []string{"tpl-b", "tpl-a"}) {
 		t.Fatalf("actors deleted: %v", sb.gone)
 	}
-	var rt sandbox.Route
 	var seeds int64
-	if p.Store.Get("routes", p.ws.Preview("web"), &rt) != store.ErrNotFound || p.DB.Model(&db.Seed{}).Count(&seeds).Error != nil || seeds != 0 {
+	if _, err := p.ws.Route(p.ws.Preview("web")); !errors.As(err, new(workspace.NotFound)) || p.DB.Model(&db.Seed{}).Count(&seeds).Error != nil || seeds != 0 {
 		t.Fatal("route or seed left behind")
 	}
 	if code, _ := api("GET", "/environments/web", ""); code != 404 {
@@ -378,7 +387,7 @@ func TestSessionDelete(t *testing.T) {
 		t.Fatalf("delete while running: %d %s", res.Code, res.Body)
 	}
 	s := sessionRow(t, p, "web", db.Session{PublicID: "d1", State: "awaiting_approval", Preview: p.ws.Preview("d1")})
-	p.Store.Put("routes", s.Preview, sandbox.Route{Actor: "wt-d1", Port: 3000, Tier: "medium"})
+	routeTo(t, p, s.Preview, sandbox.Route{Actor: "wt-d1", Port: 3000, Tier: "medium"})
 	if err := p.DB.Create(&db.QueuedMessage{SessionID: s.ID, Text: "next"}).Error; err != nil {
 		t.Fatal(err)
 	}

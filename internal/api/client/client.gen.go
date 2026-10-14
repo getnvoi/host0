@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/getnvoi/host0/internal/llm"
+	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/oapi-codegen/runtime"
 )
 
@@ -34,6 +35,16 @@ type Approval struct {
 	Turn    *int64     `json:"turn,omitempty"`
 }
 
+// Browser defines model for Browser.
+type Browser struct {
+	// At When it signed in
+	At    time.Time `json:"at"`
+	Label string    `json:"label"`
+
+	// Until When its cookie expires
+	Until time.Time `json:"until"`
+}
+
 // Changes defines model for Changes.
 type Changes struct {
 	Added     int64         `json:"added"`
@@ -43,6 +54,16 @@ type Changes struct {
 	Patch     string        `json:"patch"`
 	Removed   int64         `json:"removed"`
 	Truncated bool          `json:"truncated"`
+}
+
+// Cluster defines model for Cluster.
+type Cluster struct {
+	Edge    *[]Host   `json:"edge"`
+	Name    string    `json:"name"`
+	Nodes   *[]Node   `json:"nodes"`
+	Pools   *[]Pool   `json:"pools"`
+	Workers *[]Worker `json:"workers"`
+	Zone    string    `json:"zone"`
 }
 
 // CredentialsInput defines model for CredentialsInput.
@@ -167,6 +188,12 @@ type FileChange struct {
 	Status  string  `json:"status"`
 }
 
+// Host defines model for Host.
+type Host struct {
+	Error *string `json:"error,omitempty"`
+	Name  string  `json:"name"`
+}
+
 // LLMConfig defines model for LLMConfig.
 type LLMConfig struct {
 	ArchivedAt *time.Time        `json:"archived_at,omitempty"`
@@ -197,6 +224,18 @@ type Log struct {
 	Name string `json:"name"`
 }
 
+// LoginLink defines model for LoginLink.
+type LoginLink struct {
+	// Url Signs one browser in, once, within 60 seconds
+	Url string `json:"url"`
+}
+
+// LoginLinkInput defines model for LoginLinkInput.
+type LoginLinkInput struct {
+	// Label Who the browser signs in as
+	Label string `json:"label"`
+}
+
 // Me defines model for Me.
 type Me struct {
 	Cluster string `json:"cluster"`
@@ -211,8 +250,51 @@ type Message struct {
 	To *string `json:"to,omitempty"`
 }
 
+// Node defines model for Node.
+type Node struct {
+	Addresses  *[]string `json:"addresses"`
+	Created    time.Time `json:"created"`
+	Name       string    `json:"name"`
+	ProviderID string    `json:"providerID"`
+	Ready      bool      `json:"ready"`
+	Roles      *[]string `json:"roles"`
+}
+
 // Option defines model for Option.
 type Option = llm.Option
+
+// Pod defines model for Pod.
+type Pod struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Node      string `json:"node"`
+	Phase     string `json:"phase"`
+}
+
+// PodLog defines model for PodLog.
+type PodLog struct {
+	// Log The last lines of the container's log
+	Log string `json:"log"`
+}
+
+// Pool defines model for Pool.
+type Pool struct {
+	Name     string `json:"name"`
+	Ready    int64  `json:"ready"`
+	Replicas int64  `json:"replicas"`
+}
+
+// PreviewInput defines model for PreviewInput.
+type PreviewInput struct {
+	// Host The preview's host, as a session or a seed names it
+	Host string `json:"host"`
+}
+
+// PreviewLink defines model for PreviewLink.
+type PreviewLink struct {
+	// Url Opens the preview past its gate for 12 hours
+	Url string `json:"url"`
+}
 
 // PreviewStatus defines model for PreviewStatus.
 type PreviewStatus struct {
@@ -240,6 +322,9 @@ type Seed struct {
 	Tag      string    `json:"tag"`
 	Template string    `json:"template"`
 }
+
+// Servers defines model for Servers.
+type Servers = sandbox.Servers
 
 // Service defines model for Service.
 type Service struct {
@@ -282,6 +367,15 @@ type SessionInput struct {
 	Prompt *string `json:"prompt,omitempty"`
 }
 
+// Shape defines model for Shape.
+type Shape = sandbox.Shape
+
+// SignedOut defines model for SignedOut.
+type SignedOut struct {
+	// Count How many browsers were signed out
+	Count int64 `json:"count"`
+}
+
 // Summary defines model for Summary.
 type Summary struct {
 	At      time.Time `json:"at"`
@@ -312,6 +406,9 @@ type Terminal struct {
 	Started string `json:"started"`
 }
 
+// Tier defines model for Tier.
+type Tier = sandbox.Tier
+
 // Update defines model for Update.
 type Update struct {
 	Approval *Approval `json:"approval,omitempty"`
@@ -322,15 +419,78 @@ type Update struct {
 	Session  *Summary  `json:"session,omitempty"`
 }
 
+// Usage defines model for Usage.
+type Usage struct {
+	Days         *[]UsageDay `json:"days"`
+	Environments *[]UsageEnv `json:"environments"`
+	From         string      `json:"from"`
+	People       *[]string   `json:"people"`
+	To           string      `json:"to"`
+	Totals       UsageTotal  `json:"totals"`
+}
+
+// UsageDay defines model for UsageDay.
+type UsageDay struct {
+	Compute      map[string]float64 `json:"compute"`
+	Day          string             `json:"day"`
+	Nodes        float64            `json:"nodes"`
+	PullRequests int64              `json:"pull_requests"`
+	Sessions     int64              `json:"sessions"`
+	States       map[string]float64 `json:"states"`
+	Tokens       int64              `json:"tokens"`
+}
+
+// UsageEnv defines model for UsageEnv.
+type UsageEnv struct {
+	ComputeMinutes float64 `json:"compute_minutes"`
+	Name           string  `json:"name"`
+	PullRequests   int64   `json:"pull_requests"`
+	Sessions       int64   `json:"sessions"`
+	Tokens         int64   `json:"tokens"`
+}
+
+// UsageTotal defines model for UsageTotal.
+type UsageTotal struct {
+	ApprovalWaitMs int64   `json:"approval_wait_ms"`
+	Approvals      int64   `json:"approvals"`
+	ComputeMinutes float64 `json:"compute_minutes"`
+	PullRequests   int64   `json:"pull_requests"`
+	Sessions       int64   `json:"sessions"`
+	Tokens         int64   `json:"tokens"`
+}
+
 // Withdrawal defines model for Withdrawal.
 type Withdrawal struct {
 	Text string `json:"text"`
+}
+
+// Worker defines model for Worker.
+type Worker struct {
+	Actors   *[]string `json:"actors,omitempty"`
+	Assigned bool      `json:"assigned"`
+	Pod      string    `json:"pod"`
+	Pool     string    `json:"pool"`
 }
 
 // ApprovalLsParams defines parameters for ApprovalLs.
 type ApprovalLsParams struct {
 	// Session Only this session's
 	Session *string `form:"session,omitempty" json:"session,omitempty"`
+}
+
+// PodsParams defines parameters for Pods.
+type PodsParams struct {
+	// Node Only this node's pods
+	Node *string `form:"node,omitempty" json:"node,omitempty"`
+}
+
+// LogsParams defines parameters for Logs.
+type LogsParams struct {
+	// Container The container, when the pod has several
+	Container *string `form:"container,omitempty" json:"container,omitempty"`
+
+	// Tail Lines from the end
+	Tail *int64 `form:"tail,omitempty" json:"tail,omitempty"`
 }
 
 // LlmRmParams defines parameters for LlmRm.
@@ -357,6 +517,18 @@ type StreamParams struct {
 	LastEventID *string `json:"Last-Event-ID,omitempty"`
 }
 
+// UsageParams defines parameters for Usage.
+type UsageParams struct {
+	// Days How many days back, today's included
+	Days *int64 `form:"days,omitempty" json:"days,omitempty"`
+
+	// By One person's usage: the sessions they started
+	By *string `form:"by,omitempty" json:"by,omitempty"`
+}
+
+// ClusterShapePutJSONRequestBody defines body for ClusterShapePut for application/json ContentType.
+type ClusterShapePutJSONRequestBody = Shape
+
 // CredentialsPutJSONRequestBody defines body for CredentialsPut for application/json ContentType.
 type CredentialsPutJSONRequestBody = CredentialsInput
 
@@ -371,6 +543,12 @@ type LlmAddJSONRequestBody = LLMConfigInput
 
 // LlmSetJSONRequestBody defines body for LlmSet for application/json ContentType.
 type LlmSetJSONRequestBody = LLMConfigValues
+
+// InviteJSONRequestBody defines body for Invite for application/json ContentType.
+type InviteJSONRequestBody = LoginLinkInput
+
+// PreviewJSONRequestBody defines body for Preview for application/json ContentType.
+type PreviewJSONRequestBody = PreviewInput
 
 // SessionStartJSONRequestBody defines body for SessionStart for application/json ContentType.
 type SessionStartJSONRequestBody = SessionInput
@@ -474,6 +652,55 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /approvals/{id}/deny (the `ApprovalDeny` operationId).
 	ApprovalDeny(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LogoutAll Sign out every browser
+	//
+	// Corresponds with DELETE /browsers (the `LogoutAll` operationId).
+	LogoutAll(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Browsers Browsers signed in to the web UI
+	//
+	// Corresponds with GET /browsers (the `Browsers` operationId).
+	Browsers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Logout Sign out the browsers under label
+	//
+	// Corresponds with DELETE /browsers/{label} (the `Logout` operationId).
+	Logout(ctx context.Context, label string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Ls The cluster now: its nodes, worker pools, workers and the plane's hosts
+	//
+	// Corresponds with GET /cluster (the `Ls` operationId).
+	Ls(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Pods Every pod in the cluster, or one node's
+	//
+	// Corresponds with GET /cluster/pods (the `Pods` operationId).
+	Pods(ctx context.Context, params *PodsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Logs The end of a cluster pod's log
+	//
+	// Corresponds with GET /cluster/pods/{namespace}/{pod}/log (the `Logs` operationId).
+	Logs(ctx context.Context, namespace string, pod string, params *LogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClusterShape The workers and tiers hz cluster install declared
+	//
+	// Corresponds with GET /cluster/shape (the `ClusterShape` operationId).
+	ClusterShape(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClusterShapePutWithBody Declare the workers and tiers
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /cluster/shape (the `ClusterShapePut` operationId).
+	ClusterShapePutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClusterShapePut Declare the workers and tiers
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /cluster/shape (the `ClusterShapePut` operationId).
+	ClusterShapePut(ctx context.Context, body ClusterShapePutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CredentialsGet Which credentials hold a value, never the values
 	//
@@ -605,10 +832,38 @@ type ClientInterface interface {
 	// Corresponds with GET /llm/providers (the `LlmProviders` operationId).
 	LlmProviders(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// InviteWithBody A one-time link that signs a browser in to the web UI
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /login-links (the `Invite` operationId).
+	InviteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Invite A one-time link that signs a browser in to the web UI
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /login-links (the `Invite` operationId).
+	Invite(ctx context.Context, body InviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Me The cluster and zone this plane serves
 	//
 	// Corresponds with GET /me (the `Me` operationId).
 	Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewWithBody A 12-hour link to a preview, past its gate
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /previews (the `Preview` operationId).
+	PreviewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Preview A 12-hour link to a preview, past its gate
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /previews (the `Preview` operationId).
+	Preview(ctx context.Context, body PreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EnvSuspend Suspend the actor the environment's preview routes to, freeing its worker
 	//
@@ -721,6 +976,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /stream (the `Stream` operationId).
 	Stream(ctx context.Context, params *StreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Usage Sessions, compute, pull requests and tokens over the last days
+	//
+	// Corresponds with GET /usage (the `Usage` operationId).
+	Usage(ctx context.Context, params *UsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 // ApprovalLs Actions waiting for a decision
@@ -773,6 +1033,145 @@ func (c *Client) ApprovalApprove(ctx context.Context, id string, reqEditors ...R
 // Corresponds with POST /approvals/{id}/deny (the `ApprovalDeny` operationId).
 func (c *Client) ApprovalDeny(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApprovalDenyRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LogoutAll Sign out every browser
+//
+// Corresponds with DELETE /browsers (the `LogoutAll` operationId).
+func (c *Client) LogoutAll(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLogoutAllRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Browsers Browsers signed in to the web UI
+//
+// Corresponds with GET /browsers (the `Browsers` operationId).
+func (c *Client) Browsers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewBrowsersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Logout Sign out the browsers under label
+//
+// Corresponds with DELETE /browsers/{label} (the `Logout` operationId).
+func (c *Client) Logout(ctx context.Context, label string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLogoutRequest(c.Server, label)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Ls The cluster now: its nodes, worker pools, workers and the plane's hosts
+//
+// Corresponds with GET /cluster (the `Ls` operationId).
+func (c *Client) Ls(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Pods Every pod in the cluster, or one node's
+//
+// Corresponds with GET /cluster/pods (the `Pods` operationId).
+func (c *Client) Pods(ctx context.Context, params *PodsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPodsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Logs The end of a cluster pod's log
+//
+// Corresponds with GET /cluster/pods/{namespace}/{pod}/log (the `Logs` operationId).
+func (c *Client) Logs(ctx context.Context, namespace string, pod string, params *LogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLogsRequest(c.Server, namespace, pod, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ClusterShape The workers and tiers hz cluster install declared
+//
+// Corresponds with GET /cluster/shape (the `ClusterShape` operationId).
+func (c *Client) ClusterShape(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClusterShapeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ClusterShapePutWithBody Declare the workers and tiers
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /cluster/shape (the `ClusterShapePut` operationId).
+func (c *Client) ClusterShapePutWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClusterShapePutRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ClusterShapePut Declare the workers and tiers
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /cluster/shape (the `ClusterShapePut` operationId).
+func (c *Client) ClusterShapePut(ctx context.Context, body ClusterShapePutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClusterShapePutRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1133,11 +1532,79 @@ func (c *Client) LlmProviders(ctx context.Context, reqEditors ...RequestEditorFn
 	return c.Client.Do(req)
 }
 
+// InviteWithBody A one-time link that signs a browser in to the web UI
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /login-links (the `Invite` operationId).
+func (c *Client) InviteWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInviteRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Invite A one-time link that signs a browser in to the web UI
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /login-links (the `Invite` operationId).
+func (c *Client) Invite(ctx context.Context, body InviteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInviteRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // Me The cluster and zone this plane serves
 //
 // Corresponds with GET /me (the `Me` operationId).
 func (c *Client) Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewWithBody A 12-hour link to a preview, past its gate
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /previews (the `Preview` operationId).
+func (c *Client) PreviewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Preview A 12-hour link to a preview, past its gate
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /previews (the `Preview` operationId).
+func (c *Client) Preview(ctx context.Context, body PreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1460,6 +1927,21 @@ func (c *Client) Stream(ctx context.Context, params *StreamParams, reqEditors ..
 	return c.Client.Do(req)
 }
 
+// Usage Sessions, compute, pull requests and tokens over the last days
+//
+// Corresponds with GET /usage (the `Usage` operationId).
+func (c *Client) Usage(ctx context.Context, params *UsageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUsageRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // NewApprovalLsRequest constructs an http.Request for the ApprovalLs method
 func NewApprovalLsRequest(server string, params *ApprovalLsParams) (*http.Request, error) {
 	var err error
@@ -1612,6 +2094,322 @@ func NewApprovalDenyRequest(server string, id string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewLogoutAllRequest constructs an http.Request for the LogoutAll method
+func NewLogoutAllRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/browsers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewBrowsersRequest constructs an http.Request for the Browsers method
+func NewBrowsersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/browsers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLogoutRequest constructs an http.Request for the Logout method
+func NewLogoutRequest(server string, label string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "label", label, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/browsers/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLsRequest constructs an http.Request for the Ls method
+func NewLsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/cluster")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPodsRequest constructs an http.Request for the Pods method
+func NewPodsRequest(server string, params *PodsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/cluster/pods")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Node != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "node", *params.Node, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewLogsRequest constructs an http.Request for the Logs method
+func NewLogsRequest(server string, namespace string, pod string, params *LogsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "namespace", namespace, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "pod", pod, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/cluster/pods/%s/%s/log", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Container != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "container", *params.Container, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Tail != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "tail", *params.Tail, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewClusterShapeRequest constructs an http.Request for the ClusterShape method
+func NewClusterShapeRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/cluster/shape")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewClusterShapePutRequest calls the generic ClusterShapePut builder with application/json body
+func NewClusterShapePutRequest(server string, body ClusterShapePutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewClusterShapePutRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewClusterShapePutRequestWithBody constructs an http.Request for the ClusterShapePut method, with any body, and a specified content type
+func NewClusterShapePutRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/cluster/shape")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2244,6 +3042,46 @@ func NewLlmProvidersRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewInviteRequest calls the generic Invite builder with application/json body
+func NewInviteRequest(server string, body InviteJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewInviteRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewInviteRequestWithBody constructs an http.Request for the Invite method, with any body, and a specified content type
+func NewInviteRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/login-links")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewMeRequest constructs an http.Request for the Me method
 func NewMeRequest(server string) (*http.Request, error) {
 	var err error
@@ -2267,6 +3105,46 @@ func NewMeRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPreviewRequest calls the generic Preview builder with application/json body
+func NewPreviewRequest(server string, body PreviewJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreviewRequestWithBody constructs an http.Request for the Preview method, with any body, and a specified content type
+func NewPreviewRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/previews")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2957,6 +3835,72 @@ func NewStreamRequest(server string, params *StreamParams) (*http.Request, error
 	return req, nil
 }
 
+// NewUsageRequest constructs an http.Request for the Usage method
+func NewUsageRequest(server string, params *UsageParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/usage")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Days != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "days", *params.Days, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.By != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "by", *params.By, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -3028,6 +3972,69 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /approvals/{id}/deny (the `ApprovalDeny` operationId).
 	ApprovalDenyWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ApprovalDenyResponse, error)
+
+	// LogoutAllWithResponse Sign out every browser
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /browsers (the `LogoutAll` operationId).
+	LogoutAllWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LogoutAllResponse, error)
+
+	// BrowsersWithResponse Browsers signed in to the web UI
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /browsers (the `Browsers` operationId).
+	BrowsersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*BrowsersResponse, error)
+
+	// LogoutWithResponse Sign out the browsers under label
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /browsers/{label} (the `Logout` operationId).
+	LogoutWithResponse(ctx context.Context, label string, reqEditors ...RequestEditorFn) (*LogoutResponse, error)
+
+	// LsWithResponse The cluster now: its nodes, worker pools, workers and the plane's hosts
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /cluster (the `Ls` operationId).
+	LsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LsResponse, error)
+
+	// PodsWithResponse Every pod in the cluster, or one node's
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /cluster/pods (the `Pods` operationId).
+	PodsWithResponse(ctx context.Context, params *PodsParams, reqEditors ...RequestEditorFn) (*PodsResponse, error)
+
+	// LogsWithResponse The end of a cluster pod's log
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /cluster/pods/{namespace}/{pod}/log (the `Logs` operationId).
+	LogsWithResponse(ctx context.Context, namespace string, pod string, params *LogsParams, reqEditors ...RequestEditorFn) (*LogsResponse, error)
+
+	// ClusterShapeWithResponse The workers and tiers hz cluster install declared
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /cluster/shape (the `ClusterShape` operationId).
+	ClusterShapeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClusterShapeResponse, error)
+
+	// ClusterShapePutWithBodyWithResponse Declare the workers and tiers
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /cluster/shape (the `ClusterShapePut` operationId).
+	ClusterShapePutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClusterShapePutResponse, error)
+
+	// ClusterShapePutWithResponse Declare the workers and tiers
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /cluster/shape (the `ClusterShapePut` operationId).
+	ClusterShapePutWithResponse(ctx context.Context, body ClusterShapePutJSONRequestBody, reqEditors ...RequestEditorFn) (*ClusterShapePutResponse, error)
 
 	// CredentialsGetWithResponse Which credentials hold a value, never the values
 	//
@@ -3183,12 +4190,40 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /llm/providers (the `LlmProviders` operationId).
 	LlmProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LlmProvidersResponse, error)
 
+	// InviteWithBodyWithResponse A one-time link that signs a browser in to the web UI
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /login-links (the `Invite` operationId).
+	InviteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InviteResponse, error)
+
+	// InviteWithResponse A one-time link that signs a browser in to the web UI
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /login-links (the `Invite` operationId).
+	InviteWithResponse(ctx context.Context, body InviteJSONRequestBody, reqEditors ...RequestEditorFn) (*InviteResponse, error)
+
 	// MeWithResponse The cluster and zone this plane serves
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /me (the `Me` operationId).
 	MeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*MeResponse, error)
+
+	// PreviewWithBodyWithResponse A 12-hour link to a preview, past its gate
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /previews (the `Preview` operationId).
+	PreviewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewResponse, error)
+
+	// PreviewWithResponse A 12-hour link to a preview, past its gate
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /previews (the `Preview` operationId).
+	PreviewWithResponse(ctx context.Context, body PreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewResponse, error)
 
 	// EnvSuspendWithResponse Suspend the actor the environment's preview routes to, freeing its worker
 	//
@@ -3329,6 +4364,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /stream (the `Stream` operationId).
 	StreamWithResponse(ctx context.Context, params *StreamParams, reqEditors ...RequestEditorFn) (*StreamResponse, error)
+
+	// UsageWithResponse Sessions, compute, pull requests and tokens over the last days
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /usage (the `Usage` operationId).
+	UsageWithResponse(ctx context.Context, params *UsageParams, reqEditors ...RequestEditorFn) (*UsageResponse, error)
 }
 
 type ApprovalLsResponse struct {
@@ -3517,6 +4559,383 @@ func (r ApprovalDenyResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r ApprovalDenyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LogoutAllResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SignedOut
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LogoutAllResponse) GetJSON200() *SignedOut {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LogoutAllResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LogoutAllResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LogoutAllResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LogoutAllResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LogoutAllResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type BrowsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Browser
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r BrowsersResponse) GetJSON200() *[]Browser {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r BrowsersResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r BrowsersResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r BrowsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r BrowsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r BrowsersResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LogoutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *SignedOut
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LogoutResponse) GetJSON200() *SignedOut {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LogoutResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LogoutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LogoutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LogoutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LogoutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Cluster
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LsResponse) GetJSON200() *Cluster {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PodsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Pod
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PodsResponse) GetJSON200() *[]Pod {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r PodsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PodsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PodsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PodsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PodsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LogsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PodLog
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LogsResponse) GetJSON200() *PodLog {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r LogsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r LogsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LogsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LogsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LogsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClusterShapeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Shape
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ClusterShapeResponse) GetJSON200() *Shape {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r ClusterShapeResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ClusterShapeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ClusterShapeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClusterShapeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClusterShapeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClusterShapePutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r ClusterShapePutResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ClusterShapePutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ClusterShapePutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClusterShapePutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClusterShapePutResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -4283,6 +5702,54 @@ func (r LlmProvidersResponse) ContentType() string {
 	return ""
 }
 
+type InviteResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *LoginLink
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r InviteResponse) GetJSON200() *LoginLink {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r InviteResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r InviteResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r InviteResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InviteResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InviteResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type MeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4325,6 +5792,54 @@ func (r MeResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r MeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PreviewLink
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewResponse) GetJSON200() *PreviewLink {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r PreviewResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -5099,6 +6614,54 @@ func (r StreamResponse) ContentType() string {
 	return ""
 }
 
+type UsageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Usage
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UsageResponse) GetJSON200() *Usage {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r UsageResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r UsageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UsageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UsageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UsageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // ApprovalLsWithResponse Actions waiting for a decision
 //
 // Returns a wrapper object for the known response body format(s).
@@ -5149,6 +6712,123 @@ func (c *ClientWithResponses) ApprovalDenyWithResponse(ctx context.Context, id s
 		return nil, err
 	}
 	return ParseApprovalDenyResponse(rsp)
+}
+
+// LogoutAllWithResponse Sign out every browser
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /browsers (the `LogoutAll` operationId).
+func (c *ClientWithResponses) LogoutAllWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LogoutAllResponse, error) {
+	rsp, err := c.LogoutAll(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLogoutAllResponse(rsp)
+}
+
+// BrowsersWithResponse Browsers signed in to the web UI
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /browsers (the `Browsers` operationId).
+func (c *ClientWithResponses) BrowsersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*BrowsersResponse, error) {
+	rsp, err := c.Browsers(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseBrowsersResponse(rsp)
+}
+
+// LogoutWithResponse Sign out the browsers under label
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /browsers/{label} (the `Logout` operationId).
+func (c *ClientWithResponses) LogoutWithResponse(ctx context.Context, label string, reqEditors ...RequestEditorFn) (*LogoutResponse, error) {
+	rsp, err := c.Logout(ctx, label, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLogoutResponse(rsp)
+}
+
+// LsWithResponse The cluster now: its nodes, worker pools, workers and the plane's hosts
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /cluster (the `Ls` operationId).
+func (c *ClientWithResponses) LsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LsResponse, error) {
+	rsp, err := c.Ls(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLsResponse(rsp)
+}
+
+// PodsWithResponse Every pod in the cluster, or one node's
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /cluster/pods (the `Pods` operationId).
+func (c *ClientWithResponses) PodsWithResponse(ctx context.Context, params *PodsParams, reqEditors ...RequestEditorFn) (*PodsResponse, error) {
+	rsp, err := c.Pods(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePodsResponse(rsp)
+}
+
+// LogsWithResponse The end of a cluster pod's log
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /cluster/pods/{namespace}/{pod}/log (the `Logs` operationId).
+func (c *ClientWithResponses) LogsWithResponse(ctx context.Context, namespace string, pod string, params *LogsParams, reqEditors ...RequestEditorFn) (*LogsResponse, error) {
+	rsp, err := c.Logs(ctx, namespace, pod, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLogsResponse(rsp)
+}
+
+// ClusterShapeWithResponse The workers and tiers hz cluster install declared
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /cluster/shape (the `ClusterShape` operationId).
+func (c *ClientWithResponses) ClusterShapeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClusterShapeResponse, error) {
+	rsp, err := c.ClusterShape(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClusterShapeResponse(rsp)
+}
+
+// ClusterShapePutWithBodyWithResponse Declare the workers and tiers
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /cluster/shape (the `ClusterShapePut` operationId).
+func (c *ClientWithResponses) ClusterShapePutWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClusterShapePutResponse, error) {
+	rsp, err := c.ClusterShapePutWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClusterShapePutResponse(rsp)
+}
+
+// ClusterShapePutWithResponse Declare the workers and tiers
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /cluster/shape (the `ClusterShapePut` operationId).
+func (c *ClientWithResponses) ClusterShapePutWithResponse(ctx context.Context, body ClusterShapePutJSONRequestBody, reqEditors ...RequestEditorFn) (*ClusterShapePutResponse, error) {
+	rsp, err := c.ClusterShapePut(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClusterShapePutResponse(rsp)
 }
 
 // CredentialsGetWithResponse Which credentials hold a value, never the values
@@ -5437,6 +7117,32 @@ func (c *ClientWithResponses) LlmProvidersWithResponse(ctx context.Context, reqE
 	return ParseLlmProvidersResponse(rsp)
 }
 
+// InviteWithBodyWithResponse A one-time link that signs a browser in to the web UI
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /login-links (the `Invite` operationId).
+func (c *ClientWithResponses) InviteWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InviteResponse, error) {
+	rsp, err := c.InviteWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInviteResponse(rsp)
+}
+
+// InviteWithResponse A one-time link that signs a browser in to the web UI
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /login-links (the `Invite` operationId).
+func (c *ClientWithResponses) InviteWithResponse(ctx context.Context, body InviteJSONRequestBody, reqEditors ...RequestEditorFn) (*InviteResponse, error) {
+	rsp, err := c.Invite(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInviteResponse(rsp)
+}
+
 // MeWithResponse The cluster and zone this plane serves
 //
 // Returns a wrapper object for the known response body format(s).
@@ -5448,6 +7154,32 @@ func (c *ClientWithResponses) MeWithResponse(ctx context.Context, reqEditors ...
 		return nil, err
 	}
 	return ParseMeResponse(rsp)
+}
+
+// PreviewWithBodyWithResponse A 12-hour link to a preview, past its gate
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /previews (the `Preview` operationId).
+func (c *ClientWithResponses) PreviewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewResponse, error) {
+	rsp, err := c.PreviewWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewResponse(rsp)
+}
+
+// PreviewWithResponse A 12-hour link to a preview, past its gate
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /previews (the `Preview` operationId).
+func (c *ClientWithResponses) PreviewWithResponse(ctx context.Context, body PreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewResponse, error) {
+	rsp, err := c.Preview(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewResponse(rsp)
 }
 
 // EnvSuspendWithResponse Suspend the actor the environment's preview routes to, freeing its worker
@@ -5710,6 +7442,19 @@ func (c *ClientWithResponses) StreamWithResponse(ctx context.Context, params *St
 	return ParseStreamResponse(rsp)
 }
 
+// UsageWithResponse Sessions, compute, pull requests and tokens over the last days
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /usage (the `Usage` operationId).
+func (c *ClientWithResponses) UsageWithResponse(ctx context.Context, params *UsageParams, reqEditors ...RequestEditorFn) (*UsageResponse, error) {
+	rsp, err := c.Usage(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUsageResponse(rsp)
+}
+
 // ParseApprovalLsResponse parses an HTTP response from a ApprovalLsWithResponse call
 func ParseApprovalLsResponse(rsp *http.Response) (*ApprovalLsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -5829,6 +7574,266 @@ func ParseApprovalDenyResponse(rsp *http.Response) (*ApprovalDenyResponse, error
 			return nil, err
 		}
 		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLogoutAllResponse parses an HTTP response from a LogoutAllWithResponse call
+func ParseLogoutAllResponse(rsp *http.Response) (*LogoutAllResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LogoutAllResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SignedOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseBrowsersResponse parses an HTTP response from a BrowsersWithResponse call
+func ParseBrowsersResponse(rsp *http.Response) (*BrowsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &BrowsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Browser
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLogoutResponse parses an HTTP response from a LogoutWithResponse call
+func ParseLogoutResponse(rsp *http.Response) (*LogoutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LogoutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SignedOut
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLsResponse parses an HTTP response from a LsWithResponse call
+func ParseLsResponse(rsp *http.Response) (*LsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Cluster
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePodsResponse parses an HTTP response from a PodsWithResponse call
+func ParsePodsResponse(rsp *http.Response) (*PodsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PodsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Pod
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLogsResponse parses an HTTP response from a LogsWithResponse call
+func ParseLogsResponse(rsp *http.Response) (*LogsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LogsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PodLog
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClusterShapeResponse parses an HTTP response from a ClusterShapeWithResponse call
+func ParseClusterShapeResponse(rsp *http.Response) (*ClusterShapeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClusterShapeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Shape
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClusterShapePutResponse parses an HTTP response from a ClusterShapePutWithResponse call
+func ParseClusterShapePutResponse(rsp *http.Response) (*ClusterShapePutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClusterShapePutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel
@@ -6371,6 +8376,39 @@ func ParseLlmProvidersResponse(rsp *http.Response) (*LlmProvidersResponse, error
 	return response, nil
 }
 
+// ParseInviteResponse parses an HTTP response from a InviteWithResponse call
+func ParseInviteResponse(rsp *http.Response) (*InviteResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InviteResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LoginLink
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseMeResponse parses an HTTP response from a MeWithResponse call
 func ParseMeResponse(rsp *http.Response) (*MeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -6387,6 +8425,39 @@ func ParseMeResponse(rsp *http.Response) (*MeResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Me
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewResponse parses an HTTP response from a PreviewWithResponse call
+func ParsePreviewResponse(rsp *http.Response) (*PreviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PreviewLink
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -6935,6 +9006,39 @@ func ParseStreamResponse(rsp *http.Response) (*StreamResponse, error) {
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUsageResponse parses an HTTP response from a UsageWithResponse call
+func ParseUsageResponse(rsp *http.Response) (*UsageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UsageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Usage
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

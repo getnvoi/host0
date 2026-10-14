@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getnvoi/host0/internal/api/client"
 	"github.com/getnvoi/host0/internal/cloud"
 	"github.com/getnvoi/host0/internal/infra"
 	"github.com/getnvoi/host0/internal/infra/kube"
@@ -313,20 +314,16 @@ func shape(ctx context.Context, e *infra.Env, url, token string) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, "PUT", url+"/cluster/shape", bytes.NewReader(body))
+	c, err := client.NewClient(url, client.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
+		client.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
+			r.Header.Set("Authorization", "Bearer "+token)
+			return nil
+		}))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil {
+	if err := client.Done(c.ClusterShapePutWithBody(ctx, "application/json", bytes.NewReader(body))); err != nil {
 		return fmt.Errorf("writing the cluster shape: %w", err)
-	}
-	defer res.Body.Close()
-	raw, _ := io.ReadAll(res.Body)
-	if res.StatusCode >= 300 {
-		return fmt.Errorf("writing the cluster shape: %s: %s", res.Status, strings.TrimSpace(string(raw)))
 	}
 	e.Say("workers: %s in %s, at most %d, deleted after %s idle", e.Config.WorkerType, e.Config.Location, e.Config.WorkerMax, e.Config.WorkerIdle)
 	return nil

@@ -280,7 +280,7 @@ func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 			return fmt.Errorf("seed %s: %w", a, err)
 		}
 	}
-	if err := ws.Store.Delete("routes", ws.Preview(name)); err != nil {
+	if err := ws.unroute(ws.Preview(name)); err != nil {
 		return err
 	}
 	// Removed sessions keep their environment's row, archived: their history still names it.

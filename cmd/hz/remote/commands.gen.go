@@ -58,6 +58,37 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:     "browsers",
+		Short:  "Browsers signed in to the web UI",
+		Method: "GET",
+		Route:  "/browsers",
+		HZ:     hz{Output: "table", Columns: []string{"label", "at", "until"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Browsers(ctx, edit)
+		},
+	},
+	{
+		ID:     "cluster.shape",
+		Short:  "The workers and tiers hz cluster install declared",
+		Method: "GET",
+		Route:  "/cluster/shape",
+		HZ:     hz{Output: "fields"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.ClusterShape(ctx, edit)
+		},
+	},
+	{
+		ID:          "cluster.shape.put",
+		Short:       "Declare the workers and tiers",
+		Method:      "PUT",
+		Route:       "/cluster/shape",
+		HZ:          hz{By: []string{"cluster install"}},
+		ContentType: "application/json",
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.ClusterShapePutWithBody(ctx, "application/json", body, edit)
+		},
+	},
+	{
 		ID:     "credentials.get",
 		Short:  "Which credentials hold a value, never the values",
 		Method: "GET",
@@ -182,6 +213,18 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:          "invite",
+		Short:       "A one-time link that signs a browser in to the web UI",
+		Method:      "POST",
+		Route:       "/login-links",
+		HZ:          hz{By: []string{"open", "invite"}},
+		ContentType: "application/json",
+		Body:        []param{{Name: "label", Kind: "string", Help: "Who the browser signs in as"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.InviteWithBody(ctx, "application/json", body, edit)
+		},
+	},
+	{
 		ID:          "llm.add",
 		Short:       "Add an agent credential; the first live one is in use",
 		Method:      "POST",
@@ -260,6 +303,49 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:     "logout",
+		Short:  "Sign out the browsers under label",
+		Method: "DELETE",
+		Route:  "/browsers/{label}",
+		HZ:     hz{By: []string{"logout"}},
+		Args:   []string{"label"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Logout(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "logout.all",
+		Short:  "Sign out every browser",
+		Method: "DELETE",
+		Route:  "/browsers",
+		HZ:     hz{By: []string{"logout"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.LogoutAll(ctx, edit)
+		},
+	},
+	{
+		ID:     "logs",
+		Short:  "The end of a cluster pod's log",
+		Method: "GET",
+		Route:  "/cluster/pods/{namespace}/{pod}/log",
+		HZ:     hz{Output: "raw", Field: "log"},
+		Args:   []string{"namespace", "pod"},
+		Query:  []param{{Name: "container", Kind: "string", Help: "The container, when the pod has several"}, {Name: "tail", Kind: "int", Help: "Lines from the end"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Logs(ctx, args[0], args[1], &client.LogsParams{}, edit)
+		},
+	},
+	{
+		ID:     "ls",
+		Short:  "The cluster now: its nodes, worker pools, workers and the plane's hosts",
+		Method: "GET",
+		Route:  "/cluster",
+		HZ:     hz{By: []string{"ls"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Ls(ctx, edit)
+		},
+	},
+	{
 		ID:     "me",
 		Short:  "The cluster and zone this plane serves",
 		Method: "GET",
@@ -267,6 +353,29 @@ var operations = []operation{
 		HZ:     hz{Output: "fields"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.Me(ctx, edit)
+		},
+	},
+	{
+		ID:     "pods",
+		Short:  "Every pod in the cluster, or one node's",
+		Method: "GET",
+		Route:  "/cluster/pods",
+		HZ:     hz{Output: "table", Columns: []string{"namespace", "name", "node", "phase"}},
+		Query:  []param{{Name: "node", Kind: "string", Help: "Only this node's pods"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Pods(ctx, &client.PodsParams{}, edit)
+		},
+	},
+	{
+		ID:          "preview",
+		Short:       "A 12-hour link to a preview, past its gate",
+		Method:      "POST",
+		Route:       "/previews",
+		HZ:          hz{By: []string{"preview"}},
+		ContentType: "application/json",
+		Body:        []param{{Name: "host", Kind: "string", Help: "The preview's host, as a session or a seed names it"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.PreviewWithBody(ctx, "application/json", body, edit)
 		},
 	},
 	{
@@ -452,6 +561,17 @@ var operations = []operation{
 		HZ:     hz{By: []string{"env seed"}},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.Stream(ctx, &client.StreamParams{}, edit)
+		},
+	},
+	{
+		ID:     "usage",
+		Short:  "Sessions, compute, pull requests and tokens over the last days",
+		Method: "GET",
+		Route:  "/usage",
+		HZ:     hz{By: []string{"usage"}},
+		Query:  []param{{Name: "days", Kind: "int", Help: "How many days back, today's included"}, {Name: "by", Kind: "string", Help: "One person's usage: the sessions they started"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Usage(ctx, &client.UsageParams{}, edit)
 		},
 	},
 }

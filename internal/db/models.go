@@ -234,10 +234,13 @@ type Note struct {
 	Member    *Member `gorm:"constraint:OnDelete:RESTRICT"`
 }
 
+// A preview host's way in: the actor, the port its app answers on, the tier it wakes at.
 type Route struct {
 	ID    uint
 	Host  string `gorm:"not null;uniqueIndex"`
 	Actor string `gorm:"not null"`
+	Port  int
+	Tier  string
 }
 
 // Digest is the token's digest; the token itself is not a column.
@@ -249,6 +252,7 @@ type SignIn struct {
 	MemberID  *uint     `gorm:"index"`
 	Member    *Member   `gorm:"constraint:OnDelete:CASCADE"`
 	ExpiresAt time.Time `gorm:"not null"`
+	CreatedAt time.Time
 }
 
 // One row, ID 1: what install declares about the workers and sizes. Tiers is the JSON of sandbox.Tier.
@@ -256,6 +260,8 @@ type Shape struct {
 	ID      uint            `gorm:"check:shape_single,id = 1"`
 	Workers Workers         `gorm:"embedded;embeddedPrefix:workers_"`
 	Tiers   json.RawMessage `gorm:"type:text;serializer:json"`
+	// Where the worker servers are made; empty on a cluster with no cloud.
+	Location string `gorm:"column:workers_location"`
 }
 
 type Workers struct {
@@ -264,12 +270,18 @@ type Workers struct {
 	Idle time.Duration // a worker with no actor this long is deleted
 }
 
+// Seconds one actor spent per state in an hour; with Session empty, the worker seconds of the tier's pool.
 type UsageHour struct {
 	ID          uint
-	Hour        time.Time `gorm:"not null;uniqueIndex:idx_usage_hours_hour_tier"` // UTC, truncated to the hour
-	Tier        string    `gorm:"not null;uniqueIndex:idx_usage_hours_hour_tier"`
+	Hour        time.Time `gorm:"not null;uniqueIndex:idx_usage_hours_hour_tier_session"` // UTC, truncated to the hour
+	Tier        string    `gorm:"not null;uniqueIndex:idx_usage_hours_hour_tier_session"`
 	RunningS    int64     `gorm:"column:running_s;not null;default:0"`
 	PausedS     int64     `gorm:"column:paused_s;not null;default:0"`
 	SnapshotGBS float64   `gorm:"column:snapshot_gbs;not null;default:0"` // gigabyte-seconds
 	ReportedAt  *time.Time
+	Session     string `gorm:"not null;default:'';uniqueIndex:idx_usage_hours_hour_tier_session"` // seed:<env> for a seed
+	Env         string
+	By          string // who started the session
+	SuspendedS  int64  `gorm:"column:suspended_s;not null;default:0"`
+	WorkerS     int64  `gorm:"column:worker_s;not null;default:0"`
 }

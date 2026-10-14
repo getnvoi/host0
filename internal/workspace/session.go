@@ -547,8 +547,8 @@ func (ws *Workspace) PreviewStatus(ctx context.Context, sid string) (PreviewStat
 	if err != nil {
 		return PreviewStatus{}, err
 	}
-	var rt sandbox.Route
-	if err := ws.Store.Get("routes", s.Preview, &rt); err != nil {
+	rt, err := ws.Route(s.Preview)
+	if err != nil {
 		return PreviewStatus{}, err
 	}
 	if err := ws.Workers.Ensure(ctx, rt.Actor, rt.Tier); err != nil {
@@ -607,7 +607,7 @@ func (ws *Workspace) DeleteSession(ctx context.Context, sid string) error {
 			return err
 		}
 	}
-	if err := ws.Store.Delete("routes", s.Preview); err != nil {
+	if err := ws.unroute(s.Preview); err != nil {
 		return err
 	}
 	// Its row is kept, removed, with its events: its history is the workspace's.

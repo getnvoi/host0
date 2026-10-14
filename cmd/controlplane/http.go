@@ -3,107 +3,30 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/getnvoi/host0/internal/auth"
 	"github.com/getnvoi/host0/internal/box"
 	"github.com/getnvoi/host0/internal/preview"
 	"github.com/getnvoi/host0/internal/sandbox"
+	"github.com/getnvoi/host0/internal/workspace"
 )
 
 // apiHost: the API, for a bearer token (the CLI). appHost: the web UI, its API under /api for a signed-in browser.
 // Every other host is a preview.
 func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
+	p.app = appHost
 	mux := http.NewServeMux()
 	p.API(mux)
 	api := p.outside("api", mux)
-	api.HandleFunc("PUT /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
-		var s sandbox.Shape
-		reply(w, nil, read(r, &s, func() error { return p.sc.SetShape(s) }))
-	})
-	api.HandleFunc("GET /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
-		s, err := p.sc.Shape()
-		reply(w, &s, err)
-	})
-	api.HandleFunc("GET /cluster/pods", func(w http.ResponseWriter, r *http.Request) {
-		if p.Pods == nil {
-			reply(w, nil, fmt.Errorf("this plane reads no pods"))
-			return
-		}
-		ps, err := p.Pods.List(r.Context(), r.URL.Query().Get("node"))
-		reply(w, &ps, err)
-	})
-	api.HandleFunc("GET /cluster/pods/{namespace}/{pod}/log", func(w http.ResponseWriter, r *http.Request) {
-		if p.Pods == nil {
-			reply(w, nil, fmt.Errorf("this plane reads no pods"))
-			return
-		}
-		tail, err := strconv.Atoi(r.URL.Query().Get("tail"))
-		if err != nil || tail <= 0 {
-			tail = 200
-		}
-		log, err := p.Pods.Log(r.Context(), r.PathValue("namespace"), r.PathValue("pod"), r.URL.Query().Get("container"), tail)
-		reply(w, &map[string]string{"log": log}, err)
-	})
-	api.HandleFunc("GET /cluster", func(w http.ResponseWriter, r *http.Request) {
-		c, err := p.Status(r.Context())
-		reply(w, &c, err)
-	})
-	api.HandleFunc("POST /previews", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Host string }
-		var out struct {
-			URL string `json:"url"`
-		}
-		reply(w, &out, read(r, &in, func() error {
-			var rt sandbox.Route
-			if err := p.Store.Get("routes", in.Host, &rt); err != nil {
-				// A session still forking has no route yet; its host is known all the same.
-				sid, _, _ := strings.Cut(in.Host, "-")
-				if s, serr := p.ws.Session(sid); serr != nil || s.Preview != in.Host {
-					return err
-				}
-			}
-			out.URL = p.gate.URL(in.Host, 12*time.Hour)
-			return nil
-		}))
-	})
 	api.HandleFunc("GET /sessions/{id}/terminals/{tid}", p.terminal(appHost))
-	api.HandleFunc("GET /usage", func(w http.ResponseWriter, r *http.Request) {
-		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
-		u, err := p.Usage(time.Now(), days, r.URL.Query().Get("by"))
-		reply(w, &u, err)
-	})
 
-	bearer := p.outside("bearer", http.NewServeMux())
-	bearer.Handle("/", mux)
-	bearer.HandleFunc("POST /login-links", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Label string }
-		var out struct {
-			URL string `json:"url"`
-		}
-		reply(w, &out, read(r, &in, func() (err error) { out.URL, err = p.auth.LoginLink(appHost, in.Label); return }))
-	})
-	bearer.HandleFunc("GET /browsers", func(w http.ResponseWriter, r *http.Request) {
-		bs, err := p.auth.Browsers()
-		reply(w, &bs, err)
-	})
-	signOut := func(w http.ResponseWriter, r *http.Request) {
-		var out struct {
-			Count int `json:"count"`
-		}
-		var err error
-		out.Count, err = p.auth.SignOut(r.PathValue("label"))
-		reply(w, &out, err)
-	}
-	bearer.HandleFunc("DELETE /browsers", signOut)
-	bearer.HandleFunc("DELETE /browsers/{label}", signOut)
-	cli := auth.Bearer(tokenSHA256, bearer)
+	cli := auth.Bearer(tokenSHA256, mux)
 	app := p.outside("app", http.NewServeMux())
 	app.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Has("code") {
@@ -182,9 +105,13 @@ func (p *plane) preview(appHost string) http.Handler {
 		if !p.gate.Pass(w, r, host) {
 			return
 		}
-		var rt sandbox.Route
-		if err := p.Store.Get("routes", host, &rt); err != nil {
+		rt, err := p.ws.Route(host)
+		if errors.As(err, new(workspace.NotFound)) {
 			http.NotFound(w, r)
+			return
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		// A request open through here, a WebSocket included, is activity for as long as it lasts.

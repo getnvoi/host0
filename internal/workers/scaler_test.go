@@ -2,16 +2,18 @@ package workers
 
 import (
 	"context"
-	"encoding/json"
 	"net"
+	"path/filepath"
 	"slices"
-	"sync"
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/store"
+	"github.com/getnvoi/host0/internal/shared/seal"
 )
 
 type fakeSandboxes struct {
@@ -36,69 +38,41 @@ func (f *fakeSandboxes) Suspend(_ context.Context, a string) error {
 	return nil
 }
 
-// Records are kept as JSON, as the real store keeps them: what is read back is a copy, never the writer's value.
-type fakeStore struct {
-	mu     sync.Mutex
-	routes []sandbox.Route
-	kv     map[string]map[string][]byte
+// A database in a fresh file, migrated, holding no shape.
+func emptyDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if s, err := gdb.DB(); err == nil {
+			s.Close()
+		}
+	})
+	if err := db.Migrate(gdb); err != nil {
+		t.Fatal(err)
+	}
+	return gdb
 }
 
-// With the shape install writes: the default tiers, two workers idle for a minute at most.
-func newStore(routes ...sandbox.Route) *fakeStore {
-	f := &fakeStore{routes: routes, kv: map[string]map[string][]byte{}}
-	f.Put("cluster", "shape", testShape)
-	return f
+// With the shape install writes (the default tiers, two workers idle for a minute at most) and routes, each from a
+// host named after its actor.
+func newDB(t *testing.T, routes ...sandbox.Route) *gorm.DB {
+	t.Helper()
+	gdb := emptyDB(t)
+	if err := (&Scaler{DB: gdb}).SetShape(testShape); err != nil {
+		t.Fatal(err)
+	}
+	for _, rt := range routes {
+		if err := gdb.Create(&db.Route{Host: rt.Actor + ".preview", Actor: rt.Actor, Port: rt.Port, Tier: rt.Tier}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	return gdb
 }
 
 var testShape = sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 2, Idle: time.Minute}, Tiers: sandbox.DefaultTiers}
-
-func (f *fakeStore) Get(kind, id string, v any) error {
-	f.mu.Lock()
-	b, ok := f.kv[kind][id]
-	f.mu.Unlock()
-	if !ok {
-		return store.ErrNotFound
-	}
-	return json.Unmarshal(b, v)
-}
-func (f *fakeStore) Put(kind, id string, v any) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.kv[kind] == nil {
-		f.kv[kind] = map[string][]byte{}
-	}
-	f.kv[kind][id] = b
-	return nil
-}
-func (f *fakeStore) Delete(kind, id string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	delete(f.kv[kind], id)
-	return nil
-}
-func (f *fakeStore) List(kind string, each func(func(any) error) error) error {
-	if kind == "routes" {
-		for _, r := range f.routes {
-			r := r
-			each(func(v any) error { *(v.(*sandbox.Route)) = r; return nil })
-		}
-		return nil
-	}
-	f.mu.Lock()
-	var all [][]byte
-	for _, b := range f.kv[kind] {
-		all = append(all, b)
-	}
-	f.mu.Unlock()
-	for _, b := range all {
-		each(func(v any) error { return json.Unmarshal(b, v) })
-	}
-	return nil
-}
 
 func (f *fakeSandboxes) Workers(context.Context) ([]sandbox.Worker, error) { return f.workers, nil }
 func (f *fakeSandboxes) Resume(context.Context, string) error {
@@ -162,7 +136,7 @@ func TestShrink(t *testing.T) {
 		{Pool: "hz-medium", Pod: "idle"},
 	}}
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
-	p := &Scaler{Sandboxes: sb, Pools: pools, Store: newStore()}
+	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t)}
 	ctx := context.Background()
 
 	p.shrink(ctx)
@@ -190,7 +164,7 @@ func TestWakeGrows(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1}
 	pools := &fakePools{replicas: map[string]int{"hz-large": 0}, costs: map[string]int{}}
-	p := &Scaler{Sandboxes: sb, Pools: pools, Store: newStore()}
+	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t)}
 	large, _ := sandbox.Pick(sandbox.DefaultTiers, "large")
 	if err := p.Wake(context.Background(), "a", large); err != nil {
 		t.Fatal(err)
@@ -203,7 +177,7 @@ func TestWakeGrows(t *testing.T) {
 func TestRest(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{states: map[string]string{"a": "running", "b": "running", "c": "paused"}}
-	p := &Scaler{Sandboxes: sb, Store: newStore(sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "b", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "c", Port: 3000, Tier: "medium"}), Pools: &fakePools{},
+	p := &Scaler{Sandboxes: sb, DB: newDB(t, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "b", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "c", Port: 3000, Tier: "medium"}), Pools: &fakePools{},
 		PauseAfter: 10 * time.Minute, SuspendAfter: time.Hour}
 	now := time.Now()
 	sc.seen["a"] = now.Add(-11 * time.Minute)
@@ -220,7 +194,7 @@ func TestWakeEvictsBeforeGrowing(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1, states: map[string]string{"old": "paused", "new": "suspended"}}
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, costs: map[string]int{}}
-	p := &Scaler{Sandboxes: sb, Pools: pools, Store: newStore(sandbox.Route{Actor: "old", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "new", Port: 3000, Tier: "medium"})}
+	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t, sandbox.Route{Actor: "old", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "new", Port: 3000, Tier: "medium"})}
 	medium, _ := sandbox.Pick(sandbox.DefaultTiers, "medium")
 	if err := p.Wake(context.Background(), "new", medium); err != nil {
 		t.Fatal(err)
@@ -234,7 +208,7 @@ func TestEvictSkipsBusy(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1, states: map[string]string{"old": "paused", "new": "suspended"}}
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, costs: map[string]int{}}
-	p := &Scaler{Sandboxes: sb, Pools: pools, Store: newStore(sandbox.Route{Actor: "old", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "new", Port: 3000, Tier: "medium"})}
+	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t, sandbox.Route{Actor: "old", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "new", Port: 3000, Tier: "medium"})}
 	sc.open["old"] = 1
 	medium, _ := sandbox.Pick(sandbox.DefaultTiers, "medium")
 	if err := p.Wake(context.Background(), "new", medium); err != nil {
@@ -272,7 +246,7 @@ func TestShrinkUnmarksTaken(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{workers: []sandbox.Worker{{Pool: "hz-medium", Pod: "a"}, {Pool: "hz-medium", Pod: "b"}}}
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
-	p := &Scaler{Sandboxes: sb, Pools: pools, Store: newStore()}
+	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t)}
 	ctx := context.Background()
 	p.shrink(ctx)
 	p.shrink(ctx)
@@ -293,7 +267,7 @@ func TestResumeTellsWoken(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{states: map[string]string{"a": "suspended", "b": "running"}}
 	var woken []string
-	p := &Scaler{Sandboxes: sb, Pools: &fakePools{replicas: map[string]int{}}, Store: newStore(),
+	p := &Scaler{Sandboxes: sb, Pools: &fakePools{replicas: map[string]int{}}, DB: newDB(t),
 		Woken: func(actor string) { woken = append(woken, actor) }}
 	for _, a := range []string{"a", "b"} {
 		if err := p.resume(context.Background(), a, ""); err != nil {
@@ -316,9 +290,9 @@ func TestReap(t *testing.T) {
 		{Pool: "hz-medium", Pod: "failed", Held: []sandbox.Held{{Name: "shop-853d8ecc03", State: "running"}}},
 		{Pool: "hz-medium", Pod: "stale", Held: []sandbox.Held{{Name: "gone", State: ""}}},
 	}}
-	st := newStore(sandbox.Route{Actor: "shop-b30f1ae1ab", Tier: "medium"})
+	st := newDB(t, sandbox.Route{Actor: "shop-b30f1ae1ab", Tier: "medium"})
 	named := func() map[string]bool { return map[string]bool{"wt-s1": true, "web-1111111111": true} }
-	p := &Scaler{Sandboxes: sb, Pools: &fakePools{replicas: map[string]int{}}, Store: st, Named: named}
+	p := &Scaler{Sandboxes: sb, Pools: &fakePools{replicas: map[string]int{}}, DB: st, Named: named}
 	if err := p.reap(context.Background()); err != nil {
 		t.Fatal(err)
 	}

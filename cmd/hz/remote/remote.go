@@ -3,17 +3,12 @@ package remote
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
-	"os/exec"
-	"os/user"
-	"regexp"
 	"strings"
 	"time"
 
@@ -23,49 +18,6 @@ import (
 	"github.com/getnvoi/host0/internal/api/client"
 	"github.com/getnvoi/host0/internal/workspace"
 )
-
-func call(method, path string, in, out any) error {
-	res, err := send(method, path, in)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	if out != nil {
-		if err := json.NewDecoder(res.Body).Decode(out); err != nil {
-			return fmt.Errorf("%s %s: %w", method, path, err)
-		}
-	}
-	return nil
-}
-
-// The response to a request that succeeded; the caller closes its body.
-func send(method, path string, in any) (*http.Response, error) {
-	st, err := state.Load()
-	if err != nil {
-		return nil, err
-	}
-	var body io.Reader
-	if in != nil {
-		b, err := json.Marshal(in)
-		if err != nil {
-			return nil, err
-		}
-		body = bytes.NewReader(b)
-	}
-	req, err := http.NewRequest(method, st.URL+path, body)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+st.Token)
-	req.Header.Set("Content-Type", "application/json")
-	return client.OK(http.DefaultClient.Do(req))
-}
-
-// The commands not yet generated from the spec.
-func legacy() map[string]func() *cobra.Command {
-	return map[string]func() *cobra.Command{"preview": preview, "open": open, "invite": invite, "ls": status,
-		"pods": pods, "logs": podLogs, "usage": usage, "browsers": browsers, "logout": logout}
-}
 
 func init() { written["env seed"] = seed }
 
@@ -250,156 +202,4 @@ func listen(ctx context.Context, c *client.Client, last string, out chan<- frame
 		return err
 	}
 	return errors.New("the plane closed the stream")
-}
-
-// A preview link carrying a gate token; the bare host answers 401.
-func link(host string) string {
-	var out struct{ URL string }
-	if err := call("POST", "/previews", map[string]string{"host": host}, &out); err != nil {
-		return "https://" + host + " (" + err.Error() + ")"
-	}
-	return out.URL
-}
-
-func preview() *cobra.Command {
-	var check bool
-	cmd := &cobra.Command{
-		Use:   "preview <host>",
-		Short: "A 12-hour link to a preview; --check opens it as a visitor would",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if check {
-				return visit(args[0], link(args[0]), os.Stdout)
-			}
-			fmt.Println(link(args[0]))
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&check, "check", false, "the gate refuses no token, the link sets the cookie, the cookie opens the app")
-	return cmd
-}
-
-// nil is http.DefaultTransport; tests trust their own server with theirs.
-var transport http.RoundTripper
-
-var title = regexp.MustCompile(`(?is)<title>(.*?)</title>`)
-
-// Visits host as a browser does: refused without a token, cookie from the link, the app with the cookie.
-func visit(host, link string, out io.Writer) error {
-	// A suspended sandbox resumes on the first request; that is the slowest answer a visitor waits for.
-	client := &http.Client{Transport: transport, Timeout: 2 * time.Minute, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	get := func(url, cookie string) (*http.Response, string, error) {
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return nil, "", err
-		}
-		req.Header.Set("Accept", "text/html")
-		if cookie != "" {
-			req.Header.Set("Cookie", cookie)
-		}
-		res, err := client.Do(req)
-		if err != nil {
-			return nil, "", err
-		}
-		defer res.Body.Close()
-		b, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-		return res, string(b), err
-	}
-	root := "https://" + host + "/"
-	res, _, err := get(root, "")
-	if err != nil {
-		return err
-	}
-	if c := res.TLS; c != nil && len(c.PeerCertificates) > 0 {
-		cert := c.PeerCertificates[0]
-		fmt.Fprintf(out, "tls        %s, issued by %s, until %s\n", cert.Subject.CommonName, cert.Issuer.CommonName, cert.NotAfter.Format("2006-01-02"))
-	}
-	fmt.Fprintf(out, "no token   %s\n", res.Status)
-	if res.StatusCode != http.StatusUnauthorized {
-		return fmt.Errorf("%s answers %s without a token; the gate is open", host, res.Status)
-	}
-	res, _, err = get(link, "")
-	if err != nil {
-		return err
-	}
-	var cookie string
-	for _, c := range res.Cookies() {
-		if c.Name == "hz_token" {
-			cookie = c.Name + "=" + c.Value
-		}
-	}
-	fmt.Fprintf(out, "link       %s, cookie %t\n", res.Status, cookie != "")
-	if cookie == "" {
-		return fmt.Errorf("the link to %s answered %s and set no hz_token cookie", host, res.Status)
-	}
-	start := time.Now()
-	res, body, err := get(root, cookie)
-	if err != nil {
-		return err
-	}
-	t := ""
-	if m := title.FindStringSubmatch(body); m != nil {
-		t = strings.TrimSpace(m[1])
-	}
-	fmt.Fprintf(out, "cookie     %s in %s, title %q\n", res.Status, time.Since(start).Round(time.Millisecond), t)
-	if res.StatusCode != http.StatusOK {
-		said := strings.TrimSpace(body)
-		if len(said) > 300 {
-			said = said[:300] + "…"
-		}
-		return fmt.Errorf("%s answers %s with the cookie: %q", host, res.Status, said)
-	}
-	return nil
-}
-
-func loginLink(label string) (string, error) {
-	var out struct{ URL string }
-	err := call("POST", "/login-links", map[string]string{"label": label}, &out)
-	return out.URL, err
-}
-
-func open() *cobra.Command {
-	return &cobra.Command{
-		Use:   "open",
-		Short: "Sign this machine's browser in to the web UI",
-		RunE: func(*cobra.Command, []string) error {
-			url, err := loginLink(me())
-			if err != nil {
-				return err
-			}
-			if err := exec.Command("open", url).Run(); err != nil {
-				if err := exec.Command("xdg-open", url).Run(); err != nil {
-					fmt.Println(url)
-				}
-			}
-			return nil
-		},
-	}
-}
-
-// The local user's name: what the plane records this browser's sessions and decisions under.
-func me() string {
-	if u, err := user.Current(); err == nil && u.Username != "" {
-		return u.Username
-	}
-	if name := os.Getenv("USER"); name != "" {
-		return name
-	}
-	host, _ := os.Hostname()
-	return host
-}
-
-func invite() *cobra.Command {
-	return &cobra.Command{
-		Use:   "invite <name>",
-		Short: "A sign-in link for someone else's browser, valid 60 seconds and once",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			url, err := loginLink(args[0])
-			if err == nil {
-				fmt.Println(url)
-			}
-			return err
-		},
-	}
 }

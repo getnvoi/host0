@@ -1,0 +1,3 @@
+> GET /cluster/pods?node=w1
+NAMESPACE  NAME       NODE  PHASE
+wt-1a2b    wt-1a2b-0  w1    Running

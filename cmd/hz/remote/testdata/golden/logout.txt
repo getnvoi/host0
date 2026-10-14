@@ -1,0 +1,2 @@
+> DELETE /browsers/ben
+signed out 2

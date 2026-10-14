@@ -9,16 +9,18 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/getnvoi/host0/internal/cloud"
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/store"
 )
 
 type Scaler struct {
 	Sandboxes sandbox.Sandboxes
 	Pools     Pools
-	Store     store.Store
+	DB        *gorm.DB
 	// The cloud worker servers are made on, in the shape's location; nil when the cluster's own nodes are all it has.
 	Cloud func(location string) (cloud.Cloud, error)
 	// The cloud-init a worker server boots with: it joins the cluster as a worker node.
@@ -249,28 +251,32 @@ func (s *Scaler) Scale(ctx context.Context) {
 }
 
 // Every actor the plane routes to, with its tier.
-func (s *Scaler) actors() map[string]string {
+func (s *Scaler) actors() (map[string]string, error) {
+	var rows []db.Route
+	if err := s.DB.Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("routes: %w", err)
+	}
 	out := map[string]string{}
-	s.Store.List("routes", func(d func(any) error) error {
-		var rt sandbox.Route
-		if d(&rt) == nil {
-			out[rt.Actor] = rt.Tier
-		}
-		return nil
-	})
-	return out
+	for _, rt := range rows {
+		out[rt.Actor] = rt.Tier
+	}
+	return out, nil
 }
 
 // Every actor of ours a row names: routed, a session's, a seed's, or the one a build is making.
-func (s *Scaler) named() map[string]bool {
+func (s *Scaler) named() (map[string]bool, error) {
+	routed, err := s.actors()
+	if err != nil {
+		return nil, err
+	}
 	out := map[string]bool{}
-	for actor := range s.actors() {
+	for actor := range routed {
 		out[actor] = true
 	}
 	for actor := range s.Named() {
 		out[actor] = true
 	}
-	return out
+	return out, nil
 }
 
 // Deletes each actor of ours holding a worker that no row names: a build that failed or a restart cut short.
@@ -281,7 +287,10 @@ func (s *Scaler) reap(ctx context.Context) error {
 		return fmt.Errorf("workers: %w", err)
 	}
 	// Read after the workers: a row is written before its actor is made, so no actor listed is newer than its row.
-	named := s.named()
+	named, err := s.named()
+	if err != nil {
+		return err
+	}
 	for _, w := range workers {
 		for _, h := range w.Held {
 			switch {
@@ -301,7 +310,11 @@ func (s *Scaler) reap(ctx context.Context) error {
 
 // Pauses actors idle PauseAfter, suspends those idle SuspendAfter. An actor being woken is skipped.
 func (s *Scaler) rest(ctx context.Context) error {
-	for actor := range s.actors() {
+	routed, err := s.actors()
+	if err != nil {
+		return err
+	}
+	for actor := range routed {
 		g := guard(actor)
 		if !g.TryLock() {
 			continue
@@ -339,7 +352,12 @@ func (s *Scaler) lull(ctx context.Context, actor string) {
 func (s *Scaler) evict(ctx context.Context, tier, except string) bool {
 	var victim string
 	var longest time.Duration
-	for actor, t := range s.actors() {
+	routed, err := s.actors()
+	if err != nil {
+		log.Printf("evict for %s: %v", except, err)
+		return false
+	}
+	for actor, t := range routed {
 		if t != tier || actor == except || s.opened(actor) {
 			continue
 		}

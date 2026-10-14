@@ -2,17 +2,20 @@ package workers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/getnvoi/host0/internal/cloud"
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/shared/naming"
-	"github.com/getnvoi/host0/internal/store"
 )
 
 // A worker server whose node has not joined in this long is deleted, whatever Workers.Idle says.
@@ -31,15 +34,24 @@ var fl = &fleet{free: map[string]time.Time{}}
 
 // The shape install wrote: worker servers and tiers.
 func (s *Scaler) Shape() (sandbox.Shape, error) {
-	var shape sandbox.Shape
-	if err := s.Store.Get("cluster", "shape", &shape); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return shape, fmt.Errorf("the plane holds no cluster shape: hz cluster install writes it")
-		}
-		return shape, fmt.Errorf("the cluster shape: %w", err)
+	var row db.Shape
+	err := s.DB.First(&row, shapeID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return sandbox.Shape{}, fmt.Errorf("the plane holds no cluster shape: hz cluster install writes it")
+	}
+	if err != nil {
+		return sandbox.Shape{}, fmt.Errorf("the cluster shape: %w", err)
+	}
+	shape := sandbox.Shape{Workers: sandbox.Servers{Type: row.Workers.Type, Location: row.Location, Max: row.Workers.Max,
+		Idle: row.Workers.Idle}}
+	if err := json.Unmarshal(row.Tiers, &shape.Tiers); err != nil {
+		return shape, fmt.Errorf("the cluster shape's tiers: %w", err)
 	}
 	return shape, nil
 }
+
+// The shape is the one row of its table.
+const shapeID = 1
 
 // The shape, and the cloud in its location.
 func (s *Scaler) cloud() (sandbox.Shape, cloud.Cloud, error) {
@@ -70,7 +82,12 @@ func (s *Scaler) SetShape(shape sandbox.Shape) error {
 	if shape.Workers.Max < 0 || shape.Workers.Idle < 0 {
 		return Invalid{fmt.Errorf("workers.max and workers.idle cannot be negative")}
 	}
-	return s.Store.Put("cluster", "shape", shape)
+	tiers, err := json.Marshal(shape.Tiers)
+	if err != nil {
+		return err
+	}
+	return s.DB.Save(&db.Shape{ID: shapeID, Workers: db.Workers{Type: shape.Workers.Type, Max: shape.Workers.Max,
+		Idle: shape.Workers.Idle}, Location: shape.Workers.Location, Tiers: tiers}).Error
 }
 
 // A shape that cannot be taken as it is.
@@ -265,8 +282,12 @@ func (s *Scaler) drop(ctx context.Context, cl cloud.Cloud, name string, joined b
 
 // The nodes holding a paused actor's snapshot, which lives there only.
 func (s *Scaler) pausedOn(ctx context.Context) (map[string]bool, error) {
+	routed, err := s.actors()
+	if err != nil {
+		return nil, err
+	}
 	out := map[string]bool{}
-	for actor := range s.actors() {
+	for actor := range routed {
 		state, err := s.Sandboxes.State(ctx, actor)
 		if errors.Is(err, sandbox.ErrNotFound) {
 			continue

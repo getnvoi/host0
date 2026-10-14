@@ -343,9 +343,6 @@ func Attach(root *cobra.Command) {
 	for _, path := range paths {
 		place(root, strings.Fields(path), written[path]())
 	}
-	for path, c := range legacy() {
-		place(root, strings.Fields(path), c())
-	}
 }
 
 // Puts cmd at path under root, making the groups on the way; a command already there gives cmd its children.

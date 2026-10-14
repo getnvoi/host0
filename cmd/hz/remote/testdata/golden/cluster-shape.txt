@@ -1,0 +1,3 @@
+> GET /cluster/shape
+tiers    [{"cpu":"2","cpuRequest":"500m","default":true,"memory":"4Gi","name":"medium"}]
+workers  idle=600000000000 location=nbg1 max=2 type=cx33
