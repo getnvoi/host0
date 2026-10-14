@@ -209,6 +209,37 @@ func (c Client) Records(ctx context.Context, cl naming.Cluster) ([]string, error
 	return out, nil
 }
 
+// With the tunnel gone, the cluster's hosts whose CNAME still names a tunnel the account no longer has.
+func (c Client) orphans(ctx context.Context, acc string, cl naming.Cluster) error {
+	zone, err := c.zoneID(ctx)
+	if err != nil {
+		return err
+	}
+	var records []struct{ ID, Name, Content string }
+	if err := c.do(ctx, "GET", "/zones/"+zone+"/dns_records?per_page=5000&type=CNAME", nil, &records); err != nil {
+		return err
+	}
+	var live []struct{ ID string }
+	if err := c.do(ctx, "GET", "/accounts/"+acc+"/cfd_tunnel?is_deleted=false&per_page=1000", nil, &live); err != nil {
+		return err
+	}
+	alive := map[string]bool{}
+	for _, t := range live {
+		alive[t.ID] = true
+	}
+	for _, r := range records {
+		id, ok := strings.CutSuffix(r.Content, ".cfargotunnel.com")
+		if !ok || alive[id] || !naming.Owns(cl, c.Suffix, c.Zone, r.Name) {
+			continue
+		}
+		c.Say("delete record %s (its tunnel is gone)", r.Name)
+		if err := c.do(ctx, "DELETE", "/zones/"+zone+"/dns_records/"+r.ID, nil, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // The tunnel and every record pointing at it.
 func (c Client) Destroy(ctx context.Context, cl naming.Cluster) error {
 	acc, err := c.account(ctx)
@@ -216,8 +247,11 @@ func (c Client) Destroy(ctx context.Context, cl naming.Cluster) error {
 		return err
 	}
 	id, err := c.find(ctx, acc, cl.Tunnel())
-	if err != nil || id == "" {
+	if err != nil {
 		return err
+	}
+	if id == "" {
+		return c.orphans(ctx, acc, cl)
 	}
 	zone, err := c.zoneID(ctx)
 	if err != nil {
