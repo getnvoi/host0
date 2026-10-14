@@ -15,7 +15,6 @@ import (
 	"github.com/getnvoi/host0/internal/box"
 	"github.com/getnvoi/host0/internal/preview"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/workspace"
 )
 
 // apiHost: the API, for a bearer token (the CLI). appHost: the web UI, its API under /api for a signed-in browser.
@@ -65,9 +64,8 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 			var rt sandbox.Route
 			if err := p.Store.Get("routes", in.Host, &rt); err != nil {
 				// A session still forking has no route yet; its host is known all the same.
-				var s workspace.Session
 				sid, _, _ := strings.Cut(in.Host, "-")
-				if p.Store.Get("sessions", sid, &s) != nil || s.Preview != in.Host {
+				if s, serr := p.ws.Session(sid); serr != nil || s.Preview != in.Host {
 					return err
 				}
 			}
