@@ -1,0 +1,5 @@
+{
+  "name": "hz",
+  "private": true,
+  "workspaces": ["apps/ui", "apps/desktop"]
+}

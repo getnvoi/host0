@@ -4,3 +4,9 @@
 
 /apps/ui/node_modules/
 /cmd/controlplane/web/dist/
+/node_modules/
+/apps/desktop/node_modules/
+/apps/desktop/dist/
+/apps/desktop/.e2e/
+/apps/desktop/src-tauri/target/
+/apps/desktop/src-tauri/gen/
