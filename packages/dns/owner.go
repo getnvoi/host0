@@ -106,6 +106,36 @@ func (z *Zone) Check(host string, ips []string, owner string) error {
 	return nil
 }
 
+// Every host marked owner's, with its A and AAAA values and its mark, as the provider holds them now.
+func (z *Zone) Owned(owner string) ([]string, error) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	dc, err := models.NewDomainConfig(z.Name)
+	if err != nil {
+		return nil, err
+	}
+	existing, err := z.driver.GetZoneRecords(dc)
+	if err != nil {
+		return nil, fmt.Errorf("zone %s: %w", z.Name, err)
+	}
+	var out []string
+	for _, r := range existing {
+		label, ok := strings.CutPrefix(strings.ToLower(r.GetLabel()), ownerLabel)
+		if !ok || r.Type != "TXT" || value(r) != owner {
+			continue
+		}
+		host := label + "." + z.Name
+		for _, a := range existing {
+			if strings.EqualFold(a.GetLabel(), label) && (a.Type == "A" || a.Type == "AAAA") {
+				out = append(out, fmt.Sprintf("%s %s %s", host, a.Type, value(a)))
+			}
+		}
+		out = append(out, fmt.Sprintf("%s%s TXT %s", ownerLabel, host, owner))
+	}
+	slices.Sort(out)
+	return out, nil
+}
+
 // Every host marked owner's: its A and AAAA records and owner's mark go; another mark at that name stays.
 func (z *Zone) Sweep(owner string) ([]string, error) {
 	return z.apply(func(existing models.Records) ([]edit, error) {

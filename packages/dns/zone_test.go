@@ -210,3 +210,18 @@ func TestEdge(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestOwned(t *testing.T) {
+	z, _ := open(t)
+	got, err := z.Owned(owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// api-prod is another cluster's, x-dev and taken-dev carry no mark.
+	same(t, got, []string{
+		"_hz.api-dev.nvoi.to TXT " + owner,
+		"_hz.old-dev-preview.nvoi.to TXT " + owner,
+		"api-dev.nvoi.to A 198.51.100.1",
+		"old-dev-preview.nvoi.to AAAA 2001:db8::99",
+	})
+}

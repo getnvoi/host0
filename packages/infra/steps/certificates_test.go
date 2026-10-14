@@ -44,6 +44,8 @@ func (edge) Deployment() string { return proxy }
 
 func (edge) Reach(context.Context) error { return nil }
 
+func (edge) Records(context.Context, naming.Cluster) ([]string, error) { return nil, nil }
+
 func TestCertificatesBeforeEdge(t *testing.T) {
 	var names []string
 	for _, s := range Install {

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -180,6 +181,32 @@ func (c Client) Serve(ctx context.Context, cl naming.Cluster, service string, _ 
 		return nil, err
 	}
 	return map[string]map[string]string{"cloudflared": {"token": token}, "cloudflare": {"token": c.Token, "zone": c.Zone}}, nil
+}
+
+// Every record pointing at the cluster's tunnel; none when there is no tunnel.
+func (c Client) Records(ctx context.Context, cl naming.Cluster) ([]string, error) {
+	acc, err := c.account(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := c.find(ctx, acc, cl.Tunnel())
+	if err != nil || id == "" {
+		return nil, err
+	}
+	zone, err := c.zoneID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var records []struct{ Name, Type, Content string }
+	if err := c.do(ctx, "GET", "/zones/"+zone+"/dns_records?per_page=5000&content="+id+".cfargotunnel.com", nil, &records); err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, r := range records {
+		out = append(out, r.Name+" "+r.Type+" "+r.Content)
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 // The tunnel and every record pointing at it.

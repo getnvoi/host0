@@ -44,6 +44,8 @@ type Edge interface {
 	Deployment() string
 	// Reads the zone with the given credentials; install runs it before anything is created.
 	Reach(ctx context.Context) error
+	// The cluster's records in the zone now, one line each: name, type, value.
+	Records(ctx context.Context, c naming.Cluster) ([]string, error)
 	Destroy(ctx context.Context, c naming.Cluster) error
 }
 

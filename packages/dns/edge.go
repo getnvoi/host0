@@ -68,6 +68,14 @@ func (e Edge) Serve(ctx context.Context, c naming.Cluster, _ string, hosts []str
 	return map[string]map[string]string{Secret: {"provider": def.TypeName, "zone": z.Name, "creds": string(creds)}}, nil
 }
 
+func (e Edge) Records(_ context.Context, c naming.Cluster) ([]string, error) {
+	z, err := Open(e.Provider, e.Creds, e.Zone)
+	if err != nil {
+		return nil, err
+	}
+	return z.Owned(c.Owner())
+}
+
 // Every host marked c's. A challenge TXT left by a proxy that died mid-order cannot be told from another tool's: it stays.
 func (e Edge) Destroy(_ context.Context, c naming.Cluster) error {
 	z, err := Open(e.Provider, e.Creds, e.Zone)

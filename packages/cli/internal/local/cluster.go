@@ -98,7 +98,31 @@ func Cluster() *cobra.Command {
 		"Let's Encrypt's limits while iterating")
 	destroy.Flags().StringVar(&o.key, "ssh-key", "~/.ssh/id_ed25519", "private key, for --keep-cert")
 
-	cmd.AddCommand(install, destroy)
+	records := &cobra.Command{
+		Use:   "records [name]",
+		Short: "The cluster's records in its zone, as the DNS provider holds them now",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := env(c, args, o, false)
+			if err != nil {
+				return err
+			}
+			rs, err := e.Edge.Records(c.Context(), e.Cluster)
+			if err != nil {
+				return err
+			}
+			if len(rs) == 0 {
+				fmt.Printf("no records for %s in %s\n", e.Cluster.Name, e.Config.Zone)
+			}
+			for _, r := range rs {
+				fmt.Println(r)
+			}
+			return nil
+		},
+	}
+	common(records, &o)
+
+	cmd.AddCommand(install, destroy, records)
 	cmd.PersistentPreRun = func(c *cobra.Command, _ []string) {
 		ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt)
 		c.SetContext(ctx)
