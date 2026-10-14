@@ -51,11 +51,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("kube: %v", err)
 	}
+	// The sealing key, mounted from the plane secret's seal by the install.
+	key, err := os.ReadFile("/etc/hz/seal")
+	if err != nil {
+		log.Fatalf("sealing key: %v", err)
+	}
+	st, err := store.Open("/var/lib/hz", key)
+	if err != nil {
+		log.Fatalf("store: %v", err)
+	}
 	cluster, zone := must("HZ_CLUSTER"), must("HZ_ZONE")
 	p := &controlplane.Plane{
 		Sandboxes:    sb,
 		Pools:        pools,
-		Store:        &store.Files{Root: "/var/lib/hz"},
+		Store:        st,
 		Edge:         selectEdge(pools, cluster, zone),
 		Forge:        forge.GitHub{},
 		Pin:          controlplane.PinDockerHub,

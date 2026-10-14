@@ -36,5 +36,8 @@ func TestPlaneEdge(t *testing.T) {
 		if !strings.Contains(out, want) || !strings.Contains(out, `value: "`+edge+`"`) {
 			t.Errorf("%s: plane does not read %s", edge, want)
 		}
+		if !strings.Contains(out, "items: [{ key: seal, path: seal }]") || !strings.Contains(out, "mountPath: /etc/hz") {
+			t.Errorf("%s: plane does not mount the sealing key", edge)
+		}
 	}
 }

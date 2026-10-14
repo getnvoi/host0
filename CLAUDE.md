@@ -243,9 +243,13 @@ because they cannot live inside it:
 ~/.hz/hz.db  SQLite
 ```
 
-Secrets are AES-256-GCM, fresh nonce per seal. A provider declares what it needs
-via `Requires() []Requirement`; configs compose secrets by key, so one
-credential is one row however many things use it.
+Every record the plane stores is sealed whole: AES-256-GCM, a fresh 12-byte nonce
+per seal, `hz-sealed:1:` then base64(nonce|ciphertext). A record that does not
+open is an error naming it. The key is minted by the first install and kept in
+two places: the `plane` secret's `seal`, which the plane mounts at `/etc/hz/seal`,
+and `~/.hz/key`. An install restores whichever is missing and refuses when they
+differ; `hz cluster destroy` leaves `~/.hz/key` in place. k3s encrypts secrets at
+rest in its datastore.
 
 ---
 

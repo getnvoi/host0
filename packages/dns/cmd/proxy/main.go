@@ -17,6 +17,7 @@ import (
 	"github.com/caddyserver/certmagic"
 
 	"github.com/getnvoi/host0/dns"
+	"github.com/getnvoi/host0/shared/naming"
 )
 
 func must(name string) string {
@@ -46,7 +47,11 @@ func main() {
 		log.Fatalf("challenges a previous run left: %v", err)
 	}
 
-	certmagic.Default.Storage = &certmagic.FileStorage{Path: dir}
+	certs, err := inCluster(naming.Namespace, naming.Certs)
+	if err != nil {
+		log.Fatalf("certificate storage: %v", err)
+	}
+	certmagic.Default.Storage = newKubeStorage(certs)
 	cfg := certmagic.NewDefault()
 	cfg.Issuers = []certmagic.Issuer{certmagic.NewACMEIssuer(cfg, certmagic.ACMEIssuer{
 		CA: certmagic.LetsEncryptProductionCA, Agreed: true,
