@@ -62,6 +62,16 @@ func TestStream(t *testing.T) {
 	}
 }
 
+// A body that is not what the operation takes is refused 400, every reason in one sentence.
+func TestValidation(t *testing.T) {
+	_, h := handler(t)
+	res := call(h, "POST", "api-dev.nvoi.to", "/sessions", `{"env":1,"bogus":true}`, bearer)
+	if res.Code != 400 || res.Header().Get("Content-Type") != "application/problem+json" ||
+		!strings.Contains(detail(res), "body.env: expected string") || !strings.Contains(detail(res), "bogus") {
+		t.Fatalf("%d %s %s", res.Code, res.Header().Get("Content-Type"), res.Body)
+	}
+}
+
 // The routes served outside Huma, each for the reason beside it.
 func TestOutside(t *testing.T) {
 	p, _ := handler(t)
