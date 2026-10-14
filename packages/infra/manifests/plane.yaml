@@ -20,7 +20,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata: { name: hz-plane }
 rules:
-  - { apiGroups: [""], resources: [nodes], verbs: [patch] }
+  - { apiGroups: [""], resources: [nodes], verbs: [list, patch] }
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

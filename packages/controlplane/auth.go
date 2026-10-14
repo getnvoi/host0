@@ -5,8 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 // A browser signs in with a one-time link the CLI asks for; the link becomes a session cookie. Only hashes are
@@ -23,6 +26,7 @@ type link struct {
 }
 
 type browser struct {
+	ID    string    `json:"id"` // the digest of its cookie, which names its row
 	Label string    `json:"label"`
 	At    time.Time `json:"at"`
 	Until time.Time `json:"until"`
@@ -62,7 +66,7 @@ func (p *Plane) login(w http.ResponseWriter, r *http.Request) {
 	}
 	token := random()
 	now := time.Now()
-	if err := p.Store.Put("browsers", digest(token), browser{Label: l.Label, At: now, Until: now.Add(sessionTTL)}); err != nil {
+	if err := p.Store.Put("browsers", digest(token), browser{ID: digest(token), Label: l.Label, At: now, Until: now.Add(sessionTTL)}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -79,6 +83,56 @@ func (p *Plane) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// The browsers signed in now.
+func (p *Plane) Browsers() ([]contract.Browser, error) {
+	out := []contract.Browser{}
+	err := p.Store.List("browsers", func(d func(any) error) error {
+		var b browser
+		if err := d(&b); err != nil {
+			return err
+		}
+		if time.Now().Before(b.Until) {
+			out = append(out, contract.Browser{Label: b.Label, At: b.At, Until: b.Until})
+		}
+		return nil
+	})
+	return out, err
+}
+
+// Signs out every browser under label, or every browser when label is empty; how many were signed in.
+func (p *Plane) SignOut(label string) (int, error) {
+	var ids, unnamed []string
+	err := p.Store.List("browsers", func(d func(any) error) error {
+		var b browser
+		if err := d(&b); err != nil {
+			return err
+		}
+		switch {
+		case label != "" && b.Label != label, time.Now().After(b.Until):
+		case b.ID == "":
+			unnamed = append(unnamed, b.Label)
+		default:
+			ids = append(ids, b.ID)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	for _, id := range ids {
+		if err := p.Store.Delete("browsers", id); err != nil {
+			return 0, err
+		}
+	}
+	if len(unnamed) > 0 {
+		return len(ids), fmt.Errorf("signed out %d; browsers %v have no id yet and are given one on their next request", len(ids), unnamed)
+	}
+	if label != "" && len(ids) == 0 {
+		return 0, ErrNotFound
+	}
+	return len(ids), nil
+}
+
 // The signed-in browser's own requests. A write must carry X-Requested-With: a header no cross-site form can set,
 // and fetch from another origin cannot either without a preflight this server never answers.
 func (p *Plane) signedIn(next http.Handler) http.Handler {
@@ -88,6 +142,14 @@ func (p *Plane) signedIn(next http.Handler) http.Handler {
 		if err != nil || p.Store.Get("browsers", digest(c.Value), &b) != nil || time.Now().After(b.Until) {
 			http.Error(w, "signed out", http.StatusUnauthorized)
 			return
+		}
+		// A row without its id is given it here, so a sign-out can find it.
+		if b.ID == "" {
+			b.ID = digest(c.Value)
+			if err := p.Store.Put("browsers", b.ID, b); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 		if r.Method != http.MethodGet && r.Header.Get("X-Requested-With") != "hz" {
 			http.Error(w, "missing X-Requested-With", http.StatusForbidden)
