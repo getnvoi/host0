@@ -605,7 +605,11 @@ func visit(host, link string, out io.Writer) error {
 	}
 	fmt.Fprintf(out, "cookie     %s in %s, title %q\n", res.Status, time.Since(start).Round(time.Millisecond), t)
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s answers %s with the cookie", host, res.Status)
+		said := strings.TrimSpace(body)
+		if len(said) > 300 {
+			said = said[:300] + "…"
+		}
+		return fmt.Errorf("%s answers %s with the cookie: %q", host, res.Status, said)
 	}
 	return nil
 }
