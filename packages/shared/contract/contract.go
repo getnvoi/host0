@@ -287,6 +287,9 @@ type Node struct {
 	Roles []string `json:"roles"`
 	Ready bool     `json:"ready"`
 	Held  bool     `json:"held"` // kept from the autoscaler: it holds a paused actor's snapshot
+	// Its server's public addresses and id, as hz gave them to the node at boot.
+	Addresses  []string `json:"addresses"`
+	ProviderID string   `json:"providerID"`
 }
 
 type Pool struct {

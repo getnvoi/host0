@@ -104,6 +104,10 @@ func (c *Client) Hold(ctx context.Context, node string, on bool) error {
 
 const held = "cluster-autoscaler.kubernetes.io/scale-down-disabled"
 
+func (c *Client) Forget(ctx context.Context, node string) error {
+	return c.do(ctx, "DELETE", "/api/v1/nodes/"+node, nil, nil)
+}
+
 func (c *Client) Nodes(ctx context.Context) ([]contract.Node, error) {
 	var list struct {
 		Items []struct {
@@ -112,8 +116,12 @@ func (c *Client) Nodes(ctx context.Context) ([]contract.Node, error) {
 				Labels      map[string]string `json:"labels"`
 				Annotations map[string]string `json:"annotations"`
 			} `json:"metadata"`
+			Spec struct {
+				ProviderID string `json:"providerID"`
+			} `json:"spec"`
 			Status struct {
-				Conditions []struct{ Type, Status string } `json:"conditions"`
+				Conditions []struct{ Type, Status string }  `json:"conditions"`
+				Addresses  []struct{ Type, Address string } `json:"addresses"`
 			} `json:"status"`
 		} `json:"items"`
 	}
@@ -122,7 +130,13 @@ func (c *Client) Nodes(ctx context.Context) ([]contract.Node, error) {
 	}
 	out := []contract.Node{}
 	for _, it := range list.Items {
-		n := contract.Node{Name: it.Metadata.Name, Roles: []string{}, Held: it.Metadata.Annotations[held] == "true"}
+		n := contract.Node{Name: it.Metadata.Name, Roles: []string{}, Held: it.Metadata.Annotations[held] == "true",
+			Addresses: []string{}, ProviderID: it.Spec.ProviderID}
+		for _, a := range it.Status.Addresses {
+			if a.Type == "ExternalIP" {
+				n.Addresses = append(n.Addresses, a.Address)
+			}
+		}
 		for l := range it.Metadata.Labels {
 			if role, ok := strings.CutPrefix(l, "node-role.kubernetes.io/"); ok {
 				n.Roles = append(n.Roles, role)
@@ -139,7 +153,7 @@ func (c *Client) Nodes(ctx context.Context) ([]contract.Node, error) {
 	return out, nil
 }
 
-// The node's public addresses as its cloud controller reports them now.
+// The node's public addresses, which hz gave it at boot as node-external-ip.
 func (c *Client) Addresses(ctx context.Context, node string) ([]string, error) {
 	var n struct {
 		Status struct {
