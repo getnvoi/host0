@@ -80,8 +80,9 @@ async function send<T>(method: string, url: string, body?: unknown): Promise<T> 
   }
   if (!answer) throw failure instanceof Error ? failure : new Error(String(failure));
   const text = await answer.text();
-  // The hub and the plane answer a refusal with a sentence; a proxy's page of HTML is not one.
-  if (!answer.ok) throw new ApiError(text.trim() && !/^\s*</.test(text) ? text.trim() : `${method} ${url} answered ${answer.status}.`, answer.status);
+  // A refusal is problem+json whose detail is the failing thing's sentence, or plain text; a proxy's page of HTML is
+  // neither.
+  if (!answer.ok) throw new ApiError(refusal(text) ?? `${method} ${url} answered ${answer.status}.`, answer.status);
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
@@ -113,3 +114,15 @@ export const transport: Transport & { signedOut: () => void } = {
   previewURL: (host) => `https://${host}`,
   signedOut: () => {},
 };
+
+export function refusal(text: string): string | undefined {
+  const body = text.trim();
+  if (!body || /^\s*</.test(body)) return undefined;
+  try {
+    const detail = (JSON.parse(body) as { detail?: unknown }).detail;
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+  } catch {
+    return body;
+  }
+  return body;
+}
