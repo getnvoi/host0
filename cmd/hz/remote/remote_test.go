@@ -190,12 +190,13 @@ func TestSeedGivesUpAfterFourDrops(t *testing.T) {
 
 func TestApprovalShow(t *testing.T) {
 	serve(t, &plane{script: func(*sse, int, string) {}})
-	var a workspace.Approval
-	if err := call("GET", "/approvals/ap1", nil, &a); err != nil {
+	r := root()
+	var out bytes.Buffer
+	r.SetOut(&out)
+	r.SetArgs([]string{"approval", "show", "ap1"})
+	if err := r.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	var out bytes.Buffer
-	showApproval(&out, a)
 	t.Logf("hz approval show ap1\n%s", out.String())
 	want := `id       ap1
 session  s1

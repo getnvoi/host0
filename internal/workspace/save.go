@@ -79,7 +79,7 @@ func (ws *Workspace) announce(s *Session) {
 }
 
 func (ws *Workspace) saveApproval(a Approval) error {
-	if err := ws.Store.Put("approvals", a.ID, a); err != nil {
+	if err := ws.putApproval(a); err != nil {
 		return err
 	}
 	ws.Bus.Publish(Update{Kind: "approval", Approval: &a})

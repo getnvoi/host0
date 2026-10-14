@@ -199,6 +199,8 @@ type Approval struct {
 	DecidedByID *uint           `gorm:"index"`
 	DecidedBy   *Member         `gorm:"constraint:OnDelete:RESTRICT"`
 	DecidedAt   *time.Time
+	AskedAt     time.Time
+	Allow       bool `gorm:"not null;default:false"` // the decision, kept while it is carried out
 }
 
 type Artifact struct {

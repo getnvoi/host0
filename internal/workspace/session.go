@@ -104,14 +104,10 @@ func (ws *Workspace) Recover() {
 		}
 	}
 	// A decision cut short is carried out again: whether its action ran is unknown, and every action is safe to repeat.
-	var deciding []Approval
-	ws.Store.List("approvals", func(d func(any) error) error {
-		var a Approval
-		if d(&a) == nil && a.State == "deciding" {
-			deciding = append(deciding, a)
-		}
-		return nil
-	})
+	deciding, err := ws.Approvals("", "deciding")
+	if err != nil {
+		log.Printf("recover approvals: %v", err)
+	}
 	for _, a := range deciding {
 		log.Printf("recover approval %s (%s)", a.ID, a.Tool)
 		go ws.decide(a, a.Allow)
@@ -358,7 +354,7 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen i
 		case "auto":
 			outcomes = append(outcomes, ws.act(s, env, creds, name, ev.Content))
 		case "approval":
-			asks = append(asks, Approval{ID: id(), Session: s.ID, Turn: s.Turns, Tool: name, Input: ev.Content,
+			asks = append(asks, Approval{ID: id(), Session: s.ID, Turn: s.Turns, Tool: name, ToolID: ev.ToolID, Input: ev.Content,
 				State: "pending", At: time.Now()})
 		default:
 			outcomes = append(outcomes, name+": refused by policy")
@@ -586,24 +582,18 @@ func (ws *Workspace) DeleteSession(ctx context.Context, sid string) error {
 	if s.State == "forking" || s.State == "running" {
 		return Conflict{fmt.Errorf("session %s is %s: stop it first", sid, s.State)}
 	}
-	var pending []Approval
-	deciding := ""
-	err = ws.Store.List("approvals", func(d func(any) error) error {
-		var a Approval
-		if err := d(&a); err != nil {
-			return err
-		}
-		switch {
-		case a.Session != sid:
-		case a.State == "deciding":
-			deciding = a.ID
-		case a.State == "pending":
-			pending = append(pending, a)
-		}
-		return nil
-	})
+	open, err := ws.Approvals(sid, "pending", "deciding")
 	if err != nil {
 		return err
+	}
+	var pending []Approval
+	deciding := ""
+	for _, a := range open {
+		if a.State == "deciding" {
+			deciding = a.ID
+		} else {
+			pending = append(pending, a)
+		}
 	}
 	if deciding != "" {
 		return Conflict{fmt.Errorf("session %s is carrying out approval %s", sid, deciding)}

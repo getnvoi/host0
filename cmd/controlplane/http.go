@@ -21,7 +21,6 @@ import (
 // apiHost: the API, for a bearer token (the CLI). appHost: the web UI, its API under /api for a signed-in browser.
 // Every other host is a preview.
 func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
-	ws := p.ws
 	mux := http.NewServeMux()
 	p.API(mux)
 	api := p.outside("api", mux)
@@ -77,40 +76,10 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		}))
 	})
 	api.HandleFunc("GET /sessions/{id}/terminals/{tid}", p.terminal(appHost))
-	api.HandleFunc("GET /approvals", func(w http.ResponseWriter, r *http.Request) {
-		out := []workspace.Approval{}
-		session := r.URL.Query().Get("session")
-		err := p.Store.List("approvals", func(d func(any) error) error {
-			var a workspace.Approval
-			if err := d(&a); err != nil {
-				return err
-			}
-			if a.State == "pending" && (session == "" || a.Session == session) {
-				out = append(out, a)
-			}
-			return nil
-		})
-		reply(w, &out, err)
-	})
-	api.HandleFunc("GET /approvals/{id}", func(w http.ResponseWriter, r *http.Request) {
-		var a workspace.Approval
-		reply(w, &a, p.Store.Get("approvals", r.PathValue("id"), &a))
-	})
 	api.HandleFunc("GET /usage", func(w http.ResponseWriter, r *http.Request) {
 		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
 		u, err := p.Usage(time.Now(), days, r.URL.Query().Get("by"))
 		reply(w, &u, err)
-	})
-	api.HandleFunc("POST /approvals/{id}/{decision}", func(w http.ResponseWriter, r *http.Request) {
-		// Accepted: the action and the outcome turn follow, and the stream tells how they went.
-		a, err := ws.Decide(r.PathValue("id"), r.PathValue("decision") == "approve", auth.Who(r.Context()))
-		if err != nil {
-			reply(w, nil, err)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(&a)
 	})
 
 	bearer := p.outside("bearer", http.NewServeMux())

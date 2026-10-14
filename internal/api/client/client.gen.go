@@ -29,6 +29,7 @@ type Approval struct {
 	Session string     `json:"session"`
 	State   string     `json:"state"`
 	Tool    string     `json:"tool"`
+	ToolId  *string    `json:"tool_id,omitempty"`
 	Turn    *int64     `json:"turn,omitempty"`
 }
 
@@ -350,6 +351,12 @@ type Withdrawal struct {
 	Text string `json:"text"`
 }
 
+// ApprovalLsParams defines parameters for ApprovalLs.
+type ApprovalLsParams struct {
+	// Session Only this session's
+	Session *string `form:"session,omitempty" json:"session,omitempty"`
+}
+
 // LlmRmParams defines parameters for LlmRm.
 type LlmRmParams struct {
 	// Remove Delete it rather than archive it
@@ -471,6 +478,26 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+
+	// ApprovalLs Actions waiting for a decision
+	//
+	// Corresponds with GET /approvals (the `ApprovalLs` operationId).
+	ApprovalLs(ctx context.Context, params *ApprovalLsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApprovalShow One approval in full, decided or not
+	//
+	// Corresponds with GET /approvals/{id} (the `ApprovalShow` operationId).
+	ApprovalShow(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApprovalApprove Carry the action out; the outcome turn follows, and the stream tells how it went
+	//
+	// Corresponds with POST /approvals/{id}/approve (the `ApprovalApprove` operationId).
+	ApprovalApprove(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApprovalDeny Refuse the action; the outcome turn follows, and the stream tells how it went
+	//
+	// Corresponds with POST /approvals/{id}/deny (the `ApprovalDeny` operationId).
+	ApprovalDeny(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CredentialsGet Which credentials hold a value, never the values
 	//
@@ -718,6 +745,66 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /stream (the `Stream` operationId).
 	Stream(ctx context.Context, params *StreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// ApprovalLs Actions waiting for a decision
+//
+// Corresponds with GET /approvals (the `ApprovalLs` operationId).
+func (c *Client) ApprovalLs(ctx context.Context, params *ApprovalLsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApprovalLsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApprovalShow One approval in full, decided or not
+//
+// Corresponds with GET /approvals/{id} (the `ApprovalShow` operationId).
+func (c *Client) ApprovalShow(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApprovalShowRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApprovalApprove Carry the action out; the outcome turn follows, and the stream tells how it went
+//
+// Corresponds with POST /approvals/{id}/approve (the `ApprovalApprove` operationId).
+func (c *Client) ApprovalApprove(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApprovalApproveRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApprovalDeny Refuse the action; the outcome turn follows, and the stream tells how it went
+//
+// Corresponds with POST /approvals/{id}/deny (the `ApprovalDeny` operationId).
+func (c *Client) ApprovalDeny(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApprovalDenyRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // CredentialsGet Which credentials hold a value, never the values
@@ -1395,6 +1482,162 @@ func (c *Client) Stream(ctx context.Context, params *StreamParams, reqEditors ..
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewApprovalLsRequest constructs an http.Request for the ApprovalLs method
+func NewApprovalLsRequest(server string, params *ApprovalLsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/approvals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Session != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "session", *params.Session, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewApprovalShowRequest constructs an http.Request for the ApprovalShow method
+func NewApprovalShowRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/approvals/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewApprovalApproveRequest constructs an http.Request for the ApprovalApprove method
+func NewApprovalApproveRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/approvals/%s/approve", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewApprovalDenyRequest constructs an http.Request for the ApprovalDeny method
+func NewApprovalDenyRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/approvals/%s/deny", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewCredentialsGetRequest constructs an http.Request for the CredentialsGet method
@@ -2782,6 +3025,34 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// ApprovalLsWithResponse Actions waiting for a decision
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /approvals (the `ApprovalLs` operationId).
+	ApprovalLsWithResponse(ctx context.Context, params *ApprovalLsParams, reqEditors ...RequestEditorFn) (*ApprovalLsResponse, error)
+
+	// ApprovalShowWithResponse One approval in full, decided or not
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /approvals/{id} (the `ApprovalShow` operationId).
+	ApprovalShowWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ApprovalShowResponse, error)
+
+	// ApprovalApproveWithResponse Carry the action out; the outcome turn follows, and the stream tells how it went
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /approvals/{id}/approve (the `ApprovalApprove` operationId).
+	ApprovalApproveWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ApprovalApproveResponse, error)
+
+	// ApprovalDenyWithResponse Refuse the action; the outcome turn follows, and the stream tells how it went
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /approvals/{id}/deny (the `ApprovalDeny` operationId).
+	ApprovalDenyWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ApprovalDenyResponse, error)
+
 	// CredentialsGetWithResponse Which credentials hold a value, never the values
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -3082,6 +3353,198 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /stream (the `Stream` operationId).
 	StreamWithResponse(ctx context.Context, params *StreamParams, reqEditors ...RequestEditorFn) (*StreamResponse, error)
+}
+
+type ApprovalLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Approval
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApprovalLsResponse) GetJSON200() *[]Approval {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r ApprovalLsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ApprovalLsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApprovalLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApprovalLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApprovalLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApprovalShowResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Approval
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApprovalShowResponse) GetJSON200() *Approval {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r ApprovalShowResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ApprovalShowResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApprovalShowResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApprovalShowResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApprovalShowResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApprovalApproveResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Approval
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ApprovalApproveResponse) GetJSON202() *Approval {
+	return r.JSON202
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r ApprovalApproveResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ApprovalApproveResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApprovalApproveResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApprovalApproveResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApprovalApproveResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApprovalDenyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON202 the response for an HTTP 202 `application/json` response
+	JSON202 *Approval
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON202 returns the response for an HTTP 202 `application/json` response
+func (r ApprovalDenyResponse) GetJSON202() *Approval {
+	return r.JSON202
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r ApprovalDenyResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ApprovalDenyResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApprovalDenyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApprovalDenyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApprovalDenyResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type CredentialsGetResponse struct {
@@ -4660,6 +5123,58 @@ func (r StreamResponse) ContentType() string {
 	return ""
 }
 
+// ApprovalLsWithResponse Actions waiting for a decision
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /approvals (the `ApprovalLs` operationId).
+func (c *ClientWithResponses) ApprovalLsWithResponse(ctx context.Context, params *ApprovalLsParams, reqEditors ...RequestEditorFn) (*ApprovalLsResponse, error) {
+	rsp, err := c.ApprovalLs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApprovalLsResponse(rsp)
+}
+
+// ApprovalShowWithResponse One approval in full, decided or not
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /approvals/{id} (the `ApprovalShow` operationId).
+func (c *ClientWithResponses) ApprovalShowWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ApprovalShowResponse, error) {
+	rsp, err := c.ApprovalShow(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApprovalShowResponse(rsp)
+}
+
+// ApprovalApproveWithResponse Carry the action out; the outcome turn follows, and the stream tells how it went
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /approvals/{id}/approve (the `ApprovalApprove` operationId).
+func (c *ClientWithResponses) ApprovalApproveWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ApprovalApproveResponse, error) {
+	rsp, err := c.ApprovalApprove(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApprovalApproveResponse(rsp)
+}
+
+// ApprovalDenyWithResponse Refuse the action; the outcome turn follows, and the stream tells how it went
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /approvals/{id}/deny (the `ApprovalDeny` operationId).
+func (c *ClientWithResponses) ApprovalDenyWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ApprovalDenyResponse, error) {
+	rsp, err := c.ApprovalDeny(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApprovalDenyResponse(rsp)
+}
+
 // CredentialsGetWithResponse Which credentials hold a value, never the values
 //
 // Returns a wrapper object for the known response body format(s).
@@ -5217,6 +5732,138 @@ func (c *ClientWithResponses) StreamWithResponse(ctx context.Context, params *St
 		return nil, err
 	}
 	return ParseStreamResponse(rsp)
+}
+
+// ParseApprovalLsResponse parses an HTTP response from a ApprovalLsWithResponse call
+func ParseApprovalLsResponse(rsp *http.Response) (*ApprovalLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApprovalLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApprovalShowResponse parses an HTTP response from a ApprovalShowWithResponse call
+func ParseApprovalShowResponse(rsp *http.Response) (*ApprovalShowResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApprovalShowResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApprovalApproveResponse parses an HTTP response from a ApprovalApproveWithResponse call
+func ParseApprovalApproveResponse(rsp *http.Response) (*ApprovalApproveResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApprovalApproveResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseApprovalDenyResponse parses an HTTP response from a ApprovalDenyWithResponse call
+func ParseApprovalDenyResponse(rsp *http.Response) (*ApprovalDenyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApprovalDenyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest Approval
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseCredentialsGetResponse parses an HTTP response from a CredentialsGetWithResponse call

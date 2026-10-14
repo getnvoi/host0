@@ -24,6 +24,7 @@ var migrations = []*gormigrate.Migration{
 	{ID: "0003", Migrate: migrate0003},
 	{ID: "0004", Migrate: migrate0004},
 	{ID: "0005", Migrate: migrate0005},
+	{ID: "0006", Migrate: migrate0006},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -118,6 +119,23 @@ type m5Session struct {
 }
 
 func (m5Session) TableName() string { return "sessions" }
+
+// When an approval was asked for, and the decision while it is carried out.
+func migrate0006(tx *gorm.DB) error {
+	for _, c := range []string{"AskedAt", "Allow"} {
+		if err := tx.Migrator().AddColumn(&m6Approval{}, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type m6Approval struct {
+	AskedAt time.Time
+	Allow   bool `gorm:"not null;default:false"`
+}
+
+func (m6Approval) TableName() string { return "approvals" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"os/user"
@@ -64,7 +63,7 @@ func send(method, path string, in any) (*http.Response, error) {
 
 // The commands not yet generated from the spec.
 func legacy() map[string]func() *cobra.Command {
-	return map[string]func() *cobra.Command{"approval": approval, "preview": preview, "open": open, "invite": invite, "ls": status,
+	return map[string]func() *cobra.Command{"preview": preview, "open": open, "invite": invite, "ls": status,
 		"pods": pods, "logs": podLogs, "usage": usage, "browsers": browsers, "logout": logout}
 }
 
@@ -403,65 +402,4 @@ func invite() *cobra.Command {
 			return err
 		},
 	}
-}
-
-func approval() *cobra.Command {
-	cmd := &cobra.Command{Use: "approval", Short: "Actions waiting for a decision"}
-	cmd.AddCommand(&cobra.Command{
-		Use:   "show <id>",
-		Short: "One approval in full, decided or not",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			var a workspace.Approval
-			if err := call("GET", "/approvals/"+url.PathEscape(args[0]), nil, &a); err != nil {
-				return err
-			}
-			showApproval(os.Stdout, a)
-			return nil
-		},
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use: "list",
-		RunE: func(*cobra.Command, []string) error {
-			var as []workspace.Approval
-			if err := call("GET", "/approvals", nil, &as); err != nil {
-				return err
-			}
-			for _, a := range as {
-				fmt.Printf("%s  session %s  %s %s\n", a.ID, a.Session, a.Tool, a.Input)
-			}
-			return nil
-		},
-	})
-	for _, d := range []string{"approve", "deny"} {
-		cmd.AddCommand(&cobra.Command{
-			Use:  d + " <id>",
-			Args: cobra.ExactArgs(1),
-			RunE: func(_ *cobra.Command, args []string) error {
-				var a workspace.Approval
-				if err := call("POST", "/approvals/"+args[0]+"/"+d, nil, &a); err != nil {
-					return err
-				}
-				fmt.Printf("%s %s: %s\n", a.Tool, a.ID, a.State)
-				pl, err := api()
-				if err != nil {
-					return err
-				}
-				return watch(context.Background(), os.Stdout, pl, a.Session, true)
-			},
-		})
-	}
-	return cmd
-}
-
-func showApproval(w io.Writer, a workspace.Approval) {
-	fmt.Fprintf(w, "id       %s\nsession  %s\ntool     %s\nstate    %s\nasked    %s\n", a.ID, a.Session, a.Tool, a.State,
-		a.At.Format(time.RFC3339))
-	if !a.Decided.IsZero() {
-		fmt.Fprintf(w, "decided  %s by %s\n", a.Decided.Format(time.RFC3339), a.By)
-	}
-	if a.Outcome != "" {
-		fmt.Fprintf(w, "outcome  %s\n", a.Outcome)
-	}
-	fmt.Fprintf(w, "input\n%s\n", a.Input)
 }

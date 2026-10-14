@@ -14,6 +14,50 @@ import (
 
 var operations = []operation{
 	{
+		ID:     "approval.approve",
+		Short:  "Carry the action out; the outcome turn follows, and the stream tells how it went",
+		Method: "POST",
+		Route:  "/approvals/{id}/approve",
+		HZ:     hz{By: []string{"approval approve"}},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.ApprovalApprove(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "approval.deny",
+		Short:  "Refuse the action; the outcome turn follows, and the stream tells how it went",
+		Method: "POST",
+		Route:  "/approvals/{id}/deny",
+		HZ:     hz{By: []string{"approval deny"}},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.ApprovalDeny(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "approval.ls",
+		Short:  "Actions waiting for a decision",
+		Method: "GET",
+		Route:  "/approvals",
+		HZ:     hz{Output: "table", Columns: []string{"id", "session", "tool", "input"}, By: []string{"session follow", "approval approve", "approval deny"}},
+		Query:  []param{{Name: "session", Kind: "string", Help: "Only this session's"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.ApprovalLs(ctx, &client.ApprovalLsParams{}, edit)
+		},
+	},
+	{
+		ID:     "approval.show",
+		Short:  "One approval in full, decided or not",
+		Method: "GET",
+		Route:  "/approvals/{id}",
+		HZ:     hz{By: []string{"approval show"}},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.ApprovalShow(ctx, args[0], edit)
+		},
+	},
+	{
 		ID:     "credentials.get",
 		Short:  "Which credentials hold a value, never the values",
 		Method: "GET",

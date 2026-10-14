@@ -308,7 +308,7 @@ func TestRecoverSettlesDecidedApprovals(t *testing.T) {
 	p, fb := withBoxd(t)
 	sessionRow(t, p, Session{ID: "rc3", Env: "web", Actor: "wt-rc3", State: "awaiting_approval",
 		Forked: true, Turns: 1, Outcomes: []string{"set_title: done"}, Events: []llm.Event{{Kind: "prompt"}}})
-	p.Store.Put("approvals", "x1", Approval{ID: "x1", Session: "rc3", Turn: 1, Tool: "push_branch", State: "denied",
+	approvalRow(t, p, Approval{ID: "x1", Session: "rc3", Turn: 1, Tool: "push_branch", State: "denied",
 		Outcome: "push_branch: denied by the user"})
 	p.Recover()
 	rest(t, p, "rc3", 2)
@@ -322,7 +322,7 @@ func TestRecoverKeepsWaitingOnApprovals(t *testing.T) {
 	p, fb := withBoxd(t)
 	sessionRow(t, p, Session{ID: "rc4", Env: "web", Actor: "wt-rc4", State: "awaiting_approval",
 		Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt"}}})
-	p.Store.Put("approvals", "x2", Approval{ID: "x2", Session: "rc4", Turn: 1, Tool: "push_branch", State: "pending"})
+	approvalRow(t, p, Approval{ID: "x2", Session: "rc4", Turn: 1, Tool: "push_branch", State: "pending"})
 	p.Recover()
 	time.Sleep(100 * time.Millisecond)
 	if s := session(p, "rc4"); s.State != "awaiting_approval" || fb.total() != 0 {
@@ -334,11 +334,10 @@ func TestRecoverFinishesDecision(t *testing.T) {
 	p, fb := withBoxd(t)
 	sessionRow(t, p, Session{ID: "rc6", Env: "web", Actor: "wt-rc6", State: "awaiting_approval",
 		Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt"}}})
-	p.Store.Put("approvals", "x3", Approval{ID: "x3", Session: "rc6", Turn: 1, Tool: "push_branch", State: "deciding"})
+	approvalRow(t, p, Approval{ID: "x3", Session: "rc6", Turn: 1, Tool: "push_branch", State: "deciding"})
 	p.Recover()
 	rest(t, p, "rc6", 2)
-	var a Approval
-	p.Store.Get("approvals", "x3", &a)
+	a, _ := p.Approval("x3")
 	if a.State != "denied" || fb.prompt("turn-2") != Outcome+"\npush_branch: denied by the user" {
 		t.Fatalf("approval %s, outcome turn %q", a.State, fb.prompt("turn-2"))
 	}
@@ -379,11 +378,11 @@ func TestDecide(t *testing.T) {
 	sessionRow(t, p, Session{ID: "d1", Env: "web", Actor: "wt-d1", State: "awaiting_approval",
 		Forked: true, Turns: 1, Outcomes: []string{"set_title: done"},
 		Events: []llm.Event{{Kind: "prompt", At: now.Add(-time.Minute)}}})
-	p.Store.Put("approvals", "a1", Approval{ID: "a1", Session: "d1", Turn: 1, Tool: "push_branch", State: "pending", At: now})
-	p.Store.Put("approvals", "a2", Approval{ID: "a2", Session: "d1", Turn: 1, Tool: "create_pull_request",
+	approvalRow(t, p, Approval{ID: "a1", Session: "d1", Turn: 1, Tool: "push_branch", State: "pending", At: now})
+	approvalRow(t, p, Approval{ID: "a2", Session: "d1", Turn: 1, Tool: "create_pull_request",
 		State: "pending", At: now.Add(time.Millisecond)})
 	// An approval from an earlier turn is neither waited on nor reported again.
-	p.Store.Put("approvals", "a0", Approval{ID: "a0", Session: "d1", Turn: 0, Tool: "push_branch", State: "done",
+	approvalRow(t, p, Approval{ID: "a0", Session: "d1", Turn: 0, Tool: "push_branch", State: "done",
 		Outcome: "push_branch: pushed", At: now.Add(-time.Hour)})
 
 	if _, err := p.Decide("a1", false, "ben"); err != nil {
@@ -412,7 +411,7 @@ func TestDecide(t *testing.T) {
 func TestDecideOnce(t *testing.T) {
 	p := newWorkspace(t, nil)
 	sessionRow(t, p, Session{ID: "d2", State: "idle"})
-	p.Store.Put("approvals", "b1", Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
+	approvalRow(t, p, Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	won, lost := 0, 0

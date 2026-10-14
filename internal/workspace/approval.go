@@ -90,8 +90,8 @@ var decisions sync.Mutex
 // Takes the decision and returns at once; the action and the outcome turn follow in the background.
 func (ws *Workspace) Decide(aid string, approve bool, by string) (Approval, error) {
 	decisions.Lock()
-	var a Approval
-	if err := ws.Store.Get("approvals", aid, &a); err != nil {
+	a, err := ws.Approval(aid)
+	if err != nil {
 		decisions.Unlock()
 		return a, err
 	}
@@ -100,7 +100,7 @@ func (ws *Workspace) Decide(aid string, approve bool, by string) (Approval, erro
 		return a, Conflict{fmt.Errorf("approval %s is %s", aid, a.State)}
 	}
 	a.State, a.By, a.Allow = "deciding", by, approve
-	err := ws.saveApproval(a)
+	err = ws.saveApproval(a)
 	decisions.Unlock()
 	if err != nil {
 		return a, err
@@ -173,20 +173,24 @@ func (ws *Workspace) settle(sid string) {
 		unlock()
 		return
 	}
+	all, err := ws.Approvals(sid)
+	if err != nil {
+		unlock()
+		ws.fail(&s, err)
+		return
+	}
 	var done []Approval
 	open := false
-	ws.Store.List("approvals", func(d func(any) error) error {
-		var a Approval
-		if d(&a) != nil || !asked(s, a) {
-			return nil
+	for _, a := range all {
+		if !asked(s, a) {
+			continue
 		}
 		if a.State == "pending" || a.State == "deciding" {
 			open = true
 		} else {
 			done = append(done, a)
 		}
-		return nil
-	})
+	}
 	if open {
 		unlock()
 		return

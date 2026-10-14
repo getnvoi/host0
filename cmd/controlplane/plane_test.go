@@ -331,6 +331,35 @@ func sessionRow(t *testing.T, p *plane, env string, s db.Session) db.Session {
 	return s
 }
 
+// Writes a as an approval's row of its session.
+func approvalRow(t *testing.T, p *plane, a workspace.Approval) {
+	t.Helper()
+	var s db.Session
+	if err := p.DB.Unscoped().Where("public_id = ?", a.Session).First(&s).Error; err != nil {
+		t.Fatal(err)
+	}
+	r := db.Approval{PublicID: a.ID, SessionID: s.ID, Turn: a.Turn, Tool: a.Tool, State: a.State, AskedAt: a.At}
+	if a.Input != "" {
+		r.Input = json.RawMessage(a.Input)
+	}
+	if a.Outcome != "" {
+		r.Outcome, _ = json.Marshal(a.Outcome)
+	}
+	if !a.Decided.IsZero() {
+		r.DecidedAt = &a.Decided
+	}
+	if a.By != "" {
+		m := db.Member{AccountID: "local:" + a.By, Login: a.By, Role: "operator"}
+		if err := p.DB.Where(db.Member{AccountID: m.AccountID}).FirstOrCreate(&m).Error; err != nil {
+			t.Fatal(err)
+		}
+		r.DecidedByID = &m.ID
+	}
+	if err := p.DB.Where("public_id = ?", a.ID).Assign(r).FirstOrCreate(&db.Approval{}).Error; err != nil {
+		t.Fatal(err)
+	}
+}
+
 // The value the database holds for the secret named.
 func secret(t *testing.T, p *plane, name string) string {
 	t.Helper()
@@ -353,17 +382,16 @@ func TestSessionDelete(t *testing.T) {
 	if err := p.DB.Create(&db.QueuedMessage{SessionID: s.ID, Text: "next"}).Error; err != nil {
 		t.Fatal(err)
 	}
-	p.Store.Put("approvals", "a1", workspace.Approval{ID: "a1", Session: "d1", State: "pending"})
-	p.Store.Put("approvals", "a2", workspace.Approval{ID: "a2", Session: "d1", State: "deciding"})
+	approvalRow(t, p, workspace.Approval{ID: "a1", Session: "d1", State: "pending"})
+	approvalRow(t, p, workspace.Approval{ID: "a2", Session: "d1", State: "deciding"})
 	if res := call(h, "DELETE", "api-dev.nvoi.to", "/sessions/d1", "", bearer); res.Code != 409 {
 		t.Fatalf("delete while deciding: %d %s", res.Code, res.Body)
 	}
-	p.Store.Put("approvals", "a2", workspace.Approval{ID: "a2", Session: "d1", State: "done"})
+	approvalRow(t, p, workspace.Approval{ID: "a2", Session: "d1", State: "done"})
 	if res := call(h, "DELETE", "api-dev.nvoi.to", "/sessions/d1", "", bearer); res.Code != 204 {
 		t.Fatalf("delete: %d %s", res.Code, res.Body)
 	}
-	var a workspace.Approval
-	p.Store.Get("approvals", "a1", &a)
+	a, _ := p.ws.Approval("a1")
 	if a.State != "stopped" || !reflect.DeepEqual(sb.gone, []string{"wt-d1"}) {
 		t.Fatalf("approval %s, deleted %v", a.State, sb.gone)
 	}
@@ -431,7 +459,8 @@ func TestClusterStatus(t *testing.T) {
 func TestApprovalShow(t *testing.T) {
 	p, h := handler(t)
 	at := time.Date(2026, 10, 14, 9, 30, 0, 0, time.UTC)
-	p.Store.Put("approvals", "ap1", workspace.Approval{ID: "ap1", Session: "s1", Tool: "push_branch",
+	sessionRow(t, p, "web", db.Session{PublicID: "s1", State: "idle"})
+	approvalRow(t, p, workspace.Approval{ID: "ap1", Session: "s1", Tool: "push_branch",
 		Input: `{"branch":"fix-cart"}`, State: "done", Outcome: "pushed fix-cart", Decided: at, By: "ben"})
 	res := call(h, "GET", "api-dev.nvoi.to", "/approvals/ap1", "", bearer)
 	var a workspace.Approval
@@ -448,7 +477,7 @@ func TestApprovalShow(t *testing.T) {
 func TestConflicts(t *testing.T) {
 	p, h := handler(t)
 	sessionRow(t, p, "web", db.Session{PublicID: "d2", State: "idle"})
-	p.Store.Put("approvals", "b1", workspace.Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
+	approvalRow(t, p, workspace.Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
 	if res := call(h, "POST", "api-dev.nvoi.to", "/approvals/b1/deny", "", bearer); res.Code != http.StatusAccepted {
 		t.Fatalf("first click %d %s", res.Code, res.Body.String())
 	}

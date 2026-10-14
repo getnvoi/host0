@@ -123,6 +123,8 @@ var goldens = []golden{
 	{"session-log-ls", []string{"session", "log", "ls", "a1b2c3d4"}, "GET /sessions/a1b2c3d4/logs", []workspace.Log{{Name: "setup", Kind: "setup"}}},
 	{"session-terminal-ls", []string{"session", "terminal", "ls", "a1b2c3d4"}, "GET /sessions/a1b2c3d4/terminals", []box.Terminal{{ID: "t1", Command: "bash", Clients: 1}}},
 	{"session-terminal-rm", []string{"session", "terminal", "rm", "a1b2c3d4", "t1"}, "DELETE /sessions/a1b2c3d4/terminals/t1", nil},
+	{"approval-ls", []string{"approval", "ls", "--session", "a1b2c3d4"}, "GET /approvals", []workspace.Approval{{ID: "ap1",
+		Session: "a1b2c3d4", Tool: "push_branch", Input: `{"branch":"fix-cart"}`, State: "pending", At: archived}}},
 	{"llm-use", []string{"llm", "use", "OpenAI"}, "POST /llm/configs/OpenAI/main", nil},
 }
 

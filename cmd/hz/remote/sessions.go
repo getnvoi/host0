@@ -121,17 +121,9 @@ func watch(ctx context.Context, w io.Writer, pl *client.Client, id string, decid
 }
 
 // Whether the session has approvals still waiting for a decision.
-func asking(_ context.Context, _ *client.Client, sid string) (bool, error) {
-	var as []workspace.Approval
-	if err := call("GET", "/approvals", nil, &as); err != nil {
-		return false, err
-	}
-	for _, a := range as {
-		if a.Session == sid {
-			return true, nil
-		}
-	}
-	return false, nil
+func asking(ctx context.Context, pl *client.Client, sid string) (bool, error) {
+	as, err := client.Read[[]workspace.Approval](pl.ApprovalLs(ctx, &client.ApprovalLsParams{Session: &sid}))
+	return len(as) > 0, err
 }
 
 func print(w io.Writer, ev llm.Event) {

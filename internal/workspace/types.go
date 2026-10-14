@@ -198,6 +198,7 @@ type Approval struct {
 	Session string    `json:"session"`
 	Turn    int       `json:"turn,omitempty"` // the session's turn that asked for it
 	Tool    string    `json:"tool"`
+	ToolID  string    `json:"tool_id,omitempty"` // the tool_use that asked for it
 	Input   string    `json:"input"`
 	State   string    `json:"state"` // pending, deciding, denied, done, stopped, failed
 	Outcome string    `json:"outcome,omitempty"`

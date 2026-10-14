@@ -105,9 +105,9 @@ func usagePlane(t *testing.T) (*plane, http.Handler) {
 	st.Put("usage", "2026-09-01/a", usage{Day: "2026-09-01", Session: "a", Env: "web", By: "ben", Running: 999})
 	st.Put("nodes", "2026-09-25", nodes{Day: "2026-09-25", Minutes: map[string]float64{"hz-medium": 20, "worker": 1}})
 	at := day("2026-09-24", 10)
-	st.Put("approvals", "x", workspace.Approval{ID: "x", Session: "a", State: "done", At: at, Decided: at.Add(4 * time.Second)})
-	st.Put("approvals", "y", workspace.Approval{ID: "y", Session: "b", State: "denied", At: at, Decided: at.Add(2 * time.Second)})
-	st.Put("approvals", "z", workspace.Approval{ID: "z", Session: "a", State: "pending", At: at})
+	approvalRow(t, p, workspace.Approval{ID: "x", Session: "a", State: "done", At: at, Decided: at.Add(4 * time.Second)})
+	approvalRow(t, p, workspace.Approval{ID: "y", Session: "b", State: "denied", At: at, Decided: at.Add(2 * time.Second)})
+	approvalRow(t, p, workspace.Approval{ID: "z", Session: "a", State: "pending", At: at})
 	st.Put("browsers", "h", map[string]string{"label": "carol"})
 	return p, h
 }

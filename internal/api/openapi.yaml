@@ -25,6 +25,8 @@ components:
           type: string
         tool:
           type: string
+        tool_id:
+          type: string
         turn:
           format: int64
           type: integer
@@ -726,6 +728,129 @@ info:
   version: "1"
 openapi: 3.0.3
 paths:
+  /approvals:
+    get:
+      operationId: approval.ls
+      parameters:
+        - description: Only this session's
+          explode: false
+          in: query
+          name: session
+          schema:
+            description: Only this session's
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Approval"
+                nullable: true
+                type: array
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Actions waiting for a decision
+      x-hz:
+        by:
+          - session follow
+          - approval approve
+          - approval deny
+        columns:
+          - id
+          - session
+          - tool
+          - input
+        output: table
+  /approvals/{id}:
+    get:
+      operationId: approval.show
+      parameters:
+        - description: The approval's id
+          in: path
+          name: id
+          required: true
+          schema:
+            description: The approval's id
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: One approval in full, decided or not
+      x-hz:
+        by:
+          - approval show
+  /approvals/{id}/approve:
+    post:
+      operationId: approval.approve
+      parameters:
+        - description: The approval's id
+          in: path
+          name: id
+          required: true
+          schema:
+            description: The approval's id
+            type: string
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+          description: Accepted
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Carry the action out; the outcome turn follows, and the stream tells how it went
+      x-hz:
+        by:
+          - approval approve
+  /approvals/{id}/deny:
+    post:
+      operationId: approval.deny
+      parameters:
+        - description: The approval's id
+          in: path
+          name: id
+          required: true
+          schema:
+            description: The approval's id
+            type: string
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+          description: Accepted
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Refuse the action; the outcome turn follows, and the stream tells how it went
+      x-hz:
+        by:
+          - approval deny
   /credentials:
     get:
       operationId: credentials.get

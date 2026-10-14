@@ -246,21 +246,18 @@ func (p *plane) Usage(now time.Time, days int, by string) (workspace.Usage, erro
 	}
 
 	var waits []int64
-	if err := p.Store.List("approvals", func(d func(any) error) error {
-		var a workspace.Approval
-		if err := d(&a); err != nil {
-			return err
-		}
+	approvals, err := p.ws.Approvals("")
+	if err != nil {
+		return out, err
+	}
+	for _, a := range approvals {
 		if !scope[a.Session] || a.Decided.IsZero() || at(a.Decided) == nil {
-			return nil
+			continue
 		}
 		out.Totals.Approvals++
 		if !a.At.IsZero() {
 			waits = append(waits, a.Decided.Sub(a.At).Milliseconds())
 		}
-		return nil
-	}); err != nil {
-		return out, err
 	}
 	out.Totals.ApprovalWaitMS = median(waits)
 

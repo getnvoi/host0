@@ -196,6 +196,13 @@ func sessionRow(t *testing.T, p *Workspace, s Session) {
 	}
 }
 
+func approvalRow(t *testing.T, p *Workspace, a Approval) {
+	t.Helper()
+	if err := p.putApproval(a); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func queueRows(t *testing.T, p *Workspace, sid string, msgs ...string) {
 	t.Helper()
 	for _, m := range msgs {

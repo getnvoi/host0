@@ -82,6 +82,6 @@ func TestOutside(t *testing.T) {
 
 // The routes still to move into Huma.
 var moving = []string{"api PUT /cluster/shape", "api GET /cluster/shape", "api GET /cluster/pods",
-	"api GET /cluster/pods/{namespace}/{pod}/log", "api GET /cluster", "api POST /previews", "api GET /approvals", "api GET /approvals/{id}", "api GET /usage",
-	"api POST /approvals/{id}/{decision}", "bearer /", "bearer POST /login-links", "bearer GET /browsers",
+	"api GET /cluster/pods/{namespace}/{pod}/log", "api GET /cluster", "api POST /previews", "api GET /usage",
+	"bearer /", "bearer POST /login-links", "bearer GET /browsers",
 	"bearer DELETE /browsers", "bearer DELETE /browsers/{label}"}
