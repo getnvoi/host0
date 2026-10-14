@@ -1,4 +1,5 @@
 /bin/hz
+/controlplane
 .DS_Store
 .env
 
