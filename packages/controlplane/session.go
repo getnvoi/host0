@@ -591,6 +591,63 @@ func (p *Plane) Suspend(ctx context.Context, sid string) error {
 	return p.Sandboxes.Suspend(ctx, s.Actor)
 }
 
+// Removes the session: its sandbox, its preview's route and its queue; its pending approvals end stopped.
+// Refused while it forks, runs, or carries out a decision.
+func (p *Plane) DeleteSession(ctx context.Context, sid string) error {
+	unlock := lock(sid)
+	defer unlock()
+	var s contract.Session
+	if err := p.Store.Get("sessions", sid, &s); err != nil {
+		return err
+	}
+	if s.State == "forking" || s.State == "running" {
+		return conflict{fmt.Errorf("session %s is %s: stop it first", sid, s.State)}
+	}
+	var pending []contract.Approval
+	deciding := ""
+	err := p.Store.List("approvals", func(d func(any) error) error {
+		var a contract.Approval
+		if err := d(&a); err != nil {
+			return err
+		}
+		switch {
+		case a.Session != sid:
+		case a.State == "deciding":
+			deciding = a.ID
+		case a.State == "pending":
+			pending = append(pending, a)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if deciding != "" {
+		return conflict{fmt.Errorf("session %s is carrying out approval %s", sid, deciding)}
+	}
+	if err := p.Sandboxes.Delete(ctx, s.Actor); err != nil {
+		return fmt.Errorf("sandbox %s: %w", s.Actor, err)
+	}
+	for _, a := range pending {
+		a.State = "stopped"
+		if err := p.saveApproval(a); err != nil {
+			return err
+		}
+	}
+	for _, row := range [][2]string{{"routes", s.Preview}, {"queue", sid}, {"sessions", sid}} {
+		if err := p.Store.Delete(row[0], row[1]); err != nil {
+			return err
+		}
+	}
+	// A write left to the flush timer finds nothing due, so the row is not written back.
+	writes.Store(sid, write{at: time.Now()})
+	bus.mu.Lock()
+	delete(bus.sent, sid)
+	bus.mu.Unlock()
+	bus.publish(contract.Update{Kind: "reset"})
+	return nil
+}
+
 // Running, or resumed with room made for it: the router alone would hold the request with nobody growing the pool.
 func (p *Plane) ensure(ctx context.Context, actor, tierName string) error {
 	g := guard(actor)

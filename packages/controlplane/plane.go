@@ -49,6 +49,8 @@ type Store interface {
 type Edge interface {
 	// A proxied record for host, pointing at the cluster's tunnel.
 	Route(ctx context.Context, host string) error
+	// Nil when host's record points at the tunnel; otherwise what is there instead.
+	Check(ctx context.Context, host string) error
 }
 
 type Forge interface {

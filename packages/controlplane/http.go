@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -79,6 +80,35 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		var c contract.Credentials
 		reply(w, nil, read(r, &c, func() error { return p.Store.Put("credentials", "default", c) }))
 	})
+	api.HandleFunc("GET /credentials", func(w http.ResponseWriter, r *http.Request) {
+		out := contract.CredentialsSet{Stored: []string{}}
+		var c contract.Credentials
+		err := p.Store.Get("credentials", "default", &c)
+		if err == ErrNotFound {
+			err = nil
+		}
+		if c.GitHub != "" {
+			out.Stored = append(out.Stored, "github")
+		}
+		reply(w, &out, err)
+	})
+	api.HandleFunc("DELETE /credentials/{name}", func(w http.ResponseWriter, r *http.Request) {
+		if r.PathValue("name") != "github" {
+			reply(w, nil, ErrNotFound)
+			return
+		}
+		var c contract.Credentials
+		err := p.Store.Get("credentials", "default", &c)
+		if err == nil {
+			c.GitHub = ""
+			err = p.Store.Put("credentials", "default", c)
+		}
+		reply(w, nil, err)
+	})
+	api.HandleFunc("GET /cluster", func(w http.ResponseWriter, r *http.Request) {
+		c, err := p.Status(r.Context())
+		reply(w, &c, err)
+	})
 	api.HandleFunc("GET /llm/providers", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, p.Providers(), nil)
 	})
@@ -110,7 +140,23 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	})
 	api.HandleFunc("PUT /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
 		var e contract.Environment
-		reply(w, nil, read(r, &e, func() error { e.Name = r.PathValue("name"); return p.Store.Put("environments", e.Name, e) }))
+		reply(w, nil, read(r, &e, func() error { e.Name = r.PathValue("name"); return p.PutEnvironment(e) }))
+	})
+	api.HandleFunc("GET /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
+		e, err := p.Environment(r.PathValue("name"))
+		reply(w, &e, err)
+	})
+	api.HandleFunc("PATCH /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			reply(w, nil, badRequest{err})
+			return
+		}
+		e, err := p.PatchEnvironment(r.PathValue("name"), b)
+		reply(w, &e, err)
+	})
+	api.HandleFunc("DELETE /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, nil, p.DeleteEnvironment(r.Context(), r.PathValue("name")))
 	})
 	api.HandleFunc("POST /environments/{name}/seed", func(w http.ResponseWriter, r *http.Request) {
 		if err := p.Reseed(r.PathValue("name")); err != nil {
@@ -131,6 +177,9 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	api.HandleFunc("GET /sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var s contract.Session
 		reply(w, &s, p.Store.Get("sessions", r.PathValue("id"), &s))
+	})
+	api.HandleFunc("DELETE /sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, nil, p.DeleteSession(r.Context(), r.PathValue("id")))
 	})
 	api.HandleFunc("POST /sessions/{id}/turns", func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Prompt, To string }
@@ -239,6 +288,20 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		}
 		reply(w, &out, read(r, &in, func() (err error) { out.URL, err = p.LoginLink(appHost, in.Label); return }))
 	})
+	bearer.HandleFunc("GET /browsers", func(w http.ResponseWriter, r *http.Request) {
+		bs, err := p.Browsers()
+		reply(w, &bs, err)
+	})
+	signOut := func(w http.ResponseWriter, r *http.Request) {
+		var out struct {
+			Count int `json:"count"`
+		}
+		var err error
+		out.Count, err = p.SignOut(r.PathValue("label"))
+		reply(w, &out, err)
+	}
+	bearer.HandleFunc("DELETE /browsers", signOut)
+	bearer.HandleFunc("DELETE /browsers/{label}", signOut)
 	app := http.NewServeMux()
 	app.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Has("code") {
