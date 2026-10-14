@@ -2,7 +2,9 @@
 package remote
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,7 +88,7 @@ func send(method, path string, in any) (*http.Response, error) {
 }
 
 func Commands() []*cobra.Command {
-	return []*cobra.Command{credentials(), env(), seed(), session(), approval(), preview(), open(), invite(),
+	return []*cobra.Command{credentials(), env(), session(), approval(), preview(), open(), invite(),
 		status(), whoami(), usage(), llm(), browsers(), logout()}
 }
 
@@ -235,26 +237,180 @@ func seed() *cobra.Command {
 		Short: "Build the environment's seed: clone, set up, start its services, snapshot and tag it",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			if err := call("POST", "/environments/"+args[0]+"/seed", nil, nil); err != nil {
+			st, err := state.Load()
+			if err != nil {
 				return err
 			}
-			for {
-				time.Sleep(5 * time.Second)
-				var s contract.Seed
-				if err := call("GET", "/environments/"+args[0]+"/seed", nil, &s); err != nil {
-					return err
-				}
-				switch s.State {
-				case "ready":
-					fmt.Printf("seed ready: %s\n", link(s.Preview))
-					return nil
-				case "failed":
-					return fmt.Errorf("seed failed: %s", s.Error)
-				}
-				fmt.Printf("  %s %s\n", s.State, s.Actor)
-			}
+			return (&build{st: st, env: args[0], out: os.Stdout}).follow()
 		},
 	}
+}
+
+// No new step and no new output for this long is a hang, however often the plane repeats the build's row.
+var silence = 10 * time.Second
+
+// Pause before reopening a dropped stream, times the attempt.
+var backoff = time.Second
+
+const attempts = 4
+
+// A seed build followed on the plane's stream, opened before the build is asked for so no step is missed.
+type build struct {
+	st                    state.State
+	env, last, step, line string
+	lines                 int
+	asked                 bool
+	out                   io.Writer
+}
+
+func (b *build) follow() error {
+	for drops := 1; ; drops++ {
+		drop, heard, err := b.once()
+		if !drop {
+			return err
+		}
+		if heard {
+			drops = 1
+		}
+		if drops == attempts {
+			return fmt.Errorf("the plane's stream dropped %d times in a row: %w", attempts, err)
+		}
+		fmt.Fprintf(b.out, "  stream dropped (%v), reconnecting\n", err)
+		time.Sleep(time.Duration(drops) * backoff)
+	}
+}
+
+// One connection. drop: it ended and may be opened again, err saying why; otherwise err is the build's outcome.
+// heard: the seed was reported on it.
+func (b *build) once() (drop, heard bool, err error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	frames := make(chan frame)
+	ended := make(chan error, 1)
+	go func() { ended <- listen(ctx, b.st, b.last, frames) }()
+	quiet := time.NewTimer(silence)
+	defer quiet.Stop()
+	for {
+		select {
+		case err := <-ended:
+			return true, heard, err
+		case <-quiet.C:
+			return false, heard, fmt.Errorf("no progress on the seed of %s for %s; last step: %s; last line: %q",
+				b.env, silence, b.step, b.line)
+		case f := <-frames:
+			if f.id != "" {
+				b.last = f.id
+			}
+			var s contract.Seed
+			switch {
+			case !b.asked:
+				if err := call("POST", "/environments/"+b.env+"/seed", nil, nil); err != nil {
+					return false, heard, err
+				}
+				b.asked = true
+				continue
+			case f.u == nil:
+				continue
+			case f.u.Kind == "reset":
+				// The plane restarted or this reader fell behind its ring: the row says where the build stands.
+				if err := call("GET", "/environments/"+b.env+"/seed", nil, &s); err != nil {
+					return false, heard, err
+				}
+				// The row keeps no output count: only a new step or state counts as progress here.
+				s.Lines = b.lines
+			case f.u.Kind == "seed" && f.u.Seed.Env == b.env:
+				s = *f.u.Seed
+			default:
+				continue
+			}
+			moved, done, err := b.show(s)
+			if done {
+				return false, heard, err
+			}
+			if moved {
+				heard = true
+				quiet.Reset(silence)
+			}
+		}
+	}
+}
+
+// Prints what changed. moved: a new step or new output, the only thing that counts as progress; done: the build
+// rests.
+func (b *build) show(s contract.Seed) (moved, done bool, err error) {
+	switch s.State {
+	case "ready":
+		fmt.Fprintf(b.out, "seed ready: %s\n", link(s.Preview))
+		return true, true, nil
+	case "failed":
+		return true, true, fmt.Errorf("seed failed: %s", s.Error)
+	}
+	if s.Step != b.step {
+		b.step, b.line, moved = s.Step, "", true
+		fmt.Fprintf(b.out, "  %s\n", s.Step)
+	}
+	if s.Lines != b.lines {
+		b.lines, moved = s.Lines, true
+	}
+	if s.Line != "" && s.Line != b.line {
+		b.line = s.Line
+		fmt.Fprintf(b.out, "    %s\n", s.Line)
+	}
+	return moved, false, nil
+}
+
+// One message of the plane's stream: its id, and the update it carries, if any.
+type frame struct {
+	id string
+	u  *contract.Update
+}
+
+// Reads the stream from after last, sending each message to out, and returns why it ended.
+func listen(ctx context.Context, st state.State, last string, out chan<- frame) error {
+	req, _ := http.NewRequestWithContext(ctx, "GET", st.URL+"/stream", nil)
+	req.Header.Set("Authorization", "Bearer "+st.Token)
+	if last != "" {
+		req.Header.Set("Last-Event-ID", last)
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		b, _ := io.ReadAll(res.Body)
+		return fmt.Errorf("GET /stream: %s", strings.TrimSpace(string(b)))
+	}
+	sc := bufio.NewScanner(res.Body)
+	// A session's update carries its new events, which can be long.
+	sc.Buffer(make([]byte, 64<<10), 16<<20)
+	var f frame
+	for sc.Scan() {
+		line := sc.Text()
+		switch {
+		case line == "":
+			if f.id != "" || f.u != nil {
+				select {
+				case out <- f:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			f = frame{}
+		case strings.HasPrefix(line, "id: "):
+			f.id = strings.TrimPrefix(line, "id: ")
+		case strings.HasPrefix(line, "data: "):
+			var u contract.Update
+			if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &u); err != nil {
+				return fmt.Errorf("the stream sent %q: %w", line, err)
+			}
+			f.u = &u
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return err
+	}
+	return errors.New("the plane closed the stream")
 }
 
 func session() *cobra.Command {
@@ -428,6 +584,19 @@ func invite() *cobra.Command {
 func approval() *cobra.Command {
 	cmd := &cobra.Command{Use: "approval", Short: "Actions waiting for a decision"}
 	cmd.AddCommand(&cobra.Command{
+		Use:   "show <id>",
+		Short: "One approval in full, decided or not",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			var a contract.Approval
+			if err := call("GET", "/approvals/"+url.PathEscape(args[0]), nil, &a); err != nil {
+				return err
+			}
+			showApproval(os.Stdout, a)
+			return nil
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
 		Use: "list",
 		RunE: func(*cobra.Command, []string) error {
 			var as []contract.Approval
@@ -455,4 +624,16 @@ func approval() *cobra.Command {
 		})
 	}
 	return cmd
+}
+
+func showApproval(w io.Writer, a contract.Approval) {
+	fmt.Fprintf(w, "id       %s\nsession  %s\ntool     %s\nstate    %s\nasked    %s\n", a.ID, a.Session, a.Tool, a.State,
+		a.At.Format(time.RFC3339))
+	if !a.Decided.IsZero() {
+		fmt.Fprintf(w, "decided  %s by %s\n", a.Decided.Format(time.RFC3339), a.By)
+	}
+	if a.Outcome != "" {
+		fmt.Fprintf(w, "outcome  %s\n", a.Outcome)
+	}
+	fmt.Fprintf(w, "input\n%s\n", a.Input)
 }

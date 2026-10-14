@@ -141,6 +141,14 @@ func (p *Plane) saveApproval(a contract.Approval) error {
 	return nil
 }
 
+func (p *Plane) saveSeed(s contract.Seed) error {
+	if err := p.Store.Put("seeds", s.Env, s); err != nil {
+		return err
+	}
+	bus.publish(contract.Update{Kind: "seed", Seed: &s})
+	return nil
+}
+
 // Server-sent events. Every message carries its id; Last-Event-ID resumes after it.
 func (p *Plane) stream(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)

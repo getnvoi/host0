@@ -113,7 +113,7 @@ func env() *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			return call("POST", "/seeds/"+url.PathEscape(args[0])+"/suspend", nil, nil)
 		},
-	}, vars(), secrets(), setup(), services(), tools())
+	}, seed(), vars(), secrets(), setup(), services(), tools())
 	return cmd
 }
 
@@ -238,7 +238,7 @@ func envSet() *cobra.Command {
 	var e contract.Environment
 	cmd := &cobra.Command{
 		Use:   "set <env>",
-		Short: "Change the environment's fields; the seed is rebuilt by hz seed",
+		Short: "Change the environment's fields; the seed is rebuilt by hz env seed",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			change := map[string]any{}
