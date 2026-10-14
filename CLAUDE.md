@@ -117,7 +117,7 @@ command.
 ```
 shared/        names, the api contract                everyone
 infra/         the install: interfaces, steps, manifests  local commands only
-cloud/         the contract, conformance, hetzner
+cloud/         the contract, conformance, hetzner, scaleway
 cloudflare/    infra.Edge
 controlplane/  the api, sandboxes, turns, approvals   runs in the cluster
 cli/           the hz binary

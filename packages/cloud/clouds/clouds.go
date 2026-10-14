@@ -4,8 +4,9 @@ package clouds
 import (
 	"github.com/getnvoi/host0/cloud"
 	"github.com/getnvoi/host0/cloud/hetzner"
+	"github.com/getnvoi/host0/cloud/scaleway"
 )
 
-var All = []cloud.Provider{hetzner.Provider}
+var All = []cloud.Provider{hetzner.Provider, scaleway.Provider}
 
 func Find(name string) (cloud.Provider, error) { return cloud.Find(All, name) }

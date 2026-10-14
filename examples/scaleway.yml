@@ -1,0 +1,11 @@
+# hz cluster install -f examples/scaleway.yml: the cluster on Scaleway, its location a zone.
+name: dev
+cloud: { provider: scaleway, location: fr-par-2, credentials: { secret_key: SCW_SECRET_KEY, project_id: SCW_DEFAULT_PROJECT_ID } }
+control: { type: POP2-4C-16G }
+workers: { type: POP2-4C-16G, max: 5, idle: 10m }
+tiers:
+  - { name: small, cpu: 1, memory: 2Gi }
+  - { name: medium, cpu: 2, memory: 4Gi, default: true }
+  - { name: large, cpu: 4, memory: 8Gi }
+edge: { mode: public, zone: nvoi.to, previewSuffix: -preview }
+dns: { provider: CLOUDFLAREAPI, credentials: { apitoken: CLOUDFLARE_API_TOKEN } }

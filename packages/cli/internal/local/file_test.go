@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/getnvoi/host0/cloud/clouds"
 	"github.com/getnvoi/host0/cloudflare"
 	"github.com/getnvoi/host0/dns"
 	"github.com/getnvoi/host0/infra"
@@ -26,6 +27,20 @@ func TestLoadExample(t *testing.T) {
 		f.Edge.Mode != "public" || f.Edge.Zone != "nvoi.to" || f.Edge.PreviewSuffix != "-preview" ||
 		f.DNS.Provider != "CLOUDFLAREAPI" || f.DNS.Credentials["apitoken"] != "CLOUDFLARE_API_TOKEN" {
 		t.Fatalf("%+v", f)
+	}
+}
+
+func TestLoadScalewayExample(t *testing.T) {
+	f, err := Load("../../../../examples/scaleway.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Cloud.Provider != "scaleway" || f.Cloud.Location != "fr-par-2" || f.Control.Type != "POP2-4C-16G" ||
+		f.Cloud.Credentials["secret_key"] != "SCW_SECRET_KEY" || f.Cloud.Credentials["project_id"] != "SCW_DEFAULT_PROJECT_ID" {
+		t.Fatalf("%+v", f)
+	}
+	if _, err := clouds.Find(f.Cloud.Provider); err != nil {
+		t.Fatal(err)
 	}
 }
 
