@@ -13,7 +13,7 @@ import (
 func main() {
 	root := &cobra.Command{Use: "hz", SilenceUsage: true, SilenceErrors: true}
 	root.AddCommand(local.Cluster(), local.Machine())
-	root.AddCommand(remote.Commands()...)
+	remote.Attach(root)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "hz:", err)
 		os.Exit(1)

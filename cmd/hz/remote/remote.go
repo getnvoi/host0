@@ -89,9 +89,10 @@ func send(method, path string, in any) (*http.Response, error) {
 	return res, nil
 }
 
-func Commands() []*cobra.Command {
+// The commands not yet generated from the spec.
+func legacy() []*cobra.Command {
 	return []*cobra.Command{credentials(), env(), session(), approval(), preview(), open(), invite(),
-		status(), pods(), podLogs(), whoami(), usage(), llms(), browsers(), logout()}
+		status(), pods(), podLogs(), usage(), llms(), browsers(), logout()}
 }
 
 func credentials() *cobra.Command {

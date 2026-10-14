@@ -1,0 +1,2 @@
+cluster  dev
+zone     nvoi.to

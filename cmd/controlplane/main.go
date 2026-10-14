@@ -55,6 +55,12 @@ func duration(name string, def time.Duration) time.Duration {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "openapi" {
+		if err := writeSpec(os.Args[2:]); err != nil {
+			log.Fatalf("openapi: %v", err)
+		}
+		return
+	}
 	sb, err := substrate.New(substrate.Config{
 		API:       "api.ate-system.svc.cluster.local:443",
 		Authority: "api.ate-system.svc",
@@ -104,6 +110,19 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 }
 
+// Writes the API's spec to the file named, or to stdout.
+func writeSpec(args []string) error {
+	b, err := spec()
+	if err != nil {
+		return err
+	}
+	if len(args) == 0 {
+		_, err = os.Stdout.Write(b)
+		return err
+	}
+	return os.WriteFile(args[0], b, 0o644)
+}
+
 // The plane: one workspace and the scaler under it, sign-in, the preview gate and the stream.
 type plane struct {
 	Store     store.Store
@@ -122,6 +141,8 @@ type plane struct {
 	auth *auth.Auth
 	gate preview.Gate
 	bus  *stream.Broker
+	// The routes served outside Huma, as "<mux> <pattern>".
+	raw []string
 }
 
 type Pods interface {

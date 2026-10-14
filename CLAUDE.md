@@ -137,6 +137,7 @@ internal/edge/        contract: the install's Edge, the plane's Router; cloudfla
 internal/cloud/       contract: Cloud; conformance/, hetzner/, scaleway/, clouds/
 internal/box/         client: boxd, and the terminal relay
 internal/kube/        client: the cluster's own API
+internal/api/         client: the plane's OpenAPI spec and its generated client; hzgen/ writes hz's commands
 internal/shared/      naming, seal
 apps/ui/              the web UI, built into cmd/controlplane/web/dist
 ```
@@ -152,7 +153,7 @@ or several binaries use.
 3. A contract (`sandbox`, `llm`, `scm`, `store`, `edge`, `cloud`, `db`) imports only `shared`.
 4. An implementation (any subfolder of a contract) imports only its own contract, `shared` and its own
    subpackages; a provider's tests may import `cloud/conformance`.
-5. A client (`box`, `kube`) imports only `shared` and contracts.
+5. A client (`box`, `kube`, `api`) imports only `shared` and contracts.
 6. `shared` imports nothing of ours.
 7. `internal/infra` is imported by `cmd/hz/local` alone.
 

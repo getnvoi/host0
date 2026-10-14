@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/getnvoi/host0/cmd/hz/state"
 	"github.com/getnvoi/host0/internal/auth"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/workers"
@@ -56,26 +55,6 @@ func status() *cobra.Command {
 			if bad > 0 {
 				return fmt.Errorf("%d of the plane's hosts are not routed to the cluster", bad)
 			}
-			return nil
-		},
-	}
-}
-
-func whoami() *cobra.Command {
-	return &cobra.Command{
-		Use:   "me",
-		Short: "The plane this CLI talks to",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			st, err := state.Load()
-			if err != nil {
-				return err
-			}
-			var out struct{ Cluster, Zone string }
-			if err := call("GET", "/me", nil, &out); err != nil {
-				return err
-			}
-			fmt.Printf("plane    %s\ncluster  %s\nzone     %s\n", st.URL, out.Cluster, out.Zone)
 			return nil
 		},
 	}

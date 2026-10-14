@@ -25,10 +25,9 @@ import (
 // Every other host is a preview.
 func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	ws := p.ws
-	api := http.NewServeMux()
-	api.HandleFunc("GET /me", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, &map[string]string{"cluster": p.Cluster, "zone": p.Zone}, nil)
-	})
+	mux := http.NewServeMux()
+	p.API(mux)
+	api := p.outside("api", mux)
 	api.Handle("GET /stream", p.bus)
 	api.HandleFunc("GET /environments", func(w http.ResponseWriter, r *http.Request) {
 		out, err := ws.Environments()
@@ -288,8 +287,8 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		json.NewEncoder(w).Encode(&a)
 	})
 
-	bearer := http.NewServeMux()
-	bearer.Handle("/", api)
+	bearer := p.outside("bearer", http.NewServeMux())
+	bearer.Handle("/", mux)
 	bearer.HandleFunc("POST /login-links", func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Label string }
 		var out struct {
@@ -312,7 +311,7 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	bearer.HandleFunc("DELETE /browsers", signOut)
 	bearer.HandleFunc("DELETE /browsers/{label}", signOut)
 	cli := auth.Bearer(tokenSHA256, bearer)
-	app := http.NewServeMux()
+	app := p.outside("app", http.NewServeMux())
 	app.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Has("code") {
 			p.auth.Login(w, r)
@@ -321,7 +320,7 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		serveUI(w, r)
 	})
 	app.HandleFunc("POST /api/logout", p.auth.Logout)
-	app.Handle("/api/", p.auth.SignedIn(http.StripPrefix("/api", api)))
+	app.Handle("/api/", p.auth.SignedIn(http.StripPrefix("/api", mux)))
 	app.HandleFunc("/", serveUI)
 	previews := p.preview(appHost)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -334,6 +333,24 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 			previews.ServeHTTP(w, r)
 		}
 	})
+}
+
+// A mux whose every pattern is recorded under name: the routes served outside Huma, which TestOutside lists.
+type routes struct {
+	*http.ServeMux
+	name string
+	p    *plane
+}
+
+func (p *plane) outside(name string, m *http.ServeMux) routes { return routes{m, name, p} }
+
+func (r routes) Handle(pattern string, h http.Handler) {
+	r.p.raw = append(r.p.raw, r.name+" "+pattern)
+	r.ServeMux.Handle(pattern, h)
+}
+
+func (r routes) HandleFunc(pattern string, h func(http.ResponseWriter, *http.Request)) {
+	r.Handle(pattern, http.HandlerFunc(h))
 }
 
 type routeKey struct{}
