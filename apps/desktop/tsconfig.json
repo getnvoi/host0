@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@/native": ["src/native.ts"],
+      "@hz/ui": ["ui/src/index.ts"],
+      "@hz/transport": ["../ui/js/contexts/api/transport.ts"],
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src", "ui/src"]
+}
