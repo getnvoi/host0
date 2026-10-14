@@ -8,12 +8,16 @@ require (
 	github.com/caddyserver/certmagic v0.25.6
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
+	github.com/go-gormigrate/gormigrate/v2 v2.1.7
 	github.com/libdns/libdns v1.1.1
+	github.com/ncruces/go-sqlite3 v0.35.6
+	github.com/ncruces/go-sqlite3/gormlite v0.34.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.57.0
 	google.golang.org/grpc v1.86.0-dev
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
+	gorm.io/gorm v1.31.2
 )
 
 require (
@@ -93,6 +97,8 @@ require (
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.218 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/influxdata/tdigest v0.0.1 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.13-0.20220915233716-71ac16282d12 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
@@ -112,6 +118,8 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/namecheap/go-spaceship-sdk v0.2.1 // indirect
 	github.com/namedotcom/go v0.0.0-20180403034216-08470befbe04 // indirect
+	github.com/ncruces/go-sqlite3-wasm/v6 v6.3.35304 // indirect
+	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/netnod/netnod-primary-dns-client v1.1.1 // indirect
 	github.com/nrdcg/goinwx v0.12.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect

@@ -132,6 +132,7 @@ internal/sandbox/     contract: Sandboxes, tiers, the shape; substrate/
 internal/llm/         contract: Runner; claude/, codex/
 internal/scm/         contract: Forge; github/
 internal/store/       contract: Store; files/
+internal/db/          contract: the workspace models; GORM on SQLite encrypted at rest, sealed secrets
 internal/edge/        contract: the install's Edge, the plane's Router; cloudflare/, dns/
 internal/cloud/       contract: Cloud; conformance/, hetzner/, scaleway/, clouds/
 internal/box/         client: boxd, and the terminal relay
@@ -148,7 +149,7 @@ or several binaries use.
 1. `cmd/*` may import anything in `internal/`; nothing imports `cmd/`.
 2. A feature (`workspace`, `auth`, `tools`, `workers`, `preview`, `stream`, `infra`) imports only contracts (the
    package itself, never a subfolder), clients and `shared`. Never another feature, never an implementation.
-3. A contract (`sandbox`, `llm`, `scm`, `store`, `edge`, `cloud`) imports only `shared`.
+3. A contract (`sandbox`, `llm`, `scm`, `store`, `edge`, `cloud`, `db`) imports only `shared`.
 4. An implementation (any subfolder of a contract) imports only its own contract, `shared` and its own
    subpackages; a provider's tests may import `cloud/conformance`.
 5. A client (`box`, `kube`) imports only `shared` and contracts.

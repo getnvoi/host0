@@ -16,7 +16,7 @@ const module = "github.com/getnvoi/host0/"
 
 var (
 	features  = []string{"workspace", "auth", "tools", "workers", "preview", "stream", "infra"}
-	contracts = []string{"sandbox", "llm", "scm", "store", "edge", "cloud"}
+	contracts = []string{"sandbox", "llm", "scm", "store", "edge", "cloud", "db"}
 	clients   = []string{"box", "kube"}
 )
 
