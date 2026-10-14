@@ -77,7 +77,12 @@ func serve(gdb *gorm.DB, sb sandbox.Sandboxes, pools workers.Pools, e edge.Route
 	return p, p.Handler("api-dev.nvoi.to", "app-dev.nvoi.to", hex.EncodeToString(sum[:]))
 }
 
-func handler(t *testing.T) (*plane, http.Handler) { return serve(newDB(t), nil, nil, nil) }
+func handler(t *testing.T) (*plane, http.Handler) {
+	p, h := serve(newDB(t), nil, nil, nil)
+	// Runs before newDB's cleanup closes the database a decision may still be writing.
+	t.Cleanup(p.ws.Wait)
+	return p, h
+}
 
 func call(h http.Handler, method, host, target string, body string, header map[string]string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, target, strings.NewReader(body))

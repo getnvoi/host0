@@ -51,6 +51,8 @@ type Workspace struct {
 	Cluster  string
 	Zone     string
 	Suffix   string
+	// Decisions carried out after their request answered; Wait returns once none is running.
+	background sync.WaitGroup
 }
 
 // What a turn, a fork or a seed build needs of the worker pools: a tier's size, and an actor running.
@@ -642,3 +644,6 @@ func with(m map[string]string, k, v string) map[string]string {
 
 // How a browser reaches a host: through the cluster's tunnel, over https, on a cloud cluster as on this machine.
 func origin(host string) string { return "https://" + host }
+
+// Returns once every decision carried out in the background has ended.
+func (ws *Workspace) Wait() { ws.background.Wait() }

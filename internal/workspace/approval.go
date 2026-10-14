@@ -105,7 +105,11 @@ func (ws *Workspace) Decide(aid string, approve bool, by string) (Approval, erro
 	if err != nil {
 		return a, err
 	}
-	go ws.decide(a, approve)
+	ws.background.Add(1)
+	go func() {
+		defer ws.background.Done()
+		ws.decide(a, approve)
+	}()
 	return a, nil
 }
 
