@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/getnvoi/host0/internal/box"
-	"github.com/getnvoi/host0/internal/store"
 )
 
 // Where each service's output is kept, beside its stdout.
@@ -49,7 +48,7 @@ func (ws *Workspace) Log(ctx context.Context, sid, name string, offset int64) ([
 		}
 	}
 	if path == "" {
-		return nil, offset, store.ErrNotFound
+		return nil, offset, NotFound{fmt.Errorf("session %s has no log %s", sid, name)}
 	}
 	b, next, err := ws.box(s.Actor).Tail(ctx, path, offset)
 	if errors.Is(err, box.ErrMissing) {

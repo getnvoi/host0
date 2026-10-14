@@ -131,7 +131,6 @@ internal/infra/       the install: steps, manifests                             
 internal/sandbox/     contract: Sandboxes, tiers, the shape; substrate/
 internal/llm/         contract: Runner; claude/, codex/
 internal/scm/         contract: Forge; github/
-internal/store/       contract: Store; files/
 internal/db/          contract: the workspace models; GORM on SQLite encrypted at rest, sealed secrets
 internal/edge/        contract: the install's Edge, the plane's Router; cloudflare/, dns/
 internal/cloud/       contract: Cloud; conformance/, hetzner/, scaleway/, clouds/
@@ -150,12 +149,13 @@ or several binaries use.
 1. `cmd/*` may import anything in `internal/`; nothing imports `cmd/`.
 2. A feature (`workspace`, `auth`, `tools`, `workers`, `preview`, `stream`, `infra`) imports only contracts (the
    package itself, never a subfolder), clients and `shared`. Never another feature, never an implementation.
-3. A contract (`sandbox`, `llm`, `scm`, `store`, `edge`, `cloud`, `db`) imports only `shared`.
+3. A contract (`sandbox`, `llm`, `scm`, `edge`, `cloud`, `db`) imports only `shared`.
 4. An implementation (any subfolder of a contract) imports only its own contract, `shared` and its own
    subpackages; a provider's tests may import `cloud/conformance`.
 5. A client (`box`, `kube`, `api`) imports only `shared` and contracts.
 6. `shared` imports nothing of ours.
 7. `internal/infra` is imported by `cmd/hz/local` alone.
+8. Nothing imports `internal/store`: the plane's records are rows in `internal/db`.
 
 **A type that crosses lives in the contract; an interface lives with its consumer.** `workspace` declares
 `Workers`, `Tools` and `Bus`, `infra` declares `Laptop`, `workers` declares `Pools`; `cmd/controlplane` and
@@ -274,8 +274,9 @@ managing infrastructure we did not create — and that is a different product.
 
 ## Where things live
 
-The plane's records are `/var/lib/hz/hz.db` on the control node: SQLite, the whole file encrypted (AES-256-XTS
-under a key derived from the sealing key), secrets sealed again in their columns. Its settings are the environment its Deployment sets at install
+The plane's records are `/var/lib/hz/hz.db` on the control node, its `-wal` and `-shm` beside it and nothing
+else in that directory: SQLite, the whole file encrypted (AES-256-XTS under a key derived from the sealing key),
+secrets sealed again in their columns. Its settings are the environment its Deployment sets at install
 (`HZ_CLUSTER`, `HZ_ZONE`, `HZ_EDGE`, …) and the secrets mounted beside them;
 nobody edits them by hand, `hz cluster install` writes them again.
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/getnvoi/host0/internal/auth"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/store"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
 )
@@ -49,7 +48,7 @@ func status(err error) int {
 		nobody   auth.NotFound
 	)
 	switch {
-	case errors.Is(err, store.ErrNotFound), errors.Is(err, sandbox.ErrNotFound), errors.As(err, &missing), errors.As(err, &nobody):
+	case errors.Is(err, sandbox.ErrNotFound), errors.As(err, &missing), errors.As(err, &nobody):
 		return http.StatusNotFound
 	case errors.As(err, &bad), errors.As(err, &invalid), errors.As(err, &shape):
 		return http.StatusBadRequest

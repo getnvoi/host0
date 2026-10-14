@@ -26,12 +26,11 @@ func (b brokenState) State(ctx context.Context, a string) (string, error) {
 }
 
 func TestSample(t *testing.T) {
-	st := newStore(t)
 	sb := &fakeSandboxes{
 		states:  map[string]string{"wt-s1": "running", "wt-s2": "paused", "seed-web": "suspended", "wt-s4": "resuming"},
 		workers: []sandbox.Worker{{Pool: "hz-large", Pod: "a"}, {Pool: "hz-large", Pod: "b"}, {Pod: "c"}},
 	}
-	p, _ := serve(st, brokenState{sb}, nil, nil)
+	p, _ := serve(newDB(t), brokenState{sb}, nil, nil)
 	putEnv(t, p, workspace.Environment{Name: "web", Tier: "large"})
 	seedRow(t, p, "web", db.Seed{Actor: "seed-web", State: "ready"})
 	for _, s := range []workspace.Session{{ID: "s1", Env: "web", By: "ben"}, {ID: "s2", Env: "web", By: "cli"},
@@ -87,7 +86,7 @@ func usageSession(t *testing.T, p *plane, s workspace.Session) {
 }
 
 func usagePlane(t *testing.T) (*plane, http.Handler) {
-	p, h := serve(newStore(t), nil, nil, nil)
+	p, h := serve(newDB(t), nil, nil, nil)
 	day := func(d string, h int) time.Time {
 		t, _ := time.Parse("2006-01-02", d)
 		return t.Add(time.Duration(h) * time.Hour)

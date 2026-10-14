@@ -32,7 +32,7 @@ cmd/controlplane     the plane: the api and the web UI it serves
 cmd/boxd             commands and their durable output in each actor
 cmd/proxy            TLS for the public edge
 internal/            what they share: features (workspace, auth, tools, workers, preview, stream, infra),
-                     contracts and their providers (sandbox, llm, scm, store, edge, cloud), clients (box, kube)
+                     contracts and their providers (sandbox, llm, scm, edge, cloud, db), clients (box, kube, api)
 apps/ui              the web UI, embedded in the plane
 ```
 

@@ -23,25 +23,13 @@ import (
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/shared/seal"
-	"github.com/getnvoi/host0/internal/store"
-	"github.com/getnvoi/host0/internal/store/files"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
-// What the plane keeps, in fresh files: its store, and its database holding the shape install writes.
-type data struct {
-	store.Store
-	DB *gorm.DB
-}
-
-func newStore(t *testing.T) data {
-	key := seal.Mint()
-	st, err := files.Open(t.TempDir(), key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), key)
+// The plane's database in a fresh file, holding the shape install writes.
+func newDB(t *testing.T) *gorm.DB {
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +45,7 @@ func newStore(t *testing.T) data {
 		Max: 2, Idle: time.Minute}, Tiers: sandbox.DefaultTiers}); err != nil {
 		t.Fatal(err)
 	}
-	return data{st, gdb}
+	return gdb
 }
 
 // Routes host to rt, as a fork or a seed build does.
@@ -78,18 +66,18 @@ func putEnv(t *testing.T, p *plane, e workspace.Environment) {
 
 var bearer = map[string]string{"Authorization": "Bearer cli-token"}
 
-// The plane on st and sb, with its handler for api-dev.nvoi.to and app-dev.nvoi.to; its CLI token is cli-token.
-func serve(d data, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router) (*plane, http.Handler) {
+// The plane on gdb and sb, with its handler for api-dev.nvoi.to and app-dev.nvoi.to; its CLI token is cli-token.
+func serve(gdb *gorm.DB, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router) (*plane, http.Handler) {
 	if e == nil {
 		e = checking{}
 	}
-	p := wire(d.DB, d.Store, sb, pools, e, "dev", "nvoi.to", "-preview", "box")
+	p := wire(gdb, sb, pools, e, "dev", "nvoi.to", "-preview", "box")
 	p.ws.Pin = func(_ context.Context, image string) (string, error) { return image, nil }
 	sum := sha256.Sum256([]byte("cli-token"))
 	return p, p.Handler("api-dev.nvoi.to", "app-dev.nvoi.to", hex.EncodeToString(sum[:]))
 }
 
-func handler(t *testing.T) (*plane, http.Handler) { return serve(newStore(t), nil, nil, nil) }
+func handler(t *testing.T) (*plane, http.Handler) { return serve(newDB(t), nil, nil, nil) }
 
 func call(h http.Handler, method, host, target string, body string, header map[string]string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, target, strings.NewReader(body))
@@ -239,7 +227,7 @@ func TestSignOut(t *testing.T) {
 
 func TestEnvironmentCRUD(t *testing.T) {
 	sb := &removing{}
-	p, h := serve(newStore(t), sb, nil, nil)
+	p, h := serve(newDB(t), sb, nil, nil)
 	api := func(method, path, body string) (int, string) {
 		res := call(h, method, "api-dev.nvoi.to", path, body, bearer)
 		return res.Code, res.Body.String()
@@ -381,7 +369,7 @@ func secret(t *testing.T, p *plane, name string) string {
 
 func TestSessionDelete(t *testing.T) {
 	sb := &removing{}
-	p, h := serve(newStore(t), sb, nil, nil)
+	p, h := serve(newDB(t), sb, nil, nil)
 	sessionRow(t, p, "web", db.Session{PublicID: "r1", State: "running"})
 	if res := call(h, "DELETE", "api-dev.nvoi.to", "/sessions/r1", "", bearer); res.Code != 409 {
 		t.Fatalf("delete while running: %d %s", res.Code, res.Body)
@@ -448,7 +436,7 @@ func TestCredentialsRead(t *testing.T) {
 func TestClusterStatus(t *testing.T) {
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, ready: map[string]int{"hz-medium": 1}, nodes: []kube.Node{{Name: "w1", Ready: true}}}
 	sb := &fakeSandboxes{workers: []sandbox.Worker{{Pool: "hz-medium", Pod: "p1", Held: []sandbox.Held{{Name: "a", State: "running"}}}}}
-	_, h := serve(newStore(t), sb, pools, checking{"app-dev.nvoi.to": errors.New("app-dev.nvoi.to has no record")})
+	_, h := serve(newDB(t), sb, pools, checking{"app-dev.nvoi.to": errors.New("app-dev.nvoi.to has no record")})
 	res := call(h, "GET", "api-dev.nvoi.to", "/cluster", "", bearer)
 	var c workers.Cluster
 	json.Unmarshal(res.Body.Bytes(), &c)

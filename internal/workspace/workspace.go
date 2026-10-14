@@ -25,7 +25,6 @@ import (
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/store"
 )
 
 const (
@@ -40,7 +39,6 @@ const (
 type Workspace struct {
 	Sandboxes sandbox.Sandboxes
 	DB        *gorm.DB
-	Store     store.Store
 	Edge      edge.Router
 	Workers   Workers
 	Tools     Tools

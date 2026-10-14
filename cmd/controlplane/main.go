@@ -32,8 +32,6 @@ import (
 	"github.com/getnvoi/host0/internal/scm"
 	"github.com/getnvoi/host0/internal/scm/github"
 	"github.com/getnvoi/host0/internal/shared/naming"
-	"github.com/getnvoi/host0/internal/store"
-	"github.com/getnvoi/host0/internal/store/files"
 	"github.com/getnvoi/host0/internal/stream"
 	"github.com/getnvoi/host0/internal/tools"
 	"github.com/getnvoi/host0/internal/workers"
@@ -85,10 +83,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("sealing key: %v", err)
 	}
-	st, err := files.Open("/var/lib/hz", key)
-	if err != nil {
-		log.Fatalf("store: %v", err)
-	}
 	gdb, err := db.Open("/var/lib/hz/hz.db", key)
 	if err != nil {
 		log.Fatal(err)
@@ -101,7 +95,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("cloud: %v", err)
 	}
-	p := wire(gdb, st, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("HZ_PREVIEW_SUFFIX"), must("HZ_BOX_TOKEN"))
+	p := wire(gdb, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("HZ_PREVIEW_SUFFIX"), must("HZ_BOX_TOKEN"))
 	p.Pods = pools
 	p.sc.Cloud, p.sc.WorkerInit = cl, init
 	p.sc.PauseAfter, p.sc.SuspendAfter = duration("HZ_PAUSE_AFTER", 10*time.Minute), duration("HZ_SUSPEND_AFTER", 60*time.Minute)
@@ -136,7 +130,6 @@ func writeSpec(args []string) error {
 // The plane: one workspace and the scaler under it, sign-in, the preview gate and the stream.
 type plane struct {
 	DB        *gorm.DB
-	Store     store.Store
 	Sandboxes sandbox.Sandboxes
 	Pools     workers.Pools
 	// Reads any pod and its log, for hz pods and hz logs.
@@ -166,14 +159,14 @@ type Pods interface {
 // The agent CLIs a credential may name.
 var runners = []llm.Runner{claude.Runner{}, codex.Runner{}}
 
-// Each part on the store and the sandboxes, and each told of the others.
-func wire(gdb *gorm.DB, st store.Store, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router, cluster, zone, suffix, boxToken string) *plane {
+// Each part on the database and the sandboxes, and each told of the others.
+func wire(gdb *gorm.DB, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router, cluster, zone, suffix, boxToken string) *plane {
 	bus := stream.New(workspace.Update{Kind: "reset"})
 	sc := &workers.Scaler{Sandboxes: sb, Pools: pools, DB: gdb, Cluster: cluster}
-	ws := &workspace.Workspace{Sandboxes: sb, DB: gdb, Store: st, Edge: e, Workers: sc, Tools: toolbox{github.Forge{}}, Bus: bus,
+	ws := &workspace.Workspace{Sandboxes: sb, DB: gdb, Edge: e, Workers: sc, Tools: toolbox{github.Forge{}}, Bus: bus,
 		Runners: runners, BoxToken: boxToken, Cluster: cluster, Zone: zone, Suffix: suffix}
 	sc.Named, sc.Woken = ws.Named, ws.Unkeyed
-	return &plane{DB: gdb, Store: st, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
+	return &plane{DB: gdb, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
 		ws: ws, sc: sc, auth: &auth.Auth{DB: gdb}, gate: preview.Gate{Secret: boxToken}, bus: bus}
 }
 

@@ -15,60 +15,7 @@ import (
 	"github.com/getnvoi/host0/internal/llm/claude"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/shared/seal"
-	"github.com/getnvoi/host0/internal/store"
 )
-
-// Records are kept as JSON, as the real store keeps them: what is read back is a copy, never the writer's value.
-type fakeStore struct {
-	mu sync.Mutex
-	kv map[string]map[string][]byte
-}
-
-func newStore() *fakeStore { return &fakeStore{kv: map[string]map[string][]byte{}} }
-
-func (f *fakeStore) Get(kind, id string, v any) error {
-	f.mu.Lock()
-	b, ok := f.kv[kind][id]
-	f.mu.Unlock()
-	if !ok {
-		return store.ErrNotFound
-	}
-	return json.Unmarshal(b, v)
-}
-
-func (f *fakeStore) Put(kind, id string, v any) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.kv[kind] == nil {
-		f.kv[kind] = map[string][]byte{}
-	}
-	f.kv[kind][id] = b
-	return nil
-}
-
-func (f *fakeStore) Delete(kind, id string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	delete(f.kv[kind], id)
-	return nil
-}
-
-func (f *fakeStore) List(kind string, each func(func(any) error) error) error {
-	f.mu.Lock()
-	var all [][]byte
-	for _, b := range f.kv[kind] {
-		all = append(all, b)
-	}
-	f.mu.Unlock()
-	for _, b := range all {
-		each(func(v any) error { return json.Unmarshal(b, v) })
-	}
-	return nil
-}
 
 // Workers with room for every actor: a tier is one of the defaults, an actor not running is resumed.
 type roomy struct{ sb sandbox.Sandboxes }
@@ -140,7 +87,7 @@ func (b *bus) tap(t *testing.T) chan Update {
 
 // A workspace on sb, its rows in memory. Its turns run claude's real parsing of what the fake boxd prints.
 func newWorkspace(t *testing.T, sb sandbox.Sandboxes) *Workspace {
-	return &Workspace{Store: newStore(), DB: newDB(t), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{},
+	return &Workspace{DB: newDB(t), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{},
 		Sandboxes: sb, Workers: roomy{sb}, Tools: idle{}, Bus: &bus{}, Runners: []llm.Runner{claude.Runner{}},
 		Pin: func(_ context.Context, image string) (string, error) { return image, nil }}
 }

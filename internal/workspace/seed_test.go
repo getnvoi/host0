@@ -231,7 +231,7 @@ func TestRestartAfterSeedBuildsNothing(t *testing.T) {
 	until(t, "the build to end", func() bool { _, busy := seeding.Load("shop"); return !busy })
 
 	restarted := newWorkspace(t, sb)
-	restarted.Store, restarted.DB, restarted.Bus, restarted.BoxImage = p.Store, p.DB, p.Bus, "boxd@2"
+	restarted.DB, restarted.Bus, restarted.BoxImage = p.DB, p.Bus, "boxd@2"
 	restarted.Recover()
 	restarted.Stale()
 	if _, busy := seeding.Load("shop"); busy {

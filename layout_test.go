@@ -16,7 +16,7 @@ const module = "github.com/getnvoi/host0/"
 
 var (
 	features  = []string{"workspace", "auth", "tools", "workers", "preview", "stream", "infra"}
-	contracts = []string{"sandbox", "llm", "scm", "store", "edge", "cloud", "db"}
+	contracts = []string{"sandbox", "llm", "scm", "edge", "cloud", "db"}
 	clients   = []string{"box", "kube", "api"}
 )
 
@@ -72,6 +72,8 @@ func refused(from, to string, test bool) string {
 	toKind, toTop := place(to)
 	inside := to == top || strings.HasPrefix(to, top+"/")
 	switch {
+	case to == "internal/store" || strings.HasPrefix(to, "internal/store/"):
+		return "imports internal/store: the plane's records are rows in internal/db"
 	case kind == "":
 		return "is in no place of the layout: add it to the lists in layout_test.go and to CLAUDE.md"
 	case toKind == "":
@@ -183,6 +185,8 @@ func TestRefused(t *testing.T) {
 		{"cmd/controlplane", "internal/infra", false, "only cmd/hz/local"},
 		{"cmd/hz/local", "internal/infra/steps", false, ""},
 		{"internal/oddity", "internal/shared/seal", false, "no place"},
+		{"cmd/controlplane", "internal/store", false, "internal/db"},
+		{"internal/workspace", "internal/store/files", true, "internal/db"},
 	} {
 		got := refused(c.from, c.to, c.test)
 		if c.want == "" && got != "" || !strings.Contains(got, c.want) {

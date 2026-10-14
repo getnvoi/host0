@@ -24,7 +24,7 @@ func withBox(t *testing.T, boxd http.HandlerFunc) (*plane, http.Handler) {
 		boxd(w, r)
 	}))
 	t.Cleanup(srv.Close)
-	p, h := serve(newStore(t), boxed{addr: srv.Listener.Addr().String()}, nil, nil)
+	p, h := serve(newDB(t), boxed{addr: srv.Listener.Addr().String()}, nil, nil)
 	putEnv(t, p, workspace.Environment{Name: "web", Branch: "main",
 		Services: []workspace.Service{{Name: "rails"}, {Name: "worker"}}})
 	if _, err := p.ws.AddConfig(testLLM); err != nil {
