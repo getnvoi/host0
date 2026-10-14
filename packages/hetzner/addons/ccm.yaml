@@ -159,6 +159,9 @@ spec:
                   name: hcloud
             - name: HCLOUD_NETWORK_ROUTES_ENABLED
               value: "false"
+            # Nodes report their IPv6 ExternalIP too; the public edge's AAAA records are read from it.
+            - name: HCLOUD_INSTANCES_ADDRESS_FAMILY
+              value: dualstack
             - name: ROBOT_PASSWORD
               valueFrom:
                 secretKeyRef:
