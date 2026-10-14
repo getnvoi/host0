@@ -168,6 +168,11 @@ func (Client) Ports() []int { return nil }
 
 func (Client) Deployment() string { return "cloudflared" }
 
+func (c Client) Reach(ctx context.Context) error {
+	_, err := c.zoneID(ctx)
+	return err
+}
+
 // The tunnel to service; its connector reads cloudflared, and the plane routes hosts with cloudflare's token.
 func (c Client) Serve(ctx context.Context, cl naming.Cluster, service string, _ []string) (map[string]map[string]string, error) {
 	token, err := c.Tunnel(ctx, cl, service)

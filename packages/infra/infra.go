@@ -42,6 +42,8 @@ type Edge interface {
 	Serve(ctx context.Context, c naming.Cluster, service string, hosts []string) (map[string]map[string]string, error)
 	// The Deployment that runs it in naming.Namespace, from manifests/<Deployment>.yaml.
 	Deployment() string
+	// Reads the zone with the given credentials; install runs it before anything is created.
+	Reach(ctx context.Context) error
 	Destroy(ctx context.Context, c naming.Cluster) error
 }
 

@@ -48,6 +48,7 @@ func pools(e *infra.Env) []pool {
 const apiPort = "16443"
 
 var Install = []infra.Step{
+	step("dns credentials", func(ctx context.Context, e *infra.Env) error { return e.Edge.Reach(ctx) }),
 	step("network, firewall, ssh key", func(ctx context.Context, e *infra.Env) error {
 		return e.Cloud.Base(ctx, e.Cluster, e.Config.Location, e.Config.PublicKey, e.Edge.Ports())
 	}),

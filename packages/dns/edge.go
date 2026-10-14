@@ -23,6 +23,14 @@ func (Edge) Ports() []int { return []int{80, 443} }
 
 func (Edge) Deployment() string { return "proxy" }
 
+func (e Edge) Reach(context.Context) error {
+	z, err := Open(e.Provider, e.Creds, e.Zone)
+	if err != nil {
+		return err
+	}
+	return z.Read()
+}
+
 // The Secret the proxy and the plane read the zone and its credentials from.
 const Secret = "dns"
 

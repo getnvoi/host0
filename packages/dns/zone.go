@@ -43,6 +43,18 @@ func Open(provider string, creds map[string]string, zone string) (*Zone, error) 
 	return &Zone{Name: strings.ToLower(strings.TrimSuffix(zone, ".")), driver: d}, nil
 }
 
+// Fails with the provider's own sentence when the zone cannot be read with these credentials.
+func (z *Zone) Read() error {
+	dc, err := models.NewDomainConfig(z.Name)
+	if err != nil {
+		return err
+	}
+	if _, err := z.driver.GetZoneRecords(dc); err != nil {
+		return fmt.Errorf("zone %s: %w", z.Name, err)
+	}
+	return nil
+}
+
 // The values one name and type ends with: add is made present, del removed, and with exact every other value goes too.
 type edit struct {
 	label, typ string

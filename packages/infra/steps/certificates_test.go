@@ -42,6 +42,8 @@ type edge struct{ infra.Edge }
 
 func (edge) Deployment() string { return proxy }
 
+func (edge) Reach(context.Context) error { return nil }
+
 func TestCertificatesBeforeEdge(t *testing.T) {
 	var names []string
 	for _, s := range Install {
