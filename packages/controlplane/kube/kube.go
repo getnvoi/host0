@@ -139,6 +139,28 @@ func (c *Client) Nodes(ctx context.Context) ([]contract.Node, error) {
 	return out, nil
 }
 
+// The node's public addresses as its cloud controller reports them now.
+func (c *Client) Addresses(ctx context.Context, node string) ([]string, error) {
+	var n struct {
+		Status struct {
+			Addresses []struct{ Type, Address string } `json:"addresses"`
+		} `json:"status"`
+	}
+	if err := c.do(ctx, "GET", "/api/v1/nodes/"+node, nil, &n); err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, a := range n.Status.Addresses {
+		if a.Type == "ExternalIP" {
+			out = append(out, a.Address)
+		}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("node %s reports no ExternalIP", node)
+	}
+	return out, nil
+}
+
 // The ReplicaSet removes the lowest cost first; a free worker goes before any that holds an actor.
 func (c *Client) Cost(ctx context.Context, pod string, cost int) error {
 	return c.do(ctx, "PATCH", fmt.Sprintf("/api/v1/namespaces/%s/pods/%s", c.Namespace, pod),

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,8 @@ import (
 	"github.com/getnvoi/host0/controlplane/kube"
 	"github.com/getnvoi/host0/controlplane/store"
 	"github.com/getnvoi/host0/controlplane/substrate"
+	"github.com/getnvoi/host0/dns"
+	"github.com/getnvoi/host0/shared/naming"
 )
 
 func must(name string) string {
@@ -53,7 +56,7 @@ func main() {
 		Sandboxes:    sb,
 		Pools:        pools,
 		Store:        &store.Files{Root: "/var/lib/hz"},
-		Edge:         edge.Cloudflare{Token: must("CLOUDFLARE_API_TOKEN"), Zone: zone, TunnelToken: must("TUNNEL_TOKEN")},
+		Edge:         selectEdge(pools, cluster, zone),
 		Forge:        forge.GitHub{},
 		Pin:          controlplane.PinDockerHub,
 		BoxImage:     must("HZ_BOXD_IMAGE"),
@@ -89,5 +92,33 @@ func route(edge controlplane.Edge, host string) {
 		}
 		log.Printf("route %s: %v; again in %s", host, err, wait)
 		time.Sleep(wait)
+	}
+}
+
+// The edge the install deployed beside the plane, named by its Deployment.
+func selectEdge(k *kube.Client, cluster, zone string) controlplane.Edge {
+	switch e := must("HZ_EDGE"); e {
+	case "cloudflared":
+		return edge.Cloudflare{Token: must("CLOUDFLARE_API_TOKEN"), Zone: zone, TunnelToken: must("TUNNEL_TOKEN")}
+	case "proxy":
+		var creds map[string]string
+		if err := json.Unmarshal([]byte(must("HZ_DNS_CREDS")), &creds); err != nil {
+			log.Fatalf("HZ_DNS_CREDS: %v", err)
+		}
+		z, err := dns.Open(must("HZ_DNS_PROVIDER"), creds, zone)
+		if err != nil {
+			log.Fatal(err)
+		}
+		c, err := naming.New(cluster)
+		if err != nil {
+			log.Fatal(err)
+		}
+		suffix, node := must("HZ_PREVIEW_SUFFIX"), must("HZ_NODE")
+		return edge.Public{Zone: z,
+			Owns:      func(host string) bool { return naming.Owns(c, suffix, zone, host) },
+			Addresses: func(ctx context.Context) ([]string, error) { return k.Addresses(ctx, node) }}
+	default:
+		log.Fatalf("HZ_EDGE %q: neither cloudflared nor proxy", e)
+		return nil
 	}
 }

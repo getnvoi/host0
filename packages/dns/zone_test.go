@@ -83,6 +83,12 @@ func same(t *testing.T, got, want []string) {
 func TestPoint(t *testing.T) {
 	z, _ := open(t)
 	before := records(t, z)
+	if err := z.Check("api-dev.nvoi.to", []string{"203.0.113.7"}); err == nil || !strings.Contains(err.Error(), "198.51.100.1") {
+		t.Fatalf("check before: %v", err)
+	}
+	if err := z.Check("app-dev.nvoi.to", []string{"203.0.113.7"}); err == nil || !strings.Contains(err.Error(), "no record") {
+		t.Fatalf("check absent: %v", err)
+	}
 	done, err := z.Point("api-dev.nvoi.to", []string{"203.0.113.7", "2001:db8::7"})
 	if err != nil {
 		t.Fatal(err)
@@ -93,6 +99,9 @@ func TestPoint(t *testing.T) {
 	same(t, records(t, z), with(without(before, "api-dev A 198.51.100.1"),
 		"api-dev A 203.0.113.7", "api-dev AAAA 2001:db8::7"))
 
+	if err := z.Check("api-dev.nvoi.to", []string{"2001:db8::7", "203.0.113.7"}); err != nil {
+		t.Fatal(err)
+	}
 	// Converged: a second run changes nothing.
 	if done, err := z.Point("api-dev.nvoi.to.", []string{"2001:db8::7", "203.0.113.7"}); err != nil || len(done) != 0 {
 		t.Fatalf("second run: %v %v", done, err)

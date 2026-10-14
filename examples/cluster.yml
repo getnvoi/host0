@@ -1,0 +1,17 @@
+# hz cluster install -f examples/cluster.yml: a flag given on the command line overrides its value here.
+# credentials map the provider's own key to the shell variable holding it; dns keys are dnscontrol's creds.json keys.
+name: dev
+cloud:
+  provider: hetzner
+  location: fsn1
+  control: cx32
+  worker: cx42
+  workerMax: 5
+  credentials: { token: HCLOUD_TOKEN }
+edge:
+  mode: public # tunnel: Cloudflare's tunnel, CLOUDFLAREAPI only; public: records at the control node, TLS on 80/443
+  zone: nvoi.to
+  previewSuffix: -preview
+dns:
+  provider: CLOUDFLAREAPI
+  credentials: { apitoken: CLOUDFLARE_API_TOKEN }

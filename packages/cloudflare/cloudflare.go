@@ -163,6 +163,20 @@ func (c Client) Tunnel(ctx context.Context, cl naming.Cluster, service string) (
 	return token, err
 }
 
+// The tunnel dials out: nothing is opened on the node.
+func (Client) Ports() []int { return nil }
+
+func (Client) Deployment() string { return "cloudflared" }
+
+// The tunnel to service; its connector reads cloudflared, and the plane routes hosts with cloudflare's token.
+func (c Client) Serve(ctx context.Context, cl naming.Cluster, service string, _ []string) (map[string]map[string]string, error) {
+	token, err := c.Tunnel(ctx, cl, service)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]map[string]string{"cloudflared": {"token": token}, "cloudflare": {"token": c.Token, "zone": c.Zone}}, nil
+}
+
 // The tunnel and every record pointing at it.
 func (c Client) Destroy(ctx context.Context, cl naming.Cluster) error {
 	acc, err := c.account(ctx)

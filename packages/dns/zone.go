@@ -191,6 +191,50 @@ func (z *Zone) Point(host string, ips []string) ([]string, error) {
 	})
 }
 
+// Nil when host's A and AAAA records are exactly ips; otherwise what is there instead. Reads only.
+func (z *Zone) Check(host string, ips []string) error {
+	label, err := z.label(host)
+	if err != nil {
+		return err
+	}
+	dc, err := models.NewDomainConfig(z.Name)
+	if err != nil {
+		return err
+	}
+	existing, err := z.driver.GetZoneRecords(dc)
+	if err != nil {
+		return fmt.Errorf("zone %s: %w", z.Name, err)
+	}
+	var want, have []string
+	for _, ip := range ips {
+		a, err := netip.ParseAddr(ip)
+		if err != nil {
+			return fmt.Errorf("%s: %w", host, err)
+		}
+		want = append(want, a.Unmap().String())
+	}
+	for _, r := range existing {
+		if !strings.EqualFold(r.GetLabel(), label) {
+			continue
+		}
+		switch r.Type {
+		case "A", "AAAA":
+			have = append(have, value(r))
+		case "CNAME":
+			return fmt.Errorf("%s is taken: CNAME %s", host, value(r))
+		}
+	}
+	slices.Sort(want)
+	slices.Sort(have)
+	if len(have) == 0 {
+		return fmt.Errorf("%s has no record", host)
+	}
+	if !slices.Equal(want, have) {
+		return fmt.Errorf("%s points at %s, not %s", host, strings.Join(have, " "), strings.Join(want, " "))
+	}
+	return nil
+}
+
 // Removes every A and AAAA record whose name owned accepts.
 func (z *Zone) Sweep(owned func(name string) bool) ([]string, error) {
 	return z.apply(func(existing models.Records) ([]edit, error) {

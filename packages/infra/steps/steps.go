@@ -8,9 +8,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -43,7 +45,7 @@ const apiPort = "16443"
 
 var Install = []infra.Step{
 	step("network, firewall, ssh key", func(ctx context.Context, e *infra.Env) error {
-		return e.Cloud.Base(ctx, e.Cluster, e.Config.Location, e.Config.PublicKey)
+		return e.Cloud.Base(ctx, e.Cluster, e.Config.Location, e.Config.PublicKey, e.Edge.Ports())
 	}),
 	always("control node", func(ctx context.Context, e *infra.Env) (err error) {
 		if e.Control, err = e.Cloud.Server(ctx, e.Cluster, e.Cluster.Control(), e.Config.ControlType, e.Config.Location, naming.ControlIP); err != nil {
@@ -160,19 +162,31 @@ var Install = []infra.Step{
 		}
 		return kube.Run(ctx, e.Shell, "-n hz delete workerpool --ignore-not-found -l 'workload,workload notin ("+strings.Join(names, ",")+")'", e.Out)
 	}),
-	step("cloudflare tunnel", func(ctx context.Context, e *infra.Env) error {
-		token, err := e.Edge.Tunnel(ctx, e.Cluster, "http://plane."+naming.Namespace+".svc:80")
+	step("edge", func(ctx context.Context, e *infra.Env) error {
+		secrets, err := e.Edge.Serve(ctx, e.Cluster, service, hosts(e))
 		if err != nil {
 			return err
 		}
-		if err := kube.Apply(ctx, e.Shell, kube.Secret(naming.Namespace, "cloudflared", map[string]string{"token": token})+"---\n"+
-			kube.Secret(naming.Namespace, "cloudflare", map[string]string{"token": e.Config.CFToken, "zone": e.Config.Zone}), e.Out); err != nil {
+		var objs []string
+		for _, name := range slices.Sorted(maps.Keys(secrets)) {
+			objs = append(objs, kube.Secret(naming.Namespace, name, secrets[name]))
+		}
+		if err := kube.Apply(ctx, e.Shell, strings.Join(objs, "---\n"), e.Out); err != nil {
 			return err
 		}
-		if err := apply(ctx, e, "cloudflared.yaml", nil); err != nil {
+		m, err := manifests.Render(e.Edge.Deployment()+".yaml", map[string]string{"ControlLabel": controlLabel(e), "Service": service})
+		if err != nil {
 			return err
 		}
-		return kube.Rollout(ctx, e.Shell, naming.Namespace, "deployment", "cloudflared", e.Out)
+		if strings.Contains(m, "ko://") {
+			if m, err = resolve(ctx, e, e.Source, m, "-f", "-"); err != nil {
+				return err
+			}
+		}
+		if err := kube.Apply(ctx, e.Shell, m, e.Out); err != nil {
+			return err
+		}
+		return kube.Rollout(ctx, e.Shell, naming.Namespace, "deployment", e.Edge.Deployment(), e.Out)
 	}),
 	step("control plane", func(ctx context.Context, e *infra.Env) error {
 		// The box token is in every template: a new one would orphan every seed and fork. Only the API token rotates.
@@ -189,6 +203,7 @@ var Install = []infra.Step{
 			return err
 		}
 		m, err := manifests.Render("plane.yaml", map[string]string{"Cluster": e.Cluster.Name, "Zone": e.Config.Zone,
+			"Edge":   e.Edge.Deployment(),
 			"Suffix": e.Config.PreviewSuffix, "ControlLabel": controlLabel(e),
 			"Secret": hex.EncodeToString(sum[:8])})
 		if err != nil {
@@ -220,6 +235,14 @@ var Install = []infra.Step{
 		e.Say("web UI at %s: sign in with hz open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
 		return state.Save(state.State{URL: url, Token: token})
 	}),
+}
+
+// Every request on the edge goes to the plane, which reads the host.
+const service = "http://plane." + naming.Namespace + ".svc:80"
+
+// The hosts the plane serves from boot; previews are routed by the plane as they come.
+func hosts(e *infra.Env) []string {
+	return []string{naming.Host(e.Cluster, "api", e.Config.Zone), naming.Host(e.Cluster, "app", e.Config.Zone)}
 }
 
 func secret() string {
@@ -293,14 +316,14 @@ func kubeContext(e *infra.Env) string {
 	return "default"
 }
 
-// Waits until the plane answers through the tunnel several times in a row: new records reach Cloudflare's edge servers
+// Waits until the plane answers through the edge several times in a row: new records reach Cloudflare's edge servers
 // one by one, and one that has not yet answers with an error of its own (1000, a 403 page).
 func reachable(ctx context.Context, url string, out io.Writer) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	deadline := time.Now().Add(5 * time.Minute)
 	for streak := 0; streak < 5; {
 		if time.Now().After(deadline) {
-			return fmt.Errorf("%s does not answer through the tunnel", url)
+			return fmt.Errorf("%s does not answer through the edge", url)
 		}
 		res, err := client.Get(url + "/approvals")
 		// The plane refuses a request without its token; anything else is not the plane.
@@ -318,6 +341,6 @@ func reachable(ctx context.Context, url string, out io.Writer) error {
 		case <-time.After(2 * time.Second):
 		}
 	}
-	fmt.Fprintf(out, "  %s answers through the tunnel\n", url)
+	fmt.Fprintf(out, "  %s answers through the edge\n", url)
 	return nil
 }
