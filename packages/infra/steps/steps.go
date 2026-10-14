@@ -416,11 +416,16 @@ func KeepCerts(ctx context.Context, e *infra.Env) error {
 	if key == nil {
 		return fmt.Errorf("--keep-cert seals with %s, which is not there", state.KeyPath())
 	}
-	control, err := e.Cloud.Lookup(ctx, e.Cluster.Control())
+	servers, err := e.Cloud.List(ctx, e.Cluster)
 	if err != nil {
 		return err
 	}
-	if e.Shell, err = e.Dial(ctx, control.PublicIP+":22"); err != nil {
+	i := slices.IndexFunc(servers, func(s cloud.Server) bool { return s.Name == e.Cluster.Control() })
+	if i < 0 {
+		e.Say("no %s: no certificate left to keep", e.Cluster.Control())
+		return nil
+	}
+	if e.Shell, err = e.Dial(ctx, servers[i].PublicIP+":22"); err != nil {
 		return err
 	}
 	if c, ok := e.Shell.(io.Closer); ok {

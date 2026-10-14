@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/getnvoi/host0/cloud"
 	"github.com/getnvoi/host0/edge"
 	"github.com/getnvoi/host0/infra"
 	"github.com/getnvoi/host0/shared/naming"
@@ -114,5 +115,21 @@ func TestCertificatesRestore(t *testing.T) {
 	os.Remove(state.KeyPath())
 	if err := certificates(ctx, e); err == nil || !strings.Contains(err.Error(), "which is not there") {
 		t.Fatalf("a file without its key: %v", err)
+	}
+}
+
+type gone struct{ cloud.Cloud }
+
+func (gone) List(context.Context, naming.Cluster) ([]cloud.Server, error) { return nil, nil }
+
+// A destroyed cluster has nothing to keep, so a second destroy with --keep-cert goes on to its no-op sweep.
+func TestKeepCertsWithoutControl(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := state.SaveKey(make([]byte, seal.Size)); err != nil {
+		t.Fatal(err)
+	}
+	e := &infra.Env{Cluster: naming.Cluster{Name: "edge"}, Cloud: gone{}, Edge: public{}, Config: infra.Config{Zone: "nvoi.to"}, Out: io.Discard}
+	if err := KeepCerts(context.Background(), e); err != nil {
+		t.Fatal(err)
 	}
 }
