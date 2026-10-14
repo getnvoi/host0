@@ -221,7 +221,7 @@ func seed() *cobra.Command {
 	}
 }
 
-// Silence on the stream longer than this is a hang: the plane announces a build every few seconds.
+// No new step and no new output for this long is a hang, however often the plane repeats the build's row.
 var silence = 10 * time.Second
 
 // Pause before reopening a dropped stream, times the attempt.
@@ -233,6 +233,7 @@ const attempts = 4
 type build struct {
 	st                    state.State
 	env, last, step, line string
+	lines                 int
 	asked                 bool
 	out                   io.Writer
 }
@@ -269,7 +270,8 @@ func (b *build) once() (drop, heard bool, err error) {
 		case err := <-ended:
 			return true, heard, err
 		case <-quiet.C:
-			return false, heard, fmt.Errorf("no word from the plane on the seed of %s for %s; last step: %s", b.env, silence, b.step)
+			return false, heard, fmt.Errorf("no progress on the seed of %s for %s; last step: %s; last line: %q",
+				b.env, silence, b.step, b.line)
 		case f := <-frames:
 			if f.id != "" {
 				b.last = f.id
@@ -289,38 +291,47 @@ func (b *build) once() (drop, heard bool, err error) {
 				if err := call("GET", "/environments/"+b.env+"/seed", nil, &s); err != nil {
 					return false, heard, err
 				}
+				// The row keeps no output count: only a new step or state counts as progress here.
+				s.Lines = b.lines
 			case f.u.Kind == "seed" && f.u.Seed.Env == b.env:
 				s = *f.u.Seed
 			default:
 				continue
 			}
-			heard = true
-			quiet.Reset(silence)
-			if done, err := b.show(s); done {
+			moved, done, err := b.show(s)
+			if done {
 				return false, heard, err
+			}
+			if moved {
+				heard = true
+				quiet.Reset(silence)
 			}
 		}
 	}
 }
 
-// Prints what changed; done once the build rests.
-func (b *build) show(s contract.Seed) (bool, error) {
+// Prints what changed. moved: a new step or new output, the only thing that counts as progress; done: the build
+// rests.
+func (b *build) show(s contract.Seed) (moved, done bool, err error) {
 	switch s.State {
 	case "ready":
 		fmt.Fprintf(b.out, "seed ready: %s\n", link(s.Preview))
-		return true, nil
+		return true, true, nil
 	case "failed":
-		return true, fmt.Errorf("seed failed: %s", s.Error)
+		return true, true, fmt.Errorf("seed failed: %s", s.Error)
 	}
 	if s.Step != b.step {
-		b.step, b.line = s.Step, ""
+		b.step, b.line, moved = s.Step, "", true
 		fmt.Fprintf(b.out, "  %s\n", s.Step)
+	}
+	if s.Lines != b.lines {
+		b.lines, moved = s.Lines, true
 	}
 	if s.Line != "" && s.Line != b.line {
 		b.line = s.Line
 		fmt.Fprintf(b.out, "    %s\n", s.Line)
 	}
-	return false, nil
+	return moved, false, nil
 }
 
 // One message of the plane's stream: its id, and the update it carries, if any.

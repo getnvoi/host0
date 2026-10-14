@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -270,13 +271,49 @@ func (p *Plane) Reseed(name string) error {
 	return nil
 }
 
-// How often a build is announced while it runs; the cli takes ten seconds without word for a hang.
+// How often a build in progress is announced from its row, so a reader hears it well within the silence.
 const beat = 3 * time.Second
 
-// The setup's last line of output, by environment, while its seed builds.
+// A build with no new step and no new output for this long is hung, and fails.
+var silence = 10 * time.Second
+
+// The progress of each build under way, by environment.
 var tails sync.Map
 
-// Announces the build's row every interval, with the setup's last line, until done.
+// What a build has shown of itself: its step, its output, and when either last moved.
+type progress struct {
+	mu    sync.Mutex
+	step  string
+	line  string
+	lines int
+	moved time.Time
+	// The silence when the build started, so one value holds for the whole build.
+	silence time.Duration
+}
+
+func (g *progress) to(step string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.step, g.line, g.moved = step, "", time.Now()
+}
+
+func (g *progress) say(line string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.line, g.lines, g.moved = line, g.lines+1, time.Now()
+}
+
+// The reason the build is hung, or nil.
+func (g *progress) hung() error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if time.Since(g.moved) < g.silence {
+		return nil
+	}
+	return fmt.Errorf("%s: no output for %s; last line: %q", g.step, g.silence, g.line)
+}
+
+// Announces the build's row every interval, with its last line of output, until done.
 func (p *Plane) heartbeat(name string, every time.Duration, done <-chan struct{}) {
 	t := time.NewTicker(every)
 	defer t.Stop()
@@ -293,8 +330,11 @@ func (p *Plane) heartbeat(name string, every time.Duration, done <-chan struct{}
 		if s.State != "building" {
 			continue
 		}
-		if l, ok := tails.Load(name); ok {
-			s.Line = l.(string)
+		if g, ok := tails.Load(name); ok {
+			g := g.(*progress)
+			g.mu.Lock()
+			s.Line, s.Lines = g.line, g.lines
+			g.mu.Unlock()
 		}
 		bus.publish(contract.Update{Kind: "seed", Seed: &s})
 	}
@@ -315,7 +355,30 @@ func (p *Plane) served(name string) (contract.Seed, error) {
 // Builds the seed. "seeds" holds the build as it goes; "ready" the last one that finished, for sessions to fork.
 func (p *Plane) Seed(ctx context.Context, name string) error {
 	seed := contract.Seed{Env: name, State: "building", At: time.Now()}
+	g := &progress{moved: time.Now(), silence: silence}
+	tails.Store(name, g)
+	defer tails.Delete(name)
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	go func() {
+		t := time.NewTicker(g.silence / 10)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if err := g.hung(); err != nil {
+					cancel(err)
+					return
+				}
+			}
+		}
+	}()
 	fail := func(err error) error {
+		if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+			err = context.Cause(ctx)
+		}
 		seed.State, seed.Error = "failed", err.Error()
 		if perr := p.saveSeed(seed); perr != nil {
 			log.Printf("seed %s: %v", name, perr)
@@ -326,9 +389,32 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	}
 	step := func(what string) error {
 		seed.Step = what
+		g.to(what)
 		return p.saveSeed(seed)
 	}
-	defer tails.Delete(name)
+	// A wait on the substrate prints nothing; its output is the actor's state, asked every fifth of the silence.
+	observe := func() (stop func()) {
+		done := make(chan struct{})
+		go func() {
+			t := time.NewTicker(g.silence / 5)
+			defer t.Stop()
+			for {
+				select {
+				case <-done:
+					return
+				case <-ctx.Done():
+					return
+				case <-t.C:
+				}
+				state, err := p.Sandboxes.State(ctx, seed.Actor)
+				if err != nil {
+					state = err.Error()
+				}
+				g.say("actor " + seed.Actor + ": " + state)
+			}
+		}()
+		return func() { close(done) }
+	}
 	if err := step("reading the environment"); err != nil {
 		return fail(err)
 	}
@@ -363,6 +449,7 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	if err := step("starting the sandbox, services: " + strings.Join(services, ", ")); err != nil {
 		return fail(err)
 	}
+	stop := observe()
 	// A build that crashed leaves its actor crashed, and a crashed actor never resumes: this build starts over.
 	if state, err := p.Sandboxes.State(ctx, seed.Actor); err == nil && state == "crashed" {
 		if err := p.Sandboxes.Delete(ctx, seed.Actor); err != nil {
@@ -385,6 +472,7 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	if err := bx.Ready(ctx); err != nil {
 		return fail(err)
 	}
+	stop()
 	seed.Run = "seed-" + id()
 	if err := step("running the seed script"); err != nil {
 		return fail(err)
@@ -394,15 +482,23 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	err = bx.Must(ctx, seed.Run, run, func(l string) {
 		log.Printf("seed %s | %s", name, l)
 		if what, ok := strings.CutPrefix(l, stepMark); ok {
-			tails.Delete(name)
 			if err := step(what); err != nil && lost == nil {
 				lost = err
 			}
 			return
 		}
-		tails.Store(name, l)
+		g.say(l)
 	})
 	if err != nil {
+		if ctx.Err() != nil {
+			// boxd keeps a run going after its reader leaves; a hung script is ended there too.
+			err = context.Cause(ctx)
+			stopping, done := context.WithTimeout(context.Background(), g.silence)
+			if cerr := bx.Cancel(stopping, seed.Run); cerr != nil {
+				err = fmt.Errorf("%w; ending %s in boxd: %v", err, seed.Run, cerr)
+			}
+			done()
+		}
 		return fail(err)
 	}
 	if lost != nil {
@@ -411,6 +507,8 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	if err := step(fmt.Sprintf("waiting for the app on port %d", env.Preview)); err != nil {
 		return fail(err)
 	}
+	stop = observe()
+	defer stop()
 	if err := p.answers(ctx, seed.Actor, env.Preview); err != nil {
 		return fail(err)
 	}

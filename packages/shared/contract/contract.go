@@ -77,9 +77,10 @@ type Seed struct {
 	Actor    string    `json:"actor"`
 	Template string    `json:"template"`
 	Tag      string    `json:"tag"`
-	State    string    `json:"state"`          // building, ready, failed
-	Step     string    `json:"step,omitempty"` // what the build is doing now
-	Line     string    `json:"line,omitempty"` // the setup's last line of output, sent on the stream only
+	State    string    `json:"state"`           // building, ready, failed
+	Step     string    `json:"step,omitempty"`  // what the build is doing now
+	Line     string    `json:"line,omitempty"`  // the build's last line of output, sent on the stream only
+	Lines    int       `json:"lines,omitempty"` // lines of output so far; a beat that repeats it reports no progress
 	Error    string    `json:"error,omitempty"`
 	Preview  string    `json:"preview,omitempty"`
 	Spec     string    `json:"spec,omitempty"` // digest of the containers it was built from

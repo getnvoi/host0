@@ -3,6 +3,7 @@ package controlplane
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
@@ -131,6 +132,45 @@ func TestSeedAnnouncesEachStep(t *testing.T) {
 	}
 }
 
+// A setup step that prints a line and then nothing fails the build with its name and that line, and its run is ended.
+func TestSeedSilentStepFails(t *testing.T) {
+	silence = 200 * time.Millisecond
+	t.Cleanup(func() { silence = 10 * time.Second })
+	var script string
+	cancelled := make(chan string, 1)
+	speak := seedBoxd(&script)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "DELETE":
+			cancelled <- r.URL.Path
+		case strings.HasSuffix(r.URL.Path, "/log") && r.URL.Query().Get("offset") == "0":
+			fmt.Fprintf(w, "%ssetup: npm ci\nadded 12 packages\n", stepMark)
+		case strings.HasSuffix(r.URL.Path, "/log"):
+			<-r.Context().Done()
+		default:
+			speak(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	p := &Plane{Store: newStore(), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{},
+		Sandboxes: seeder{&sandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}},
+		Pin:       func(_ context.Context, image string) (string, error) { return image, nil }}
+	p.Store.Put("environments", "shop", contract.Environment{Name: "shop", Repo: "acme/shop", Branch: "main",
+		Setup: []string{"npm ci"}, Preview: 3000})
+	p.Store.Put("credentials", "default", contract.Credentials{})
+	c := tap(t)
+	if err := p.Reseed("shop"); err != nil {
+		t.Fatal(err)
+	}
+	_, last := seedUpdates(t, c, "shop")
+	if last.State != "failed" || last.Error != `setup: npm ci: no output for 200ms; last line: "added 12 packages"` {
+		t.Fatalf("rested on %+v", last)
+	}
+	if path := <-cancelled; path != "/run/"+last.Run {
+		t.Fatalf("cancelled %s, not %s", path, last.Run)
+	}
+}
+
 func TestSeedFailureCarriesTheError(t *testing.T) {
 	p, _ := withBoxd(t)
 	c := tap(t)
@@ -147,7 +187,7 @@ func TestSeedFailureCarriesTheError(t *testing.T) {
 func TestSeedHeartbeat(t *testing.T) {
 	p, _ := handler(t)
 	p.Store.Put("seeds", "hb", contract.Seed{Env: "hb", State: "building", Step: "setup: bundle install"})
-	tails.Store("hb", "Installing rails 8.0.2")
+	tails.Store("hb", &progress{line: "Installing rails 8.0.2", lines: 40})
 	t.Cleanup(func() { tails.Delete("hb") })
 	c := tap(t)
 	done := make(chan struct{})
@@ -157,7 +197,7 @@ func TestSeedHeartbeat(t *testing.T) {
 		var u contract.Update
 		json.Unmarshal((<-c).data, &u)
 		if u.Kind == "seed" && u.Seed.Env == "hb" {
-			if u.Seed.Step != "setup: bundle install" || u.Seed.Line != "Installing rails 8.0.2" {
+			if u.Seed.Step != "setup: bundle install" || u.Seed.Line != "Installing rails 8.0.2" || u.Seed.Lines != 40 {
 				t.Fatalf("beat %+v", u.Seed)
 			}
 			return

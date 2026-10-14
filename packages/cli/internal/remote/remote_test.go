@@ -140,11 +140,18 @@ func TestSeedSilenceIsAHang(t *testing.T) {
 	p := &plane{}
 	p.script = func(s *sse, _ int, _ string) {
 		<-p.asked
-		s.seed(contract.Seed{State: "building", Step: "building the template"})
-		<-s.r.Context().Done()
+		// Beats that repeat the step and the output count are no progress.
+		for {
+			s.seed(contract.Seed{State: "building", Step: "setup: npm ci", Line: "added 12 packages", Lines: 3})
+			select {
+			case <-s.r.Context().Done():
+				return
+			case <-time.After(20 * time.Millisecond):
+			}
+		}
 	}
 	_, err := run(t, p)
-	if err == nil || !strings.Contains(err.Error(), "no word from the plane on the seed of shop for 100ms; last step: building the template") {
+	if err == nil || err.Error() != `no progress on the seed of shop for 100ms; last step: setup: npm ci; last line: "added 12 packages"` {
 		t.Fatalf("error %v", err)
 	}
 }
