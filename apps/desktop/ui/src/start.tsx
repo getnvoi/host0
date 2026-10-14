@@ -17,7 +17,7 @@ import { measure, palette, tone as tones, type Tone } from "./tokens";
 export function Wordmark({ size = 26, color = palette.ink }: { size?: number; color?: string }) {
   return (
     <span className="font-serif leading-[1.3]" style={{ fontSize: size, letterSpacing: -0.3, color }}>
-      nvoi
+      hz
     </span>
   );
 }

@@ -101,7 +101,7 @@ export function turnsOf(s: Session, approvals: Approval[], queue: string[]): Tur
   if (current && waiting.length) {
     current.events = [
       ...current.events,
-      ...waiting.map((a) => ({ id: `approval-${a.id}`, kind: "tool_use", content: a.input, tool: a.tool, toolUseId: a.id, approvalStatus: "pending", createdAt: s.last })),
+      ...waiting.map((a) => ({ id: `approval-${a.id}`, kind: "tool_use", content: a.input, tool: a.tool, label: a.tool, command: a.input, toolUseId: a.id, approvalStatus: "pending", createdAt: s.last })),
     ];
   }
   return [...out, ...queue.map((prompt, i) => ({ id: `queued-${i}`, prompt, status: "queued", createdAt: s.last, events: [] }))];
