@@ -1,0 +1,57 @@
+{
+  "_recorded": "By hand from apps/desktop/README.md's hub contract, 2026-10-15. Re-record from a real hub once it exists (scripts are to come with it).",
+  "me": { "login": "benbonnet", "name": "Ben Bonnet", "avatar_url": null },
+  "offer": {
+    "credit_cents": 2000,
+    "currency": "EUR",
+    "plans": [
+      { "name": "starter", "label": "Starter", "cpu": 4, "memory": 8, "hourly_cents": 2 },
+      { "name": "team", "label": "Team", "cpu": 8, "memory": 32, "hourly_cents": 7 }
+    ],
+    "locations": [
+      { "name": "fsn1", "label": "Falkenstein" },
+      { "name": "hel1", "label": "Helsinki" }
+    ]
+  },
+  "run": [
+    "[1/12] Workspace northwind: network hz-northwind-prod",
+    "[2/12] Firewall hz-northwind-prod",
+    "[3/12] Server hz-northwind-prod-master-1 (cx33, fsn1)",
+    "[4/12] Waiting for ssh on hz-northwind-prod-master-1",
+    "[5/12] k3s server 1.33 on hz-northwind-prod-master-1",
+    "[6/12] Worker pool hz-northwind-prod-workers",
+    "[7/12] Agent Substrate",
+    "[8/12] Cloudflare tunnel hz-northwind-prod",
+    "[9/12] DNS app-northwind and *.northwind",
+    "[10/12] Control plane image",
+    "[11/12] Control plane rollout",
+    "[12/12] Control plane answers"
+  ],
+  "repositories": {
+    "install_url": "https://github.com/apps/hz/installations/new",
+    "repositories": [
+      { "full_name": "northwind/shop", "default_branch": "main", "private": true },
+      { "full_name": "northwind/billing", "default_branch": "trunk", "private": true }
+    ]
+  },
+  "usage": {
+    "days": 30,
+    "ranges": [7, 30, 90],
+    "from": "2026-09-15T00:00:00Z",
+    "to": "2026-10-15T00:00:00Z",
+    "currency": "EUR",
+    "cents": 412,
+    "creditLeft": 1588,
+    "spendable": true,
+    "running": 1,
+    "sessions": 3,
+    "byDay": [{ "date": "2026-10-14T00:00:00Z", "cents": { "shop": 412 }, "running": 6.5, "paused": 1 }],
+    "environments": [{ "environment": { "id": "shop", "name": "shop", "repo": "northwind/shop", "shape": "2x4" }, "cents": 412, "setup": 40, "sessions": 3 }],
+    "repositories": [{ "repo": "northwind/shop", "cents": 412, "environments": 1 }],
+    "machines": [],
+    "storage": [],
+    "spend": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "runs": 0 },
+    "agents": [],
+    "costly": []
+  }
+}

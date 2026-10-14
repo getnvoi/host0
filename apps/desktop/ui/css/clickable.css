@@ -1,0 +1,65 @@
+/* The pointing hand, a hover fill behind the content (optionally past its sides) and the action.
+   A surface sets --click-fill; a clickable may set --fill, --radius and --bleed. */
+@layer components {
+  .clickable {
+    position: relative;
+    isolation: isolate;
+    cursor: pointer;
+  }
+  .clickable::before {
+    content: "";
+    position: absolute;
+    inset: 0 calc(-1 * var(--bleed, 0px));
+    border-radius: var(--radius, 5px);
+    background: transparent;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .clickable:hover::before,
+  .clickable[data-active]::before,
+  .show-hover .clickable::before {
+    background: var(--fill, var(--click-fill));
+  }
+  /* Pressed: the same fill one step darker (the ink over it), unless a clickable inside is the one being pressed. */
+  .clickable:active:not(:has(.clickable:active))::before {
+    background: var(--press, color-mix(in oklab, var(--fill, var(--click-fill)), var(--color-ink) var(--press-mix)));
+  }
+  /* Keyboard focus rings the fill's own shape, past its bleed. */
+  .clickable:focus-visible {
+    outline: none;
+  }
+  .clickable:focus-visible::before {
+    box-shadow: 0 0 0 3px var(--color-focus);
+  }
+  /* A menu entry reached by the arrow keys shows its hover fill as well. */
+  .clickable[role="menuitem"]:focus-visible::before {
+    background: var(--fill, var(--click-fill));
+  }
+  .clickable[aria-disabled="true"] {
+    cursor: default;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  .clickable[aria-disabled="true"]::before {
+    background: transparent;
+  }
+}
+
+/* What a face shows while the closest clickable around it is hovered. */
+@custom-variant hovering (&:where(.clickable:hover:not([aria-disabled="true"]) *, .clickable[data-active] *, .show-hover *));
+
+/* While a clickable is pressed, unless a clickable inside it is the one pressed: itself and what it holds. A card whose
+   fill is its own scales by --press-scale. */
+@custom-variant pressing (&:where(.clickable:active:not(:has(.clickable:active)), .clickable:active:not(:has(.clickable:active)) *));
+
+/* While a divider is dragged (split.tsx): the resize cursor everywhere, no text selected, frames take no pointer. */
+@layer base {
+  html.resizing,
+  html.resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
+  }
+  html.resizing iframe {
+    pointer-events: none;
+  }
+}

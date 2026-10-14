@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@/contexts/i18n";
 import { messageFrom } from "@/contexts/api/errors";
+import { transport } from "@/contexts/api/transport";
 import { previewLink, usePreviewStatus } from "@/contexts/api/sessions";
 import type { Session } from "@/contexts/api/types";
 import { shownPage } from "@/lib/transcript";
@@ -50,8 +51,7 @@ function normalize(value: string, origin: string) {
 // the plane checks the app until it answers.
 export function Preview({ session, host }: { session: Session; host: string }) {
   const { t } = useTranslations();
-  // The preview is served as this page is: https on a cluster, http on a port for a local one.
-  const origin = `${location.protocol}//${host}${location.port ? `:${location.port}` : ""}`;
+  const origin = transport().previewURL(host);
   const pathKey = `hz.preview-path:${host}`;
   const status = usePreviewStatus(session.id);
   const up = status.data?.up ?? false;

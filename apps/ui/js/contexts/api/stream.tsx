@@ -1,13 +1,13 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api } from "@/contexts/api/client";
+import { StreamError, transport } from "@/contexts/api/transport";
 import { approvalsKey, changesKey, queueKey, sessionKey, sessionsKey } from "@/contexts/api/sessions";
 import type { Event, Session, Summary, Update } from "@/contexts/api/types";
 import { backoff } from "@/lib/backoff";
 
-// One stream for the whole app. The browser reconnects by itself and resends the last id it saw, so the plane
-// replays what was missed; a reset means it could not, and every query is refetched. A stream the browser gave up on
-// (the plane answered other than 200) is opened again here, without an id, so what it holds is read again.
+// One stream for the whole app. It reconnects with the last id it saw, so the plane replays what was missed; a reset
+// means it could not, and every query is refetched. A stream refused (other than 200) is opened again without an id.
 export type Link = "connecting" | "open" | "reconnecting";
 
 const LinkContext = createContext<Link>("connecting");
@@ -98,49 +98,59 @@ export function StreamProvider({ children }: { children: ReactNode }) {
   const [link, setLink] = useState<Link>("connecting");
   useEffect(() => {
     const seen = new Map<string, string>();
-    let source: EventSource | undefined;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let tries = 0;
-    let dropped = false;
-    let fresh = false;
-    let gone = false;
-    const connect = () => {
-      const s = new EventSource("/api/stream");
-      source = s;
-      s.onopen = () => {
-        tries = 0;
-        setLink("open");
-        if (fresh) reread(client);
-        else if (dropped) client.invalidateQueries({ queryKey: sessionsKey });
-        dropped = fresh = false;
-      };
-      s.onerror = () => {
+    const stop = new AbortController();
+    const wait = (ms: number) =>
+      new Promise<void>((done) => {
+        const timer = setTimeout(done, ms);
+        stop.signal.addEventListener("abort", () => (clearTimeout(timer), done()));
+      });
+    (async () => {
+      let last: string | undefined;
+      let tries = 0;
+      let dropped = false;
+      let fresh = false;
+      while (!stop.signal.aborted) {
+        let opened = false;
+        try {
+          for await (const m of transport().stream("/stream", last, stop.signal)) {
+            if (!opened) {
+              opened = true;
+              tries = 0;
+              setLink("open");
+              if (fresh) reread(client);
+              else if (dropped) client.invalidateQueries({ queryKey: sessionsKey });
+              dropped = fresh = false;
+            }
+            if (m.id) last = m.id;
+            if (!m.data) continue;
+            let u: Update;
+            try {
+              u = JSON.parse(m.data) as Update;
+            } catch {
+              continue;
+            }
+            apply(client, u, seen);
+          }
+        } catch (e) {
+          if (stop.signal.aborted) return;
+          if (e instanceof StreamError) {
+            dropped = fresh = true;
+            last = undefined;
+            setLink("reconnecting");
+            // The stream cannot say why it was refused; a plain request does, and a 401 there signs the reader out.
+            api.get("/me").catch(() => {});
+            await wait(backoff(tries++, 1000, 30_000));
+            continue;
+          }
+        }
+        if (stop.signal.aborted) return;
+        // Closed or unreachable: opened again from the last id, as the server's retry asks.
         dropped = true;
         setLink("reconnecting");
-        // Still connecting: the browser retries by itself.
-        if (s.readyState !== EventSource.CLOSED || gone) return;
-        s.close();
-        fresh = true;
-        // The stream cannot say why it closed; a plain request does, and a 401 there sends the reader to sign in.
-        api.get("/me").catch(() => {});
-        timer = setTimeout(connect, backoff(tries++, 1000, 30_000));
-      };
-      s.onmessage = (e) => {
-        let u: Update;
-        try {
-          u = JSON.parse(e.data) as Update;
-        } catch {
-          return;
-        }
-        apply(client, u, seen);
-      };
-    };
-    connect();
-    return () => {
-      gone = true;
-      clearTimeout(timer);
-      source?.close();
-    };
+        await wait(2000);
+      }
+    })();
+    return () => stop.abort();
   }, [client]);
   return <LinkContext.Provider value={link}>{children}</LinkContext.Provider>;
 }

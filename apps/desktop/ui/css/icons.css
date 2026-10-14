@@ -1,0 +1,32 @@
+/* Glyphs that change with a state: a chevron turns, a check draws itself, a mark scales or fades in. Each class
+   carries its timing; the component sets where the glyph ends. Under reduced motion the rule in index.css ends them at
+   once. */
+@layer components {
+  .turn {
+    transition: transform 120ms var(--ease-enter);
+  }
+  /* A dropdown's chevron points up while its menu is open. */
+  [data-open] .turn[data-menu] {
+    transform: rotate(180deg);
+  }
+  .swap {
+    transition: transform 120ms var(--ease-enter), opacity 120ms var(--ease-enter);
+  }
+  /* Lucide's check is 22.6 long on its 24 grid; a dash of 24 hides it whole. The negative offset draws it from the
+     short leg, as a hand would. */
+  .draw path {
+    stroke-dasharray: 24;
+    stroke-dashoffset: -24;
+    opacity: 0;
+    transition: stroke-dashoffset 180ms var(--ease-enter), opacity 60ms linear;
+  }
+  [data-on] .draw path {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  /* Changed from the keyboard, they switch at once. */
+  :focus-visible :is(.turn, .swap, .draw path),
+  :focus-visible:is(.turn, .swap) {
+    transition: none;
+  }
+}
