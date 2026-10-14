@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/getnvoi/host0/cmd/hz/state"
+	"github.com/getnvoi/host0/internal/workspace"
 )
 
 var update = flag.Bool("update", false, "rewrite testdata/golden from what the commands print")
@@ -86,4 +87,9 @@ func TestGolden(t *testing.T) {
 var goldens = []golden{
 	{"me", []string{"me"}, "GET /me", map[string]string{"cluster": "dev", "zone": "nvoi.to"}},
 	{"me-json", []string{"me", "-o", "json"}, "GET /me", map[string]string{"cluster": "dev", "zone": "nvoi.to"}},
+	{"env-ls", []string{"env", "ls"}, "GET /environments", []workspace.EnvironmentSummary{
+		{Name: "shop", Repo: "acme/shop", Branch: "main", Tier: "medium", Ready: true}, {Name: "api", Repo: "acme/api", Branch: "dev"}}},
+	{"env-rm", []string{"env", "rm", "shop"}, "DELETE /environments/shop", nil},
+	{"env-set", []string{"env", "set", "shop", "--image", "ruby:3"}, "PATCH /environments/shop",
+		workspace.Environment{Name: "shop", Image: "ruby:3"}},
 }

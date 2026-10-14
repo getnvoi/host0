@@ -66,9 +66,26 @@ func send(method, path string, in any) (*http.Response, error) {
 }
 
 // The commands not yet generated from the spec.
-func legacy() []*cobra.Command {
-	return []*cobra.Command{credentials(), env(), session(), approval(), preview(), open(), invite(),
-		status(), pods(), podLogs(), usage(), llms(), browsers(), logout()}
+func legacy() map[string]func() *cobra.Command {
+	return map[string]func() *cobra.Command{"credentials": credentials, "env seed": seed, "env suspend": envSuspend,
+		"session": session, "approval": approval, "preview": preview, "open": open, "invite": invite, "ls": status,
+		"pods": pods, "logs": podLogs, "usage": usage, "llm": llms, "browsers": browsers, "logout": logout}
+}
+
+func envSuspend() *cobra.Command {
+	return &cobra.Command{
+		Use:   "suspend <env>",
+		Short: "Suspend the actor the environment's preview routes to, freeing its worker",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			var out struct{ Actor string }
+			if err := call("POST", "/seeds/"+url.PathEscape(args[0])+"/suspend", nil, &out); err != nil {
+				return err
+			}
+			fmt.Printf("suspended %s\n", out.Actor)
+			return nil
+		},
+	}
 }
 
 func credentials() *cobra.Command {

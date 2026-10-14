@@ -111,6 +111,13 @@ func (o operation) command() *cobra.Command {
 					}
 				}
 			}
+			if len(in) == 0 && o.Method == "PATCH" {
+				var names []string
+				for _, fl := range o.Body {
+					names = append(names, "--"+fl.Name)
+				}
+				return fmt.Errorf("nothing to set: give %s", strings.Join(names, ", "))
+			}
 			b, err := json.Marshal(in)
 			if err != nil {
 				return err
@@ -290,8 +297,9 @@ var groups = map[string]string{
 	"cluster":  "The cluster: its install, its shape and what runs on it",
 }
 
-// Adds every operation's command to root: the generated one, or the hand-written ones its x-hz.by names. A
-// hand-written command no operation names is a mistake in this binary, and it does not start.
+// Adds every operation's command to root: generated when its x-hz names an output, and the hand-written ones its
+// x-hz.by names, which replace a generated one of the same path. A hand-written command no operation names is a
+// mistake in this binary, and it does not start.
 func Attach(root *cobra.Command) {
 	named := map[string]bool{}
 	for _, o := range operations {
@@ -308,14 +316,16 @@ func Attach(root *cobra.Command) {
 	}
 	sort.Strings(paths)
 	for _, o := range operations {
-		if len(o.HZ.By) == 0 {
+		if o.HZ.Output != "" {
 			place(root, strings.Split(o.ID, "."), o.command())
 		}
 	}
 	for _, path := range paths {
 		place(root, strings.Fields(path), written[path]())
 	}
-	root.AddCommand(legacy()...)
+	for path, c := range legacy() {
+		place(root, strings.Fields(path), c())
+	}
 }
 
 // Puts cmd at path under root, making the groups on the way; a command already there gives cmd its children.

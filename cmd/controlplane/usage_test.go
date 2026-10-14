@@ -10,7 +10,6 @@ import (
 
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/store"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -25,7 +24,6 @@ func (b brokenState) State(ctx context.Context, a string) (string, error) {
 
 func TestSample(t *testing.T) {
 	st := newStore(t)
-	st.Put("environments", "web", workspace.Environment{Name: "web", Tier: "large"})
 	st.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", Actor: "wt-s1", By: "ben"})
 	st.Put("sessions", "s2", workspace.Session{ID: "s2", Env: "web", Actor: "wt-s2", By: "cli"})
 	st.Put("sessions", "s3", workspace.Session{ID: "s3", Env: "web", Actor: "wt-broken"})
@@ -36,6 +34,7 @@ func TestSample(t *testing.T) {
 		workers: []sandbox.Worker{{Pool: "hz-large", Pod: "a"}, {Pool: "hz-large", Pod: "b"}, {Pod: "c"}},
 	}
 	p, _ := serve(st, brokenState{sb}, nil, nil)
+	putEnv(t, p, workspace.Environment{Name: "web", Tier: "large"})
 	now := time.Date(2026, 9, 25, 23, 59, 0, 0, time.UTC)
 	p.sample(context.Background(), now)
 	p.sample(context.Background(), now)
@@ -63,7 +62,7 @@ func TestSample(t *testing.T) {
 	}
 }
 
-func usageStore(t *testing.T) store.Store {
+func usageStore(t *testing.T) data {
 	st := newStore(t)
 	day := func(d string, h int) time.Time {
 		t, _ := time.Parse("2006-01-02", d)

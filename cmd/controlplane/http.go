@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -28,10 +27,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	p.API(mux)
 	api := p.outside("api", mux)
 	api.Handle("GET /stream", p.bus)
-	api.HandleFunc("GET /environments", func(w http.ResponseWriter, r *http.Request) {
-		out, err := ws.Environments()
-		reply(w, &out, err)
-	})
 	api.HandleFunc("GET /sessions", func(w http.ResponseWriter, r *http.Request) {
 		out, err := ws.Sessions()
 		reply(w, &out, err)
@@ -141,26 +136,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 			return
 		}
 		reply(w, nil, ws.ArchiveConfig(r.PathValue("name")))
-	})
-	api.HandleFunc("PUT /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		var e workspace.Environment
-		reply(w, nil, read(r, &e, func() error { e.Name = r.PathValue("name"); return ws.PutEnvironment(e) }))
-	})
-	api.HandleFunc("GET /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		e, err := ws.Environment(r.PathValue("name"))
-		reply(w, &e, err)
-	})
-	api.HandleFunc("PATCH /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(r.Body)
-		if err != nil {
-			reply(w, nil, badRequest{err})
-			return
-		}
-		e, err := ws.PatchEnvironment(r.PathValue("name"), b)
-		reply(w, &e, err)
-	})
-	api.HandleFunc("DELETE /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.DeleteEnvironment(r.Context(), r.PathValue("name")))
 	})
 	api.HandleFunc("POST /environments/{name}/seed", func(w http.ResponseWriter, r *http.Request) {
 		if err := ws.Reseed(r.PathValue("name")); err != nil {

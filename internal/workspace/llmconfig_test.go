@@ -18,7 +18,7 @@ func byName(t *testing.T, p *Workspace) map[string]LLMConfig {
 }
 
 func TestConfigMain(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	oauth := map[string]string{"kind": "oauth", "token": "t"}
 	for _, name := range []string{"a", "b", "c"} {
 		if _, err := p.AddConfig(LLMConfig{Name: name, Provider: "claude_code", Values: oauth}); err != nil {

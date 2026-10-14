@@ -81,6 +81,9 @@ type Conflict struct{ error }
 // A request that cannot be carried out as it is: answered 400.
 type Invalid struct{ error }
 
+// What a request names does not exist: answered 404.
+type NotFound struct{ error }
+
 // Makes pending -> deciding one step, so a second click cannot decide twice.
 var decisions sync.Mutex
 

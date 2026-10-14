@@ -18,7 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/getnvoi/host0/internal/box"
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
@@ -36,6 +39,7 @@ const (
 
 type Workspace struct {
 	Sandboxes sandbox.Sandboxes
+	DB        *gorm.DB
 	Store     store.Store
 	Edge      edge.Router
 	Workers   Workers
@@ -241,27 +245,29 @@ func announce(step string) string {
 }
 
 func (ws *Workspace) env(name string) (Environment, Credentials, error) {
-	var env Environment
 	var creds Credentials
-	if err := ws.Store.Get("environments", name, &env); err != nil {
-		return env, creds, fmt.Errorf("environment %s: %w", name, err)
+	env, err := ws.environment(ws.DB, name)
+	if err != nil {
+		return env, creds, err
 	}
-	err := ws.Store.Get("credentials", "default", &creds)
+	err = ws.Store.Get("credentials", "default", &creds)
 	return env, creds, err
 }
 
 // Logs each ready seed built from other containers (a boxd, an image) than a build would use now. Nothing is
 // rebuilt: hz env seed does that.
 func (ws *Workspace) Stale() {
-	var envs []Environment
-	ws.Store.List("environments", func(d func(any) error) error {
-		var env Environment
-		if d(&env) == nil {
-			envs = append(envs, env)
+	var names []string
+	if err := ws.DB.Model(&db.Environment{}).Where("archived_at IS NULL").Pluck("name", &names).Error; err != nil {
+		log.Printf("stale seeds: %v", err)
+		return
+	}
+	for _, name := range names {
+		env, err := ws.environment(ws.DB, name)
+		if err != nil {
+			log.Printf("seed %s: %v", name, err)
+			continue
 		}
-		return nil
-	})
-	for _, env := range envs {
 		seed, err := ws.served(env.Name)
 		if err != nil {
 			continue

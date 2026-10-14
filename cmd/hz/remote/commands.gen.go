@@ -12,6 +12,64 @@ import (
 
 var operations = []operation{
 	{
+		ID:     "env.get",
+		Short:  "The environment, its secrets' values left out",
+		Method: "GET",
+		Route:  "/environments/{name}",
+		HZ:     hz{By: []string{"env get", "env var rm", "env secret rm", "env setup ls", "env setup add", "env setup rm", "env service ls", "env service add", "env service set", "env service rm", "env tool rm"}},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.EnvGet(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "env.ls",
+		Short:  "Every environment, and whether a session can fork from it now",
+		Method: "GET",
+		Route:  "/environments",
+		HZ:     hz{Output: "table", Columns: []string{"name", "repo", "branch", "tier", "ready"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.EnvLs(ctx, edit)
+		},
+	},
+	{
+		ID:          "env.put",
+		Short:       "Declare the environment whole; a secret given empty keeps its value",
+		Method:      "PUT",
+		Route:       "/environments/{name}",
+		HZ:          hz{By: []string{"env apply", "env create"}},
+		Args:        []string{"name"},
+		ContentType: "application/json",
+		Body:        []param{{Name: "branch", Kind: "string", Help: ""}, {Name: "env", Kind: "map", Help: ""}, {Name: "image", Kind: "string", Help: ""}, {Name: "name", Kind: "string", Help: ""}, {Name: "preview", Kind: "int", Help: ""}, {Name: "repo", Kind: "string", Help: ""}, {Name: "secrets", Kind: "map", Help: ""}, {Name: "setup", Kind: "list", Help: ""}, {Name: "tier", Kind: "string", Help: ""}, {Name: "tools", Kind: "map", Help: ""}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.EnvPutWithBody(ctx, args[0], "application/json", body, edit)
+		},
+	},
+	{
+		ID:     "env.rm",
+		Short:  "Remove the environment and its seed; refused while a session uses it",
+		Method: "DELETE",
+		Route:  "/environments/{name}",
+		HZ:     hz{Output: "none"},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.EnvRm(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:          "env.set",
+		Short:       "Change the environment's fields; hz env seed rebuilds its seed",
+		Method:      "PATCH",
+		Route:       "/environments/{name}",
+		HZ:          hz{Output: "none", By: []string{"env var set", "env var rm", "env secret set", "env secret rm", "env setup add", "env setup rm", "env service add", "env service set", "env service rm", "env tool set", "env tool rm"}},
+		Args:        []string{"name"},
+		ContentType: "application/merge-patch+json",
+		Body:        []param{{Name: "branch", Kind: "string", Help: ""}, {Name: "env", Kind: "map", Help: ""}, {Name: "image", Kind: "string", Help: ""}, {Name: "preview", Kind: "int", Help: ""}, {Name: "repo", Kind: "string", Help: ""}, {Name: "setup", Kind: "list", Help: ""}, {Name: "tier", Kind: "string", Help: ""}, {Name: "tools", Kind: "map", Help: ""}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.EnvSetWithBody(ctx, args[0], "application/merge-patch+json", body, edit)
+		},
+	},
+	{
 		ID:     "me",
 		Short:  "The cluster and zone this plane serves",
 		Method: "GET",

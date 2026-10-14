@@ -4,6 +4,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,62 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/oapi-codegen/runtime"
 )
+
+// Environment defines model for Environment.
+type Environment struct {
+	Branch   *string            `json:"branch,omitempty"`
+	Env      *map[string]string `json:"env,omitempty"`
+	Image    *string            `json:"image,omitempty"`
+	Name     *string            `json:"name,omitempty"`
+	Preview  *int64             `json:"preview,omitempty"`
+	Repo     *string            `json:"repo,omitempty"`
+	Secrets  *map[string]string `json:"secrets,omitempty"`
+	Services *[]Service         `json:"services,omitempty"`
+	Setup    *[]string          `json:"setup,omitempty"`
+	Tier     *string            `json:"tier,omitempty"`
+	Tools    *map[string]string `json:"tools,omitempty"`
+}
+
+// EnvironmentInput defines model for EnvironmentInput.
+type EnvironmentInput struct {
+	Branch   *string            `json:"branch,omitempty"`
+	Env      *map[string]string `json:"env,omitempty"`
+	Image    *string            `json:"image,omitempty"`
+	Name     *string            `json:"name,omitempty"`
+	Preview  *int64             `json:"preview,omitempty"`
+	Repo     *string            `json:"repo,omitempty"`
+	Secrets  *map[string]string `json:"secrets,omitempty"`
+	Services *[]Service         `json:"services,omitempty"`
+	Setup    *[]string          `json:"setup,omitempty"`
+	Tier     *string            `json:"tier,omitempty"`
+	Tools    *map[string]string `json:"tools,omitempty"`
+}
+
+// EnvironmentPatch defines model for EnvironmentPatch.
+type EnvironmentPatch struct {
+	Branch   *string            `json:"branch,omitempty"`
+	Env      *map[string]string `json:"env,omitempty"`
+	Image    *string            `json:"image,omitempty"`
+	Preview  *int64             `json:"preview,omitempty"`
+	Repo     *string            `json:"repo,omitempty"`
+	Secrets  *map[string]string `json:"secrets,omitempty"`
+	Services *[]Service         `json:"services,omitempty"`
+	Setup    *[]string          `json:"setup,omitempty"`
+	Tier     *string            `json:"tier,omitempty"`
+	Tools    *map[string]string `json:"tools,omitempty"`
+}
+
+// EnvironmentSummary defines model for EnvironmentSummary.
+type EnvironmentSummary struct {
+	Branch string `json:"branch"`
+	Name   string `json:"name"`
+	Ready  bool   `json:"ready"`
+	Repo   string `json:"repo"`
+	Tier   string `json:"tier"`
+}
 
 // ErrorDetail defines model for ErrorDetail.
 type ErrorDetail struct {
@@ -61,6 +117,22 @@ type Me struct {
 	Cluster string `json:"cluster"`
 	Zone    string `json:"zone"`
 }
+
+// Service defines model for Service.
+type Service struct {
+	Command string             `json:"command"`
+	Early   *bool              `json:"early,omitempty"`
+	Env     *map[string]string `json:"env,omitempty"`
+	Image   *string            `json:"image,omitempty"`
+	Name    string             `json:"name"`
+	Port    *int64             `json:"port,omitempty"`
+}
+
+// EnvSetApplicationMergePatchPlusJSONRequestBody defines body for EnvSet for application/merge-patch+json ContentType.
+type EnvSetApplicationMergePatchPlusJSONRequestBody = EnvironmentPatch
+
+// EnvPutJSONRequestBody defines body for EnvPut for application/json ContentType.
+type EnvPutJSONRequestBody = EnvironmentInput
 
 // RequestEditorFn is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -136,10 +208,166 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
+	// EnvLs Every environment, and whether a session can fork from it now
+	//
+	// Corresponds with GET /environments (the `EnvLs` operationId).
+	EnvLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnvRm Remove the environment and its seed; refused while a session uses it
+	//
+	// Corresponds with DELETE /environments/{name} (the `EnvRm` operationId).
+	EnvRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnvGet The environment, its secrets' values left out
+	//
+	// Corresponds with GET /environments/{name} (the `EnvGet` operationId).
+	EnvGet(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnvSetWithBody Change the environment's fields; hz env seed rebuilds its seed
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
+	EnvSetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; hz env seed rebuilds its seed
+	//
+	// Takes a body of the `application/merge-patch+json` content type.
+	//
+	// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
+	EnvSetWithApplicationMergePatchPlusJSONBody(ctx context.Context, name string, body EnvSetApplicationMergePatchPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnvPutWithBody Declare the environment whole; a secret given empty keeps its value
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
+	EnvPutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnvPut Declare the environment whole; a secret given empty keeps its value
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
+	EnvPut(ctx context.Context, name string, body EnvPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Me The cluster and zone this plane serves
 	//
 	// Corresponds with GET /me (the `Me` operationId).
 	Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// EnvLs Every environment, and whether a session can fork from it now
+//
+// Corresponds with GET /environments (the `EnvLs` operationId).
+func (c *Client) EnvLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvLsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnvRm Remove the environment and its seed; refused while a session uses it
+//
+// Corresponds with DELETE /environments/{name} (the `EnvRm` operationId).
+func (c *Client) EnvRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvRmRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnvGet The environment, its secrets' values left out
+//
+// Corresponds with GET /environments/{name} (the `EnvGet` operationId).
+func (c *Client) EnvGet(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvGetRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnvSetWithBody Change the environment's fields; hz env seed rebuilds its seed
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
+func (c *Client) EnvSetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvSetRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; hz env seed rebuilds its seed
+//
+// Takes a body of the `application/merge-patch+json` content type.
+//
+// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
+func (c *Client) EnvSetWithApplicationMergePatchPlusJSONBody(ctx context.Context, name string, body EnvSetApplicationMergePatchPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvSetRequestWithApplicationMergePatchPlusJSONBody(c.Server, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnvPutWithBody Declare the environment whole; a secret given empty keeps its value
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
+func (c *Client) EnvPutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvPutRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnvPut Declare the environment whole; a secret given empty keeps its value
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
+func (c *Client) EnvPut(ctx context.Context, name string, body EnvPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvPutRequest(c.Server, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // Me The cluster and zone this plane serves
@@ -155,6 +383,195 @@ func (c *Client) Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.R
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewEnvLsRequest constructs an http.Request for the EnvLs method
+func NewEnvLsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/environments")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewEnvRmRequest constructs an http.Request for the EnvRm method
+func NewEnvRmRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/environments/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewEnvGetRequest constructs an http.Request for the EnvGet method
+func NewEnvGetRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/environments/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewEnvSetRequestWithApplicationMergePatchPlusJSONBody calls the generic EnvSet builder with application/merge-patch+json body
+func NewEnvSetRequestWithApplicationMergePatchPlusJSONBody(server string, name string, body EnvSetApplicationMergePatchPlusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEnvSetRequestWithBody(server, name, "application/merge-patch+json", bodyReader)
+}
+
+// NewEnvSetRequestWithBody constructs an http.Request for the EnvSet method, with any body, and a specified content type
+func NewEnvSetRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/environments/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEnvPutRequest calls the generic EnvPut builder with application/json body
+func NewEnvPutRequest(server string, name string, body EnvPutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEnvPutRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewEnvPutRequestWithBody constructs an http.Request for the EnvPut method, with any body, and a specified content type
+func NewEnvPutRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/environments/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewMeRequest constructs an http.Request for the Me method
@@ -228,12 +645,287 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// EnvLsWithResponse Every environment, and whether a session can fork from it now
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /environments (the `EnvLs` operationId).
+	EnvLsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*EnvLsResponse, error)
+
+	// EnvRmWithResponse Remove the environment and its seed; refused while a session uses it
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /environments/{name} (the `EnvRm` operationId).
+	EnvRmWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvRmResponse, error)
+
+	// EnvGetWithResponse The environment, its secrets' values left out
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /environments/{name} (the `EnvGet` operationId).
+	EnvGetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvGetResponse, error)
+
+	// EnvSetWithBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
+	EnvSetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnvSetResponse, error)
+
+	// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+	//
+	// Takes a body of the `application/merge-patch+json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
+	EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse(ctx context.Context, name string, body EnvSetApplicationMergePatchPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*EnvSetResponse, error)
+
+	// EnvPutWithBodyWithResponse Declare the environment whole; a secret given empty keeps its value
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
+	EnvPutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnvPutResponse, error)
+
+	// EnvPutWithResponse Declare the environment whole; a secret given empty keeps its value
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
+	EnvPutWithResponse(ctx context.Context, name string, body EnvPutJSONRequestBody, reqEditors ...RequestEditorFn) (*EnvPutResponse, error)
+
 	// MeWithResponse The cluster and zone this plane serves
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /me (the `Me` operationId).
 	MeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*MeResponse, error)
+}
+
+type EnvLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]EnvironmentSummary
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnvLsResponse) GetJSON200() *[]EnvironmentSummary {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r EnvLsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvLsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnvRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r EnvRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvRmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnvGetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Environment
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnvGetResponse) GetJSON200() *Environment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r EnvGetResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvGetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvGetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvGetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvGetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnvSetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Environment
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnvSetResponse) GetJSON200() *Environment {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r EnvSetResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvSetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvSetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvSetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvSetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnvPutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r EnvPutResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvPutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvPutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvPutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvPutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type MeResponse struct {
@@ -284,6 +976,97 @@ func (r MeResponse) ContentType() string {
 	return ""
 }
 
+// EnvLsWithResponse Every environment, and whether a session can fork from it now
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /environments (the `EnvLs` operationId).
+func (c *ClientWithResponses) EnvLsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*EnvLsResponse, error) {
+	rsp, err := c.EnvLs(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvLsResponse(rsp)
+}
+
+// EnvRmWithResponse Remove the environment and its seed; refused while a session uses it
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /environments/{name} (the `EnvRm` operationId).
+func (c *ClientWithResponses) EnvRmWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvRmResponse, error) {
+	rsp, err := c.EnvRm(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvRmResponse(rsp)
+}
+
+// EnvGetWithResponse The environment, its secrets' values left out
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /environments/{name} (the `EnvGet` operationId).
+func (c *ClientWithResponses) EnvGetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvGetResponse, error) {
+	rsp, err := c.EnvGet(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvGetResponse(rsp)
+}
+
+// EnvSetWithBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
+func (c *ClientWithResponses) EnvSetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnvSetResponse, error) {
+	rsp, err := c.EnvSetWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvSetResponse(rsp)
+}
+
+// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+//
+// Takes a body of the `application/merge-patch+json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
+func (c *ClientWithResponses) EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse(ctx context.Context, name string, body EnvSetApplicationMergePatchPlusJSONRequestBody, reqEditors ...RequestEditorFn) (*EnvSetResponse, error) {
+	rsp, err := c.EnvSetWithApplicationMergePatchPlusJSONBody(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvSetResponse(rsp)
+}
+
+// EnvPutWithBodyWithResponse Declare the environment whole; a secret given empty keeps its value
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
+func (c *ClientWithResponses) EnvPutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnvPutResponse, error) {
+	rsp, err := c.EnvPutWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvPutResponse(rsp)
+}
+
+// EnvPutWithResponse Declare the environment whole; a secret given empty keeps its value
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
+func (c *ClientWithResponses) EnvPutWithResponse(ctx context.Context, name string, body EnvPutJSONRequestBody, reqEditors ...RequestEditorFn) (*EnvPutResponse, error) {
+	rsp, err := c.EnvPut(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvPutResponse(rsp)
+}
+
 // MeWithResponse The cluster and zone this plane serves
 //
 // Returns a wrapper object for the known response body format(s).
@@ -295,6 +1078,163 @@ func (c *ClientWithResponses) MeWithResponse(ctx context.Context, reqEditors ...
 		return nil, err
 	}
 	return ParseMeResponse(rsp)
+}
+
+// ParseEnvLsResponse parses an HTTP response from a EnvLsWithResponse call
+func ParseEnvLsResponse(rsp *http.Response) (*EnvLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []EnvironmentSummary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnvRmResponse parses an HTTP response from a EnvRmWithResponse call
+func ParseEnvRmResponse(rsp *http.Response) (*EnvRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnvGetResponse parses an HTTP response from a EnvGetWithResponse call
+func ParseEnvGetResponse(rsp *http.Response) (*EnvGetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvGetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnvSetResponse parses an HTTP response from a EnvSetWithResponse call
+func ParseEnvSetResponse(rsp *http.Response) (*EnvSetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvSetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Environment
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnvPutResponse parses an HTTP response from a EnvPutWithResponse call
+func ParseEnvPutResponse(rsp *http.Response) (*EnvPutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvPutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseMeResponse parses an HTTP response from a MeWithResponse call

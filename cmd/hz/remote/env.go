@@ -2,10 +2,10 @@ package remote
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"slices"
 	"sort"
@@ -19,6 +19,24 @@ import (
 	"github.com/getnvoi/host0/internal/api/client"
 	"github.com/getnvoi/host0/internal/workspace"
 )
+
+func init() {
+	for path, c := range map[string]func() *cobra.Command{
+		"env apply": envApply, "env get": envGet, "env create": envCreate,
+		"env var set": varSet, "env var rm": varRm, "env secret set": secretSet, "env secret rm": secretRm,
+		"env setup ls": setupLs, "env setup add": setupAdd, "env setup rm": setupRm,
+		"env service ls": serviceLs, "env service add": func() *cobra.Command { return serviceEdit(true) },
+		"env service set": func() *cobra.Command { return serviceEdit(false) }, "env service rm": serviceRm,
+		"env tool set": toolSet, "env tool rm": toolRm,
+	} {
+		written[path] = c
+	}
+	groups["var"] = "The environment's variables"
+	groups["secret"] = "The environment's secrets; values are never shown"
+	groups["setup"] = "The commands the seed runs in the checkout, in order"
+	groups["service"] = "The processes the seed starts and every fork keeps running"
+	groups["tool"] = "What a session's tool does when called: auto, approval or deny"
+}
 
 // An environment as a YAML file holds it: secrets by name, their values read from the shell that applies it.
 type document struct {
@@ -46,26 +64,55 @@ func encode(e workspace.Environment) ([]byte, error) {
 	return yaml.Marshal(doc)
 }
 
-func envPath(name string) string { return "/environments/" + url.PathEscape(name) }
-
-func getEnv(name string) (workspace.Environment, error) {
-	var e workspace.Environment
-	return e, call("GET", envPath(name), nil, &e)
+// v as a JSON request body.
+func jsonBody(v any) (io.Reader, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(b), nil
 }
 
-func patch(name string, change map[string]any) error {
-	return call("PATCH", envPath(name), change, nil)
+func getEnv(ctx context.Context, name string) (workspace.Environment, error) {
+	c, err := api()
+	if err != nil {
+		return workspace.Environment{}, err
+	}
+	return client.Read[workspace.Environment](c.EnvGet(ctx, name))
 }
 
-func table() *tabwriter.Writer { return tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0) }
+func putEnv(ctx context.Context, e workspace.Environment) error {
+	c, err := api()
+	if err != nil {
+		return err
+	}
+	body, err := jsonBody(workspace.EnvironmentInput(e))
+	if err != nil {
+		return err
+	}
+	return client.Done(c.EnvPutWithBody(ctx, e.Name, "application/json", body))
+}
 
-func env() *cobra.Command {
-	cmd := &cobra.Command{Use: "env", Short: "Environments: what a seed is built from and sessions fork"}
-	cmd.AddCommand(&cobra.Command{
+func patch(ctx context.Context, name string, change map[string]any) error {
+	c, err := api()
+	if err != nil {
+		return err
+	}
+	body, err := jsonBody(change)
+	if err != nil {
+		return err
+	}
+	return client.Done(c.EnvSetWithBody(ctx, name, "application/merge-patch+json", body))
+}
+
+func table(w io.Writer) *tabwriter.Writer { return tabwriter.NewWriter(w, 0, 0, 2, ' ', 0) }
+
+func envApply() *cobra.Command {
+	return &cobra.Command{
 		Use:   "apply <file>",
 		Short: "Declare an environment from a YAML file; names under secrets: are read from this shell",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, args []string) error {
 			raw, err := os.ReadFile(args[0])
 			if err != nil {
 				return err
@@ -80,47 +127,9 @@ func env() *cobra.Command {
 					return fmt.Errorf("secret %s is not set in this shell", n)
 				}
 			}
-			return call("PUT", envPath(e.Name), e, nil)
+			return putEnv(c.Context(), e)
 		},
-	}, &cobra.Command{
-		Use:   "ls",
-		Short: "Every environment, and whether it has a ready seed",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			var es []workspace.EnvironmentSummary
-			if err := call("GET", "/environments", nil, &es); err != nil {
-				return err
-			}
-			w := table()
-			fmt.Fprintln(w, "NAME\tREPO\tBRANCH\tTIER\tSEED")
-			for _, e := range es {
-				seed := "none"
-				if e.Ready {
-					seed = "ready"
-				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", e.Name, e.Repo, e.Branch, e.Tier, seed)
-			}
-			return w.Flush()
-		},
-	}, envGet(), &cobra.Command{
-		Use:   "rm <env>",
-		Short: "Remove the environment and its seed; refused while a session uses it",
-		Args:  cobra.ExactArgs(1),
-		RunE:  func(_ *cobra.Command, args []string) error { return call("DELETE", envPath(args[0]), nil, nil) },
-	}, envCreate(), envSet(), &cobra.Command{
-		Use:   "suspend <env>",
-		Short: "Suspend the actor the environment's preview routes to, freeing its worker",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			var out struct{ Actor string }
-			if err := call("POST", "/seeds/"+url.PathEscape(args[0])+"/suspend", nil, &out); err != nil {
-				return err
-			}
-			fmt.Printf("suspended %s\n", out.Actor)
-			return nil
-		},
-	}, seed(), vars(), secrets(), setup(), services(), tools())
-	return cmd
+	}
 }
 
 func envGet() *cobra.Command {
@@ -129,28 +138,29 @@ func envGet() *cobra.Command {
 		Use:   "get <env>",
 		Short: "The environment; -o yaml prints a file hz env apply takes back",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
+			w := c.OutOrStdout()
 			switch output {
 			case "yaml":
 				b, err := encode(e)
 				if err != nil {
 					return err
 				}
-				_, err = os.Stdout.Write(b)
+				_, err = w.Write(b)
 				return err
 			case "json":
 				b, err := json.MarshalIndent(e, "", "  ")
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(b))
-				return nil
+				_, err = fmt.Fprintln(w, string(b))
+				return err
 			case "":
-				return describe(e)
+				return describe(w, e)
 			}
 			return fmt.Errorf("-o %s: want yaml or json", output)
 		},
@@ -159,8 +169,8 @@ func envGet() *cobra.Command {
 	return cmd
 }
 
-func describe(e workspace.Environment) error {
-	w := table()
+func describe(out io.Writer, e workspace.Environment) error {
+	w := table(out)
 	tier := e.Tier
 	if tier == "" {
 		tier = "medium"
@@ -216,14 +226,14 @@ func envCreate() *cobra.Command {
 		Use:   "create <env>",
 		Short: "A new environment; refused when the name is taken",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if _, err := getEnv(args[0]); err == nil {
+		RunE: func(c *cobra.Command, args []string) error {
+			if _, err := getEnv(c.Context(), args[0]); err == nil {
 				return fmt.Errorf("environment %s exists: change it with hz env set", args[0])
 			} else if !client.Missing(err) {
 				return err
 			}
 			e.Name = args[0]
-			return call("PUT", envPath(e.Name), e, nil)
+			return putEnv(c.Context(), e)
 		},
 	}
 	f := cmd.Flags()
@@ -240,90 +250,66 @@ func envCreate() *cobra.Command {
 	return cmd
 }
 
-func envSet() *cobra.Command {
-	var e workspace.Environment
-	cmd := &cobra.Command{
-		Use:   "set <env>",
-		Short: "Change the environment's fields; the seed is rebuilt by hz env seed",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			change := map[string]any{}
-			for flag, v := range map[string]any{"repo": e.Repo, "branch": e.Branch, "image": e.Image, "preview": e.Preview, "tier": e.Tier} {
-				if c.Flags().Changed(flag) {
-					change[flag] = v
-				}
-			}
-			if len(change) == 0 {
-				return fmt.Errorf("nothing to set: give --repo, --branch, --image, --preview or --tier")
-			}
-			return patch(args[0], change)
-		},
-	}
-	f := cmd.Flags()
-	f.StringVar(&e.Repo, "repo", "", "GitHub repository, owner/name")
-	f.StringVar(&e.Branch, "branch", "", "branch sessions start from")
-	f.StringVar(&e.Image, "image", "", "the image its services run in")
-	f.IntVar(&e.Preview, "preview", 0, "the port the preview serves")
-	f.StringVar(&e.Tier, "tier", "", "small, medium or large")
-	return cmd
-}
-
-func vars() *cobra.Command {
-	cmd := &cobra.Command{Use: "var", Short: "The environment's variables"}
-	cmd.AddCommand(&cobra.Command{
+func varSet() *cobra.Command {
+	return &cobra.Command{
 		Use:   "set <env> <KEY> <VALUE>",
 		Short: "Set a variable",
 		Args:  cobra.ExactArgs(3),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return patch(args[0], map[string]any{"env": map[string]any{args[1]: args[2]}})
+		RunE: func(c *cobra.Command, args []string) error {
+			return patch(c.Context(), args[0], map[string]any{"env": map[string]any{args[1]: args[2]}})
 		},
-	}, &cobra.Command{
+	}
+}
+
+func varRm() *cobra.Command {
+	return &cobra.Command{
 		Use:   "rm <env> <KEY>",
 		Short: "Remove a variable",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
 			if _, ok := e.Env[args[1]]; !ok {
 				return fmt.Errorf("environment %s has no variable %s", args[0], args[1])
 			}
-			return patch(args[0], map[string]any{"env": map[string]any{args[1]: nil}})
+			return patch(c.Context(), args[0], map[string]any{"env": map[string]any{args[1]: nil}})
 		},
-	})
-	return cmd
+	}
 }
 
-func secrets() *cobra.Command {
-	cmd := &cobra.Command{Use: "secret", Short: "The environment's secrets; values are never shown"}
-	cmd.AddCommand(&cobra.Command{
+func secretSet() *cobra.Command {
+	return &cobra.Command{
 		Use:   "set <env> <NAME>",
 		Short: "The value of NAME in this shell, or else what is piped in",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, args []string) error {
 			v, err := secretValue(args[1])
 			if err != nil {
 				return err
 			}
-			return patch(args[0], map[string]any{"secrets": map[string]any{args[1]: v}})
+			return patch(c.Context(), args[0], map[string]any{"secrets": map[string]any{args[1]: v}})
 		},
-	}, &cobra.Command{
+	}
+}
+
+func secretRm() *cobra.Command {
+	return &cobra.Command{
 		Use:   "rm <env> <NAME>",
 		Short: "Remove a secret",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
 			if _, ok := e.Secrets[args[1]]; !ok {
 				return fmt.Errorf("environment %s has no secret %s", args[0], args[1])
 			}
-			return patch(args[0], map[string]any{"secrets": map[string]any{args[1]: nil}})
+			return patch(c.Context(), args[0], map[string]any{"secrets": map[string]any{args[1]: nil}})
 		},
-	})
-	return cmd
+	}
 }
 
 func secretValue(name string) (string, error) {
@@ -348,39 +334,46 @@ func secretValue(name string) (string, error) {
 	return v, nil
 }
 
-func setup() *cobra.Command {
-	cmd := &cobra.Command{Use: "setup", Short: "The commands the seed runs in the checkout, in order"}
-	cmd.AddCommand(&cobra.Command{
+func setupLs() *cobra.Command {
+	return &cobra.Command{
 		Use:   "ls <env>",
 		Short: "The setup commands, numbered",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
 			for i, s := range e.Setup {
-				fmt.Printf("%d  %s\n", i+1, s)
+				fmt.Fprintf(c.OutOrStdout(), "%d  %s\n", i+1, s)
 			}
 			return nil
 		},
-	}, &cobra.Command{
+	}
+}
+
+func setupAdd() *cobra.Command {
+	return &cobra.Command{
 		Use:   "add <env> <command>",
 		Short: "Append a command",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
-			return patch(args[0], map[string]any{"setup": append(e.Setup, args[1])})
+			return patch(c.Context(), args[0], map[string]any{"setup": append(e.Setup, args[1])})
 		},
-	}, &cobra.Command{
+	}
+}
+
+func setupRm() *cobra.Command {
+	return &cobra.Command{
 		Use:   "rm <env> <n>",
 		Short: "Remove command n, as setup ls numbers it",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -388,34 +381,36 @@ func setup() *cobra.Command {
 			if err != nil || n < 1 || n > len(e.Setup) {
 				return fmt.Errorf("environment %s has no setup command %s", args[0], args[1])
 			}
-			return patch(args[0], map[string]any{"setup": slices.Delete(e.Setup, n-1, n)})
+			return patch(c.Context(), args[0], map[string]any{"setup": slices.Delete(e.Setup, n-1, n)})
 		},
-	})
-	return cmd
+	}
 }
 
-func services() *cobra.Command {
-	cmd := &cobra.Command{Use: "service", Short: "The processes the seed starts and every fork keeps running"}
-	cmd.AddCommand(&cobra.Command{
+func serviceLs() *cobra.Command {
+	return &cobra.Command{
 		Use:   "ls <env>",
 		Short: "The services",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
 			for _, s := range e.Services {
-				fmt.Println(service(s))
+				fmt.Fprintln(c.OutOrStdout(), service(s))
 			}
 			return nil
 		},
-	}, serviceEdit(true), serviceEdit(false), &cobra.Command{
+	}
+}
+
+func serviceRm() *cobra.Command {
+	return &cobra.Command{
 		Use:   "rm <env> <name>",
 		Short: "Remove a service",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -423,10 +418,9 @@ func services() *cobra.Command {
 			if i < 0 {
 				return fmt.Errorf("environment %s has no service %s", args[0], args[1])
 			}
-			return patch(args[0], map[string]any{"services": slices.Delete(e.Services, i, i+1)})
+			return patch(c.Context(), args[0], map[string]any{"services": slices.Delete(e.Services, i, i+1)})
 		},
-	})
-	return cmd
+	}
 }
 
 // add: a new service, refused when the name is taken. Otherwise set: the flags given change an existing one.
@@ -442,7 +436,7 @@ func serviceEdit(add bool) *cobra.Command {
 		Short: short,
 		Args:  cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -483,7 +477,7 @@ func serviceEdit(add bool) *cobra.Command {
 			if !add && f.NFlag() == 0 {
 				return fmt.Errorf("nothing to set: give --command, --port, --image, --early or --env")
 			}
-			return patch(args[0], map[string]any{"services": e.Services})
+			return patch(c.Context(), args[0], map[string]any{"services": e.Services})
 		},
 	}
 	f := cmd.Flags()
@@ -500,29 +494,31 @@ func serviceEdit(add bool) *cobra.Command {
 	return cmd
 }
 
-func tools() *cobra.Command {
-	cmd := &cobra.Command{Use: "tool", Short: "What a session's tool does when called: auto, approval or deny"}
-	cmd.AddCommand(&cobra.Command{
+func toolSet() *cobra.Command {
+	return &cobra.Command{
 		Use:   "set <env> <tool> <auto|approval|deny>",
 		Short: "Set the tool's policy",
 		Args:  cobra.ExactArgs(3),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return patch(args[0], map[string]any{"tools": map[string]any{args[1]: args[2]}})
+		RunE: func(c *cobra.Command, args []string) error {
+			return patch(c.Context(), args[0], map[string]any{"tools": map[string]any{args[1]: args[2]}})
 		},
-	}, &cobra.Command{
+	}
+}
+
+func toolRm() *cobra.Command {
+	return &cobra.Command{
 		Use:   "rm <env> <tool>",
 		Short: "Back to the tool's default policy",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			e, err := getEnv(args[0])
+		RunE: func(c *cobra.Command, args []string) error {
+			e, err := getEnv(c.Context(), args[0])
 			if err != nil {
 				return err
 			}
 			if _, ok := e.Tools[args[1]]; !ok {
 				return fmt.Errorf("environment %s sets no policy for %s", args[0], args[1])
 			}
-			return patch(args[0], map[string]any{"tools": map[string]any{args[1]: nil}})
+			return patch(c.Context(), args[0], map[string]any{"tools": map[string]any{args[1]: nil}})
 		},
-	})
-	return cmd
+	}
 }

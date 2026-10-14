@@ -140,8 +140,8 @@ func withBoxd(t *testing.T) (*Workspace, *fakeBoxd) {
 	fb := newBoxd()
 	srv := httptest.NewServer(fb.handler())
 	t.Cleanup(srv.Close)
-	p := newWorkspace(&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}})
-	p.Store.Put("environments", "web", Environment{Name: "web", Branch: "main"})
+	p := newWorkspace(t, &fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}})
+	env(t, p, Environment{Name: "web", Branch: "main"})
 	p.Store.Put("credentials", "default", Credentials{})
 	p.Store.Put("llm", testLLM.Name, testLLM)
 	return p, fb
@@ -191,7 +191,7 @@ func rest(t *testing.T, p *Workspace, sid string, turns int) Session {
 }
 
 func TestSayWhileRunningLeavesTheSession(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	stored := Session{ID: "w1", State: "running", Events: []llm.Event{{Kind: "prompt", Content: "a"}}}
 	p.Store.Put("sessions", "w1", stored)
 	before := session(p, "w1")
@@ -410,7 +410,7 @@ func TestDecide(t *testing.T) {
 }
 
 func TestDecideOnce(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	p.Store.Put("sessions", "d2", Session{ID: "d2", State: "idle"})
 	p.Store.Put("approvals", "b1", Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
 	var wg sync.WaitGroup

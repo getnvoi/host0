@@ -11,7 +11,7 @@ import (
 
 // Each write announces only the events the last one did not.
 func TestSaveSendsNewEvents(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	c := p.Bus.(*bus).tap(t)
 	s := &Session{ID: "a", State: "running", Events: []llm.Event{{Kind: "prompt", Content: "hi"}}}
 	p.save(s)
@@ -31,7 +31,7 @@ func TestUpdateSendsFromZero(t *testing.T) {
 }
 
 func TestNewSessionHasAnEventList(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	s := &Session{ID: "n", State: "forking"}
 	p.save(s)
 	var got map[string]any
@@ -43,7 +43,7 @@ func TestNewSessionHasAnEventList(t *testing.T) {
 }
 
 func TestSayWhileRunning(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	p.Store.Put("sessions", "s1", Session{ID: "s1", State: "running"})
 	done := make(chan error, 1)
 	go func() { done <- p.Say("s1", "next", "") }()
@@ -62,7 +62,7 @@ func TestSayWhileRunning(t *testing.T) {
 
 // Every actor a row names, and none a failed build left.
 func TestNamed(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	p.Store.Put("sessions", "s1", Session{ID: "s1", Actor: "wt-s1", State: "forking"})
 	p.Store.Put("ready", "shop", Seed{Env: "shop", State: "ready", Actor: "shop-b30f1ae1ab"})
 	p.Store.Put("seeds", "web", Seed{Env: "web", State: "building", Actor: "web-1111111111"})

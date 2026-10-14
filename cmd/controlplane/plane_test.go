@@ -9,12 +9,16 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/sandbox"
@@ -25,25 +29,51 @@ import (
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
-// The store the plane runs on, in a fresh directory, holding the shape install writes.
-func newStore(t *testing.T) store.Store {
-	st, err := files.Open(t.TempDir(), seal.Mint())
+// What the plane keeps, in fresh files: its store, holding the shape install writes, and its database.
+type data struct {
+	store.Store
+	DB *gorm.DB
+}
+
+func newStore(t *testing.T) data {
+	key := seal.Mint()
+	st, err := files.Open(t.TempDir(), key)
 	if err != nil {
+		t.Fatal(err)
+	}
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if s, err := gdb.DB(); err == nil {
+			s.Close()
+		}
+	})
+	if err := db.Migrate(gdb); err != nil {
 		t.Fatal(err)
 	}
 	st.Put("cluster", "shape", sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 2, Idle: time.Minute},
 		Tiers: sandbox.DefaultTiers})
-	return st
+	return data{st, gdb}
+}
+
+// Declares e, as PUT /environments/{name} does.
+func putEnv(t *testing.T, p *plane, e workspace.Environment) {
+	t.Helper()
+	if err := p.ws.PutEnvironment(workspace.EnvironmentInput(e)); err != nil {
+		t.Fatal(err)
+	}
 }
 
 var bearer = map[string]string{"Authorization": "Bearer cli-token"}
 
 // The plane on st and sb, with its handler for api-dev.nvoi.to and app-dev.nvoi.to; its CLI token is cli-token.
-func serve(st store.Store, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router) (*plane, http.Handler) {
+func serve(d data, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router) (*plane, http.Handler) {
 	if e == nil {
 		e = checking{}
 	}
-	p := wire(st, sb, pools, e, "dev", "nvoi.to", "-preview", "box")
+	p := wire(d.DB, d.Store, sb, pools, e, "dev", "nvoi.to", "-preview", "box")
 	p.ws.Pin = func(_ context.Context, image string) (string, error) { return image, nil }
 	sum := sha256.Sum256([]byte("cli-token"))
 	return p, p.Handler("api-dev.nvoi.to", "app-dev.nvoi.to", hex.EncodeToString(sum[:]))
@@ -220,11 +250,10 @@ func TestEnvironmentCRUD(t *testing.T) {
 	if code, body := api("PATCH", "/environments/web", `{"env":{"A":null}}`); code != 200 {
 		t.Fatalf("patch null: %d %s", code, body)
 	}
-	var stored workspace.Environment
-	p.Store.Get("environments", "web", &stored)
-	if stored.Image != "ruby:3" || !reflect.DeepEqual(stored.Env, map[string]string{"B": "2"}) || stored.Tools["push_branch"] != "deny" ||
-		stored.Secrets["TOKEN"] != "s1" || stored.Preview != 3000 {
-		t.Fatalf("after patches: %+v", stored)
+	stored, err := p.ws.Environment("web")
+	if err != nil || stored.Image != "ruby:3" || !reflect.DeepEqual(stored.Env, map[string]string{"B": "2"}) ||
+		stored.Tools["push_branch"] != "deny" || secret(t, p, "TOKEN") != "s1" || stored.Preview != 3000 {
+		t.Fatalf("after patches: %+v %v", stored, err)
 	}
 	for _, bad := range []string{`{"imagee":"x"}`, `{"Image":"x"}`, `{"services":[{"name":"w","bogus":1}]}`, `{"tier":"huge"}`,
 		`{"tools":{"x":"maybe"}}`, `{"secrets":{"NEW":""}}`, `{"name":"other"}`, `[1]`,
@@ -240,9 +269,8 @@ func TestEnvironmentCRUD(t *testing.T) {
 	if code, body := api("PUT", "/environments/web", body); code != 204 {
 		t.Fatalf("put back: %d %s", code, body)
 	}
-	p.Store.Get("environments", "web", &stored)
-	if stored.Secrets["TOKEN"] != "s1" {
-		t.Fatalf("put back lost the secret: %+v", stored.Secrets)
+	if v := secret(t, p, "TOKEN"); v != "s1" {
+		t.Fatalf("put back lost the secret: %q", v)
 	}
 
 	p.Store.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", State: "idle"})
@@ -266,6 +294,16 @@ func TestEnvironmentCRUD(t *testing.T) {
 	if code, _ := api("GET", "/environments/web", ""); code != 404 {
 		t.Fatalf("get after delete: %d", code)
 	}
+}
+
+// The value the database holds for the secret named.
+func secret(t *testing.T, p *plane, name string) string {
+	t.Helper()
+	var s db.Secret
+	if err := p.DB.Where("key = ?", name).First(&s).Error; err != nil {
+		t.Fatal(err)
+	}
+	return s.Value
 }
 
 func TestSessionDelete(t *testing.T) {

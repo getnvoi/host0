@@ -19,19 +19,36 @@ type Service struct {
 }
 
 type Environment struct {
-	Name   string            `json:"name" yaml:"name"`
-	Repo   string            `json:"repo" yaml:"repo"` // owner/name
-	Branch string            `json:"branch" yaml:"branch"`
-	Image  string            `json:"image" yaml:"image"`
+	Name   string            `json:"name,omitempty" yaml:"name"`
+	Repo   string            `json:"repo,omitempty" yaml:"repo"` // owner/name
+	Branch string            `json:"branch,omitempty" yaml:"branch"`
+	Image  string            `json:"image,omitempty" yaml:"image"`
 	Env    map[string]string `json:"env,omitempty" yaml:"env"`
 	// Name to value; the plane answers with the names and empty values.
 	Secrets  map[string]string `json:"secrets,omitempty" yaml:"-"`
-	Setup    []string          `json:"setup" yaml:"setup"`
-	Services []Service         `json:"services" yaml:"services"`
-	Preview  int               `json:"preview" yaml:"preview"`
+	Setup    []string          `json:"setup,omitempty" yaml:"setup"`
+	Services []Service         `json:"services,omitempty" yaml:"services"`
+	Preview  int               `json:"preview,omitempty" yaml:"preview"`
 	Tier     string            `json:"tier,omitempty" yaml:"tier"` // small, medium (default) or large
 	// Tool name to policy: auto, approval or deny.
-	Tools map[string]string `json:"tools" yaml:"tools"`
+	Tools map[string]string `json:"tools,omitempty" yaml:"tools"`
+}
+
+// An environment as PUT declares it: everything is replaced, but a secret given empty keeps its value.
+type EnvironmentInput Environment
+
+// A merge patch (RFC 7386) of an environment: what is given replaces, null removes, an object merges.
+type EnvironmentPatch struct {
+	Repo     string            `json:"repo,omitempty"`
+	Branch   string            `json:"branch,omitempty"`
+	Image    string            `json:"image,omitempty"`
+	Preview  int               `json:"preview,omitempty"`
+	Tier     string            `json:"tier,omitempty"`
+	Env      map[string]string `json:"env,omitempty"`
+	Secrets  map[string]string `json:"secrets,omitempty" writeOnly:"true"`
+	Setup    []string          `json:"setup,omitempty"`
+	Services []Service         `json:"services,omitempty"`
+	Tools    map[string]string `json:"tools,omitempty"`
 }
 
 type Credentials struct {

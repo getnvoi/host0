@@ -26,7 +26,7 @@ func sessions() []*cobra.Command {
 			if err := call("GET", "/sessions", nil, &ss); err != nil {
 				return err
 			}
-			w := table()
+			w := table(os.Stdout)
 			fmt.Fprintln(w, "ID\tENV\tSTATE\tQUEUED\tBY\tLAST\tTITLE")
 			for _, s := range ss {
 				if env != "" && s.Env != env {
@@ -51,7 +51,7 @@ func sessions() []*cobra.Command {
 			if err := call("GET", sessionPath(args[0]), nil, &s); err != nil {
 				return err
 			}
-			w := table()
+			w := table(os.Stdout)
 			fmt.Fprintf(w, "id\t%s\nenv\t%s\nstate\t%s\nbranch\t%s\npreview\t%s\nturns\t%d\nby\t%s\nstarted\t%s\n",
 				s.ID, s.Env, s.State, s.Branch, s.Preview, s.Turns, s.By, s.At.Local().Format(time.DateTime))
 			if s.Title != "" {
@@ -110,7 +110,7 @@ func changes() *cobra.Command {
 				}
 				return nil
 			}
-			w := table()
+			w := table(os.Stdout)
 			for _, f := range c.Files {
 				path := f.Path
 				if f.OldPath != "" {

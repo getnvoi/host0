@@ -58,12 +58,14 @@ type Environment struct {
 	Preview    int // the app's port
 	Tier       string
 	ArchivedAt *time.Time
-	EnvVars    []EnvVar    `gorm:"constraint:OnDelete:CASCADE"`
-	Secrets    []Secret    `gorm:"constraint:OnDelete:CASCADE"`
-	SetupSteps []SetupStep `gorm:"constraint:OnDelete:CASCADE"`
-	Services   []Service   `gorm:"constraint:OnDelete:CASCADE"`
-	Seeds      []Seed      `gorm:"constraint:OnDelete:CASCADE"`
-	Sessions   []Session   `gorm:"constraint:OnDelete:RESTRICT"`
+	// Tool name to policy: auto, approval or deny.
+	Tools      map[string]string `gorm:"type:text;serializer:json"`
+	EnvVars    []EnvVar          `gorm:"constraint:OnDelete:CASCADE"`
+	Secrets    []Secret          `gorm:"constraint:OnDelete:CASCADE"`
+	SetupSteps []SetupStep       `gorm:"constraint:OnDelete:CASCADE"`
+	Services   []Service         `gorm:"constraint:OnDelete:CASCADE"`
+	Seeds      []Seed            `gorm:"constraint:OnDelete:CASCADE"`
+	Sessions   []Session         `gorm:"constraint:OnDelete:RESTRICT"`
 }
 
 type EnvVar struct {

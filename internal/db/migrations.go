@@ -20,6 +20,7 @@ func migrator(db *gorm.DB) *gormigrate.Gormigrate {
 
 var migrations = []*gormigrate.Migration{
 	{ID: "0001", Migrate: migrate0001},
+	{ID: "0002", Migrate: migrate0002},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -44,6 +45,17 @@ func migrate0001(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// Tool policies on the environment, until agents hold them.
+func migrate0002(tx *gorm.DB) error {
+	return tx.Migrator().AddColumn(&m2Environment{}, "Tools")
+}
+
+type m2Environment struct {
+	Tools string `gorm:"type:text"`
+}
+
+func (m2Environment) TableName() string { return "environments" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {

@@ -44,9 +44,10 @@ func status(err error) int {
 		invalid  workspace.Invalid
 		shape    workers.Invalid
 		conflict workspace.Conflict
+		missing  workspace.NotFound
 	)
 	switch {
-	case errors.Is(err, store.ErrNotFound), errors.Is(err, sandbox.ErrNotFound):
+	case errors.Is(err, store.ErrNotFound), errors.Is(err, sandbox.ErrNotFound), errors.As(err, &missing):
 		return http.StatusNotFound
 	case errors.As(err, &bad), errors.As(err, &invalid), errors.As(err, &shape):
 		return http.StatusBadRequest

@@ -33,6 +33,14 @@ func bearerOnly(o huma.Operation) huma.Operation {
 
 type body[T any] struct{ Body T }
 
+// v as the answer, or err as the problem.
+func answer[T any](v T, err error) (*body[T], error) {
+	if err != nil {
+		return nil, problem(err)
+	}
+	return &body[T]{v}, nil
+}
+
 // The plane's API on mux: one Huma operation per route, under a bearer token or a browser's cookie.
 func (p *plane) API(mux *http.ServeMux) huma.API {
 	cfg := huma.DefaultConfig("hz plane", "1")
@@ -57,6 +65,7 @@ func (p *plane) API(mux *http.ServeMux) huma.API {
 		func(context.Context, *struct{}) (*body[Me], error) {
 			return &body[Me]{Me{Cluster: p.Cluster, Zone: p.Zone}}, nil
 		})
+	p.environments(a)
 	return a
 }
 

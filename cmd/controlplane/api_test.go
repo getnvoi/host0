@@ -38,14 +38,12 @@ func TestOutside(t *testing.T) {
 }
 
 // The routes still to move into Huma.
-var moving = []string{"api GET /stream", "api GET /environments", "api GET /sessions", "api GET /sessions/{id}/queue",
+var moving = []string{"api GET /stream", "api GET /sessions", "api GET /sessions/{id}/queue",
 	"api DELETE /sessions/{id}/queue/{i}", "api POST /sessions/{id}/stop", "api PUT /credentials", "api GET /credentials",
 	"api DELETE /credentials/{name}", "api PUT /cluster/shape", "api GET /cluster/shape", "api GET /cluster/pods",
 	"api GET /cluster/pods/{namespace}/{pod}/log", "api GET /cluster", "api GET /llm/providers", "api GET /llm/configs",
 	"api POST /llm/configs", "api PUT /llm/configs/{name}", "api POST /llm/configs/{name}/main",
-	"api POST /llm/configs/{name}/restore", "api DELETE /llm/configs/{name}", "api PUT /environments/{name}",
-	"api GET /environments/{name}", "api PATCH /environments/{name}", "api DELETE /environments/{name}",
-	"api POST /environments/{name}/seed", "api GET /environments/{name}/seed", "api POST /sessions", "api GET /sessions/{id}",
+	"api POST /llm/configs/{name}/restore", "api DELETE /llm/configs/{name}", "api POST /environments/{name}/seed", "api GET /environments/{name}/seed", "api POST /sessions", "api GET /sessions/{id}",
 	"api DELETE /sessions/{id}", "api POST /sessions/{id}/turns", "api POST /sessions/{id}/suspend",
 	"api POST /seeds/{name}/suspend", "api GET /sessions/{id}/preview", "api POST /previews", "api GET /sessions/{id}/changes",
 	"api GET /sessions/{id}/logs", "api GET /sessions/{id}/logs/{name}", "api GET /sessions/{id}/terminals",

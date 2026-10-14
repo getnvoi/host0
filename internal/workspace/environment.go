@@ -4,24 +4,75 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 
+	"gorm.io/gorm"
+
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/store"
 )
 
-// Held across each read and write of an environment row, so two patches do not lose one another.
+// Held across each read and write of an environment's rows, so two patches do not lose one another.
 var environments sync.Mutex
 
 // The environment with its secrets' values left out.
 func (ws *Workspace) Environment(name string) (Environment, error) {
-	var e Environment
-	if err := ws.Store.Get("environments", name, &e); err != nil {
+	e, err := ws.environment(ws.DB, name)
+	if err != nil {
 		return e, err
 	}
 	return redacted(e), nil
+}
+
+// The live environment's row; NotFound when there is none.
+func environmentRow(tx *gorm.DB, name string) (db.Environment, error) {
+	var row db.Environment
+	err := tx.Where("name = ? AND archived_at IS NULL", name).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return row, NotFound{fmt.Errorf("no environment %s", name)}
+	}
+	return row, err
+}
+
+// The environment from its rows, secrets' values included.
+func (ws *Workspace) environment(tx *gorm.DB, name string) (Environment, error) {
+	row, err := environmentRow(tx, name)
+	if err != nil {
+		return Environment{}, err
+	}
+	byPosition := func(q *gorm.DB) *gorm.DB { return q.Order("position") }
+	byID := func(q *gorm.DB) *gorm.DB { return q.Order("id") }
+	if err := tx.Preload("EnvVars").Preload("Secrets").Preload("SetupSteps", byPosition).Preload("Services", byID).
+		First(&row, row.ID).Error; err != nil {
+		return Environment{}, err
+	}
+	e := Environment{Name: row.Name, Repo: row.Repo, Branch: row.Branch, Image: row.Image, Preview: row.Preview,
+		Tier: row.Tier, Tools: row.Tools}
+	for _, v := range row.EnvVars {
+		if e.Env == nil {
+			e.Env = map[string]string{}
+		}
+		e.Env[v.Key] = v.Value
+	}
+	for _, s := range row.Secrets {
+		if e.Secrets == nil {
+			e.Secrets = map[string]string{}
+		}
+		e.Secrets[s.Key] = s.Value
+	}
+	for _, s := range row.SetupSteps {
+		e.Setup = append(e.Setup, s.Command)
+	}
+	for _, s := range row.Services {
+		e.Services = append(e.Services, Service{Name: s.Name, Image: s.Image, Command: s.Command, Port: s.Port,
+			Env: s.Env, Early: s.Early})
+	}
+	return e, nil
 }
 
 func redacted(e Environment) Environment {
@@ -36,11 +87,12 @@ func redacted(e Environment) Environment {
 }
 
 // Replaces the environment. A secret with an empty value keeps the one stored under its name.
-func (ws *Workspace) PutEnvironment(e Environment) error {
+func (ws *Workspace) PutEnvironment(in EnvironmentInput) error {
 	environments.Lock()
 	defer environments.Unlock()
-	var old Environment
-	if err := ws.Store.Get("environments", e.Name, &old); err != nil && err != store.ErrNotFound {
+	e := Environment(in)
+	old, err := ws.environment(ws.DB, e.Name)
+	if err != nil && !errors.As(err, new(NotFound)) {
 		return err
 	}
 	return ws.store(e, old)
@@ -50,8 +102,8 @@ func (ws *Workspace) PutEnvironment(e Environment) error {
 func (ws *Workspace) PatchEnvironment(name string, patch []byte) (Environment, error) {
 	environments.Lock()
 	defer environments.Unlock()
-	var old Environment
-	if err := ws.Store.Get("environments", name, &old); err != nil {
+	old, err := ws.environment(ws.DB, name)
+	if err != nil {
 		return old, err
 	}
 	var ch map[string]any
@@ -85,6 +137,7 @@ func (ws *Workspace) PatchEnvironment(name string, patch []byte) (Environment, e
 	if err := d.Decode(&e); err != nil {
 		return old, Invalid{err}
 	}
+	e.Name = name
 	if err := ws.store(e, old); err != nil {
 		return old, err
 	}
@@ -119,7 +172,7 @@ func fields(t reflect.Type) map[string]bool {
 	return out
 }
 
-// Writes e over old, under environments, once valid.
+// Writes e over old, under environments, once valid: its row, and its variables, secrets, steps and services anew.
 func (ws *Workspace) store(e, old Environment) error {
 	for k, v := range e.Secrets {
 		if v != "" {
@@ -133,7 +186,43 @@ func (ws *Workspace) store(e, old Environment) error {
 	if err := ws.valid(e); err != nil {
 		return Invalid{err}
 	}
-	return ws.Store.Put("environments", e.Name, e)
+	return ws.DB.Transaction(func(tx *gorm.DB) error {
+		// An archived row under the name comes back: its sessions' history is the environment's again.
+		var row db.Environment
+		if err := tx.Where("name = ?", e.Name).First(&row).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		row.Name, row.Repo, row.Branch, row.Image, row.Preview, row.Tier = e.Name, e.Repo, e.Branch, e.Image, e.Preview, e.Tier
+		row.Tools, row.ArchivedAt = e.Tools, nil
+		if err := tx.Save(&row).Error; err != nil {
+			return err
+		}
+		for _, m := range []any{&db.EnvVar{}, &db.Secret{}, &db.SetupStep{}, &db.Service{}} {
+			if err := tx.Where("environment_id = ?", row.ID).Delete(m).Error; err != nil {
+				return err
+			}
+		}
+		var rows []any
+		for _, k := range keys(e.Env) {
+			rows = append(rows, &db.EnvVar{EnvironmentID: row.ID, Key: k, Value: e.Env[k]})
+		}
+		for _, k := range keys(e.Secrets) {
+			rows = append(rows, &db.Secret{EnvironmentID: row.ID, Key: k, Value: e.Secrets[k]})
+		}
+		for i, c := range e.Setup {
+			rows = append(rows, &db.SetupStep{EnvironmentID: row.ID, Position: i, Command: c})
+		}
+		for _, s := range e.Services {
+			rows = append(rows, &db.Service{EnvironmentID: row.ID, Name: s.Name, Image: s.Image, Command: s.Command,
+				Port: s.Port, Early: s.Early, Env: s.Env})
+		}
+		for _, r := range rows {
+			if err := tx.Create(r).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (ws *Workspace) valid(e Environment) error {
@@ -165,8 +254,8 @@ func (ws *Workspace) valid(e Environment) error {
 func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 	environments.Lock()
 	defer environments.Unlock()
-	var e Environment
-	if err := ws.Store.Get("environments", name, &e); err != nil {
+	row, err := environmentRow(ws.DB, name)
+	if err != nil {
 		return err
 	}
 	if _, busy := seeding.LoadOrStore(name, true); busy {
@@ -174,7 +263,7 @@ func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 	}
 	defer seeding.Delete(name)
 	var users []string
-	err := ws.Store.List("sessions", func(d func(any) error) error {
+	err = ws.Store.List("sessions", func(d func(any) error) error {
 		var s Session
 		if err := d(&s); err != nil {
 			return err
@@ -188,6 +277,7 @@ func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 		return err
 	}
 	if len(users) > 0 {
+		sort.Strings(users)
 		return Conflict{fmt.Errorf("environment %s has sessions %s: remove them first", name, strings.Join(users, ", "))}
 	}
 	for _, kind := range []string{"seeds", "ready"} {
@@ -203,10 +293,13 @@ func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 			return fmt.Errorf("seed %s: %w", s.Actor, err)
 		}
 	}
-	for _, row := range [][2]string{{"routes", ws.Preview(name)}, {"ready", name}, {"seeds", name}, {"environments", name}} {
+	for _, row := range [][2]string{{"routes", ws.Preview(name)}, {"ready", name}, {"seeds", name}} {
 		if err := ws.Store.Delete(row[0], row[1]); err != nil {
 			return err
 		}
+	}
+	if err := ws.DB.Delete(&row).Error; err != nil {
+		return err
 	}
 	ws.Bus.Publish(Update{Kind: "reset"})
 	return nil
@@ -214,15 +307,14 @@ func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 
 // Every environment, and whether a session can fork from it now.
 func (ws *Workspace) Environments() ([]EnvironmentSummary, error) {
+	var rows []db.Environment
+	if err := ws.DB.Where("archived_at IS NULL").Order("name").Find(&rows).Error; err != nil {
+		return nil, err
+	}
 	out := []EnvironmentSummary{}
-	err := ws.Store.List("environments", func(d func(any) error) error {
-		var e Environment
-		if err := d(&e); err != nil {
-			return err
-		}
+	for _, e := range rows {
 		_, err := ws.served(e.Name)
 		out = append(out, EnvironmentSummary{Name: e.Name, Repo: e.Repo, Branch: e.Branch, Tier: e.Tier, Ready: err == nil})
-		return nil
-	})
-	return out, err
+	}
+	return out, nil
 }

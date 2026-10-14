@@ -65,8 +65,8 @@ func fake(t *testing.T, e workspace.Environment) *[]request {
 }
 
 func run(t *testing.T, args ...string) error {
-	cmd := env()
-	cmd.SetArgs(args)
+	cmd := root()
+	cmd.SetArgs(append([]string{"env"}, args...))
 	cmd.SilenceUsage, cmd.SilenceErrors = true, true
 	return cmd.Execute()
 }

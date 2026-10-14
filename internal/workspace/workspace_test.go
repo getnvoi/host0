@@ -4,12 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"path/filepath"
 	"sync"
 	"testing"
 
+	"gorm.io/gorm"
+
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/llm/claude"
 	"github.com/getnvoi/host0/internal/sandbox"
+	"github.com/getnvoi/host0/internal/shared/seal"
 	"github.com/getnvoi/host0/internal/store"
 )
 
@@ -134,10 +139,36 @@ func (b *bus) tap(t *testing.T) chan Update {
 }
 
 // A workspace on sb, its rows in memory. Its turns run claude's real parsing of what the fake boxd prints.
-func newWorkspace(sb sandbox.Sandboxes) *Workspace {
-	return &Workspace{Store: newStore(), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{},
+func newWorkspace(t *testing.T, sb sandbox.Sandboxes) *Workspace {
+	return &Workspace{Store: newStore(), DB: newDB(t), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{},
 		Sandboxes: sb, Workers: roomy{sb}, Tools: idle{}, Bus: &bus{}, Runners: []llm.Runner{claude.Runner{}},
 		Pin: func(_ context.Context, image string) (string, error) { return image, nil }}
+}
+
+// A database in a fresh file, migrated.
+func newDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if s, err := gdb.DB(); err == nil {
+			s.Close()
+		}
+	})
+	if err := db.Migrate(gdb); err != nil {
+		t.Fatal(err)
+	}
+	return gdb
+}
+
+// Declares e, as PUT /environments/{name} does.
+func env(t *testing.T, p *Workspace, e Environment) {
+	t.Helper()
+	if err := p.PutEnvironment(EnvironmentInput(e)); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // A sandbox whose every port is one boxd stand-in.

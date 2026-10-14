@@ -67,6 +67,7 @@ type schema struct {
 	Properties           map[string]schema `yaml:"properties"`
 	Items                *schema           `yaml:"items"`
 	AdditionalProperties any               `yaml:"additionalProperties"`
+	WriteOnly            bool              `yaml:"writeOnly"`
 }
 
 type hz struct {
@@ -216,8 +217,9 @@ func Generate(raw []byte) ([]byte, error) {
 			sort.Strings(props)
 			flags = nil
 			for _, name := range props {
+				// A secret never goes on a command line, where the shell's history keeps it.
 				k, ok := kind(body.Properties[name])
-				if !ok {
+				if !ok || body.Properties[name].WriteOnly {
 					continue
 				}
 				flags = append(flags, fmt.Sprintf("{Name: %q, Kind: %q, Help: %q}", name, k, body.Properties[name].Description))

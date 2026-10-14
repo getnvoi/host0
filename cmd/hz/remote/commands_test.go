@@ -22,8 +22,8 @@ func TestEveryOperationHasACommand(t *testing.T) {
 	r := root()
 	for _, o := range operations {
 		paths := o.HZ.By
-		if len(paths) == 0 {
-			paths = []string{strings.ReplaceAll(o.ID, ".", " ")}
+		if o.HZ.Output != "" {
+			paths = append(paths, strings.ReplaceAll(o.ID, ".", " "))
 		}
 		for _, p := range paths {
 			if c, rest, err := r.Find(strings.Fields(p)); err != nil || len(rest) > 0 || c.CommandPath() != "hz "+p {

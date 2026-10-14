@@ -84,8 +84,8 @@ func TestSeedAnnouncesEachStep(t *testing.T) {
 	var script string
 	srv := httptest.NewServer(seedBoxd(&script))
 	t.Cleanup(srv.Close)
-	p := newWorkspace(seeder{&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}})
-	p.Store.Put("environments", "shop", Environment{Name: "shop", Repo: "acme/shop", Branch: "main",
+	p := newWorkspace(t, seeder{&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}})
+	env(t, p, Environment{Name: "shop", Repo: "acme/shop", Branch: "main",
 		Setup: []string{"npm ci"}, Services: []Service{{Name: "web"}}, Preview: 3000})
 	p.Store.Put("credentials", "default", Credentials{})
 	c := p.Bus.(*bus).tap(t)
@@ -128,8 +128,8 @@ func TestSeedSilentStepFails(t *testing.T) {
 		}
 	}))
 	t.Cleanup(srv.Close)
-	p := newWorkspace(seeder{&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}})
-	p.Store.Put("environments", "shop", Environment{Name: "shop", Repo: "acme/shop", Branch: "main",
+	p := newWorkspace(t, seeder{&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}})
+	env(t, p, Environment{Name: "shop", Repo: "acme/shop", Branch: "main",
 		Setup: []string{"npm ci"}, Preview: 3000})
 	p.Store.Put("credentials", "default", Credentials{})
 	c := p.Bus.(*bus).tap(t)
@@ -159,7 +159,7 @@ func TestSeedFailureCarriesTheError(t *testing.T) {
 
 // Each beat reports the row and the setup's last line, not merely that the build goes on.
 func TestSeedHeartbeat(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	p.Store.Put("seeds", "hb", Seed{Env: "hb", State: "building", Step: "setup: bundle install"})
 	tails.Store("hb", &progress{line: "Installing rails 8.0.2", lines: 40})
 	t.Cleanup(func() { tails.Delete("hb") })
@@ -219,9 +219,9 @@ func TestRestartAfterSeedBuildsNothing(t *testing.T) {
 	srv := httptest.NewServer(seedBoxd(&script))
 	t.Cleanup(srv.Close)
 	sb := &named{fakeSandbox: &fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}}
-	p := newWorkspace(sb)
+	p := newWorkspace(t, sb)
 	p.BoxImage = "boxd@1"
-	p.Store.Put("environments", "shop", Environment{Name: "shop", Repo: "acme/shop", Branch: "main", Preview: 3000})
+	env(t, p, Environment{Name: "shop", Repo: "acme/shop", Branch: "main", Preview: 3000})
 	p.Store.Put("credentials", "default", Credentials{})
 	c := p.Bus.(*bus).tap(t)
 	if err := p.Reseed("shop"); err != nil {
@@ -233,8 +233,8 @@ func TestRestartAfterSeedBuildsNothing(t *testing.T) {
 	first := sb.created
 	until(t, "the build to end", func() bool { _, busy := seeding.Load("shop"); return !busy })
 
-	restarted := newWorkspace(sb)
-	restarted.Store, restarted.Bus, restarted.BoxImage = p.Store, p.Bus, "boxd@2"
+	restarted := newWorkspace(t, sb)
+	restarted.Store, restarted.DB, restarted.Bus, restarted.BoxImage = p.Store, p.DB, p.Bus, "boxd@2"
 	restarted.Recover()
 	restarted.Stale()
 	if _, busy := seeding.Load("shop"); busy {

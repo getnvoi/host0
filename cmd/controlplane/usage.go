@@ -52,8 +52,7 @@ func (p *plane) sample(ctx context.Context, now time.Time) {
 		if t, ok := tierOf[env]; ok {
 			return t
 		}
-		var e workspace.Environment
-		if p.Store.Get("environments", env, &e) == nil {
+		if e, err := p.ws.Environment(env); err == nil {
 			if t, err := p.sc.Tier(e.Tier); err == nil {
 				tierOf[env] = t.Name
 			}
