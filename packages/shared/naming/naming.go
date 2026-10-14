@@ -4,6 +4,7 @@ package naming
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -31,6 +32,9 @@ func New(name string) (Cluster, error) {
 func (c Cluster) Prefix() string  { return "hz-" + c.Name }
 func (c Cluster) Control() string { return c.Prefix() + "-control" }
 
+// The TXT value that marks a DNS record as this cluster's, as hz/owner marks its other objects.
+func (c Cluster) Owner() string { return "hz/owner=" + c.Prefix() }
+
 // The Cloudflare tunnel: a name no other tool picks, since tunnels carry no labels and one found by name is ours.
 func (c Cluster) Tunnel() string   { return "hz-cluster-" + c.Name }
 func (c Cluster) Selector() string { return Label + "=" + c.Name }
@@ -40,5 +44,19 @@ func (c Cluster) Labels() map[string]string {
 
 // One label under the zone, which the zone's universal certificate covers.
 func Host(c Cluster, name, zone string) string { return fmt.Sprintf("%s-%s.%s", name, c.Name, zone) }
+
+// Whether host is one Host or a preview computes for c under zone: <name>-<cluster>[<suffix>].<zone>, name one label.
+func Owns(c Cluster, suffix, zone, host string) bool {
+	label, ok := strings.CutSuffix(strings.ToLower(strings.TrimSuffix(host, ".")), "."+strings.ToLower(zone))
+	if !ok || strings.Contains(label, ".") {
+		return false
+	}
+	for _, tail := range []string{"-" + c.Name, "-" + c.Name + suffix} {
+		if name, ok := strings.CutSuffix(label, tail); ok && name != "" {
+			return true
+		}
+	}
+	return false
+}
 
 func LocalRegistry() string { return fmt.Sprintf("localhost:%d", RegistryPort) }

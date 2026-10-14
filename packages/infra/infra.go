@@ -11,14 +11,18 @@ import (
 )
 
 type Server struct {
-	ID       int64
-	Name     string
-	PublicIP string
+	ID         int64
+	Name       string
+	PublicIP   string
+	PublicIPv6 string // empty when the server has none
 }
 
 type Cloud interface {
-	// Network, firewall and ssh key, each named Cluster.Prefix(); the autoscaler finds them by that name.
-	Base(ctx context.Context, c naming.Cluster, location, publicKey string) error
+	// Network, firewall and ssh key, each named Cluster.Prefix(); the autoscaler finds them by that name. The firewall
+	// lets in tcp 22 and open, and nothing else.
+	Base(ctx context.Context, c naming.Cluster, location, publicKey string, open []int) error
+	// The server by name as it is now; an error when there is none.
+	Lookup(ctx context.Context, name string) (Server, error)
 	Server(ctx context.Context, c naming.Cluster, name, serverType, location, privateIP string) (Server, error)
 	// This cloud's controller and autoscaler, and their secret; workers boot with workerInit and carry labels.
 	Addons(c naming.Cluster, cfg Config, workerInit string, labels map[string]string) (string, error)
@@ -30,9 +34,14 @@ type Cloud interface {
 // Every worker carries the taint; only sandbox workers and atelet land there.
 const WorkerTaint = "ate.dev/sandboxClass"
 
+// Where the cluster's hosts reach it: Cloudflare's tunnel, or records at the control node and a proxy there.
 type Edge interface {
-	// The cluster's tunnel, every request routed to service; returns the connector token.
-	Tunnel(ctx context.Context, c naming.Cluster, service string) (string, error)
+	// tcp ports the control node opens to the world, beyond ssh.
+	Ports() []int
+	// Points hosts at the cluster, every request going to service; returns the Secrets, by name, its Deployment reads.
+	Serve(ctx context.Context, c naming.Cluster, service string, hosts []string) (map[string]map[string]string, error)
+	// The Deployment that runs it in naming.Namespace, from manifests/<Deployment>.yaml.
+	Deployment() string
 	Destroy(ctx context.Context, c naming.Cluster) error
 }
 
@@ -51,7 +60,6 @@ type Config struct {
 	// Previews are <name>-<cluster><PreviewSuffix>.<Zone>.
 	PreviewSuffix string
 	HcloudToken   string
-	CFToken       string
 	PublicKey     string
 	PrivateKey    []byte
 }

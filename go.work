@@ -5,6 +5,7 @@ use (
 	./packages/cli
 	./packages/controlplane
 	./packages/cloudflare
+	./packages/dns
 	./packages/hetzner
 	./packages/infra
 	./packages/shared

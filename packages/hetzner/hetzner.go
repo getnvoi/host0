@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -90,7 +91,7 @@ func (h Client) ensure(ctx context.Context, kind, name string, body map[string]a
 	return h.do(ctx, "POST", "/"+kind, body, nil)
 }
 
-func (h Client) Base(ctx context.Context, c naming.Cluster, location, publicKey string) error {
+func (h Client) Base(ctx context.Context, c naming.Cluster, location, publicKey string, open []int) error {
 	labels := c.Labels()
 	if err := h.ensure(ctx, "networks", c.Prefix(), map[string]any{
 		"name": c.Prefix(), "ip_range": naming.NetRange, "labels": labels,
@@ -98,11 +99,7 @@ func (h Client) Base(ctx context.Context, c naming.Cluster, location, publicKey 
 	}); err != nil {
 		return err
 	}
-	if err := h.ensure(ctx, "firewalls", c.Prefix(), map[string]any{
-		"name": c.Prefix(), "labels": labels,
-		"rules": []map[string]any{{"direction": "in", "protocol": "tcp", "port": "22",
-			"source_ips": []string{"0.0.0.0/0", "::/0"}}},
-	}); err != nil {
+	if err := h.firewall(ctx, c, open); err != nil {
 		return err
 	}
 	return h.ensure(ctx, "ssh_keys", c.Prefix(), map[string]any{
@@ -116,7 +113,30 @@ type server struct {
 	Status    string `json:"status"`
 	PublicNet struct {
 		IPv4 struct{ IP string } `json:"ipv4"`
+		// A /64; the server answers on its first address.
+		IPv6 *struct{ IP string } `json:"ipv6"`
 	} `json:"public_net"`
+}
+
+func (s server) public() infra.Server {
+	out := infra.Server{ID: s.ID, Name: s.Name, PublicIP: s.PublicNet.IPv4.IP}
+	if s.PublicNet.IPv6 != nil {
+		if p, err := netip.ParsePrefix(s.PublicNet.IPv6.IP); err == nil {
+			out.PublicIPv6 = p.Masked().Addr().Next().String()
+		}
+	}
+	return out
+}
+
+func (h Client) Lookup(ctx context.Context, name string) (infra.Server, error) {
+	var got struct{ Servers []server }
+	if err := h.do(ctx, "GET", "/servers?name="+url.QueryEscape(name), nil, &got); err != nil {
+		return infra.Server{}, err
+	}
+	if len(got.Servers) == 0 {
+		return infra.Server{}, fmt.Errorf("hetzner: no server %s", name)
+	}
+	return got.Servers[0].public(), nil
 }
 
 func (h Client) Server(ctx context.Context, c naming.Cluster, name, serverType, location, privateIP string) (infra.Server, error) {
@@ -154,7 +174,7 @@ func (h Client) Server(ctx context.Context, c naming.Cluster, name, serverType, 
 			return infra.Server{}, err
 		}
 		if got.Server.Status == "running" {
-			return infra.Server{ID: id, Name: name, PublicIP: got.Server.PublicNet.IPv4.IP}, nil
+			return got.Server.public(), nil
 		}
 	}
 	return infra.Server{}, fmt.Errorf("server %s not running after 5m", name)

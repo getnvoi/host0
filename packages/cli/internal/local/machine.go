@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -21,10 +22,13 @@ func Machine() *cobra.Command {
 	var cfg infra.Config
 	var name string
 	var only []string
+	var edge, provider string
 	flags := func(c *cobra.Command) {
 		c.Flags().StringVar(&cfg.Zone, "zone", "", "Cloudflare zone its hosts are served under")
 		c.Flags().StringVar(&name, "name", "local", "the cluster's name: its hosts are app-<name>.<zone>, its tunnel hz-cluster-<name>")
 		c.Flags().StringVar(&cfg.PreviewSuffix, "preview-suffix", "-preview", "previews are <id>-<name><suffix>.<zone>")
+		c.Flags().StringVar(&edge, "edge", "tunnel", "tunnel only: a kind cluster has no public address")
+		c.Flags().StringVar(&provider, "dns", "CLOUDFLAREAPI", "CLOUDFLAREAPI only, the tunnel's")
 		_ = c.MarkFlagRequired("zone")
 	}
 	env := func() (*infra.Env, error) {
@@ -32,7 +36,11 @@ func Machine() *cobra.Command {
 		if err != nil {
 			return nil, err
 		}
-		if cfg.CFToken = os.Getenv("CLOUDFLARE_API_TOKEN"); cfg.CFToken == "" {
+		if edge != "tunnel" || !strings.EqualFold(provider, "CLOUDFLAREAPI") {
+			return nil, fmt.Errorf("hz local runs behind Cloudflare's tunnel only: a kind cluster has no public address for --edge %s --dns %s", edge, provider)
+		}
+		token := os.Getenv("CLOUDFLARE_API_TOKEN")
+		if token == "" {
 			return nil, fmt.Errorf("CLOUDFLARE_API_TOKEN is not set")
 		}
 		cache, err := cacheDir()
@@ -43,7 +51,7 @@ func Machine() *cobra.Command {
 		return &infra.Env{
 			Cluster: cluster,
 			Config:  cfg,
-			Edge:    cloudflare.Client{Token: cfg.CFToken, Zone: cfg.Zone, Suffix: cfg.PreviewSuffix, Say: say},
+			Edge:    cloudflare.Client{Token: token, Zone: cfg.Zone, Suffix: cfg.PreviewSuffix, Say: say},
 			Out:     os.Stdout,
 			Cache:   cache,
 			Source:  source(),

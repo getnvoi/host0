@@ -13,6 +13,7 @@ func TestRenderAll(t *testing.T) {
 		"namespace.yaml": nil, "cloudflared.yaml": nil,
 		"registry.yaml":    map[string]string{"Registry": "10.0.1.2:5001"},
 		"workerpools.yaml": pools,
+		"proxy.yaml":       map[string]string{"ControlLabel": "true", "Service": "http://plane.hz-system.svc:80"},
 	}
 	for name, d := range data {
 		out, err := Render(name, d)
@@ -21,6 +22,19 @@ func TestRenderAll(t *testing.T) {
 		}
 		if strings.Contains(out, "<no value>") || strings.TrimSpace(out) == "" {
 			t.Errorf("%s rendered empty or with missing values", name)
+		}
+	}
+}
+
+func TestPlaneEdge(t *testing.T) {
+	for edge, want := range map[string]string{"cloudflared": "TUNNEL_TOKEN", "proxy": "HZ_DNS_CREDS"} {
+		out, err := Render("plane.yaml", map[string]string{"Cluster": "dev", "Zone": "nvoi.to", "Suffix": "-preview",
+			"ControlLabel": "true", "Secret": "x", "Edge": edge})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, want) || !strings.Contains(out, `value: "`+edge+`"`) {
+			t.Errorf("%s: plane does not read %s", edge, want)
 		}
 	}
 }

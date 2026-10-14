@@ -47,9 +47,9 @@ type Store interface {
 }
 
 type Edge interface {
-	// A proxied record for host, pointing at the cluster's tunnel.
+	// Makes host reach the cluster: a CNAME to the tunnel, or A and AAAA at the control node.
 	Route(ctx context.Context, host string) error
-	// Nil when host's record points at the tunnel; otherwise what is there instead.
+	// Nil when host's records point where Route puts them; otherwise what is there instead.
 	Check(ctx context.Context, host string) error
 }
 

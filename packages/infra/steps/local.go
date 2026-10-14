@@ -57,7 +57,7 @@ var Local = []infra.Step{
 	}),
 	find("substrate"),
 	find("worker pools"),
-	find("cloudflare tunnel"),
+	find("edge"),
 	find("control plane"),
 }
 
