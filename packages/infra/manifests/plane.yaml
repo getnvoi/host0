@@ -71,11 +71,14 @@ spec:
             [[- end ]]
           volumeMounts:
             - { name: data, mountPath: /var/lib/hz }
+            - { name: seal, mountPath: /etc/hz, readOnly: true }
             - { name: ate-token, mountPath: /var/run/secrets/ateapi, readOnly: true }
             - { name: servicedns-ca, mountPath: /run/servicedns-ca, readOnly: true }
       volumes:
         - name: data
           hostPath: { path: /var/lib/hz/plane, type: DirectoryOrCreate }
+        - name: seal
+          secret: { secretName: plane, defaultMode: 0400, items: [{ key: seal, path: seal }] }
         - name: ate-token
           projected:
             sources:

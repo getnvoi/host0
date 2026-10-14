@@ -18,6 +18,7 @@ import (
 	"github.com/getnvoi/host0/infra/ssh"
 	"github.com/getnvoi/host0/infra/steps"
 	"github.com/getnvoi/host0/shared/naming"
+	"github.com/getnvoi/host0/shared/state"
 )
 
 var _ infra.Edge = dns.Edge{}
@@ -87,7 +88,13 @@ func Cluster() *cobra.Command {
 			if err := e.Cloud.Destroy(c.Context(), e.Cluster); err != nil {
 				return err
 			}
-			return e.Edge.Destroy(c.Context(), e.Cluster)
+			if err := e.Edge.Destroy(c.Context(), e.Cluster); err != nil {
+				return err
+			}
+			if _, err := os.Stat(state.KeyPath()); err == nil {
+				e.Say("%s stays: it is the sealing key's backup, and an install restores it to the next cluster", state.KeyPath())
+			}
+			return nil
 		},
 	}
 	common(destroy, &o)
