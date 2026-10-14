@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/getnvoi/host0/internal/api/client"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -218,7 +219,7 @@ func envCreate() *cobra.Command {
 		RunE: func(_ *cobra.Command, args []string) error {
 			if _, err := getEnv(args[0]); err == nil {
 				return fmt.Errorf("environment %s exists: change it with hz env set", args[0])
-			} else if !missing(err) {
+			} else if !client.Missing(err) {
 				return err
 			}
 			e.Name = args[0]

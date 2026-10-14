@@ -23,22 +23,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/getnvoi/host0/cmd/hz/state"
+	"github.com/getnvoi/host0/internal/api/client"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/workspace"
 )
-
-// The plane's answer to a request that failed: its status and the sentence it wrote.
-type refused struct {
-	status int
-	msg    string
-}
-
-func (r refused) Error() string { return r.msg }
-
-func missing(err error) bool {
-	var r refused
-	return errors.As(err, &r) && r.status == http.StatusNotFound
-}
 
 func call(method, path string, in, out any) error {
 	res, err := send(method, path, in)
@@ -74,19 +62,7 @@ func send(method, path string, in any) (*http.Response, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+st.Token)
 	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode >= 300 {
-		defer res.Body.Close()
-		b, err := io.ReadAll(res.Body)
-		if err != nil {
-			return nil, fmt.Errorf("%s %s: %d, and its body: %w", method, path, res.StatusCode, err)
-		}
-		return nil, refused{res.StatusCode, fmt.Sprintf("%s %s: %s", method, path, strings.TrimSpace(string(b)))}
-	}
-	return res, nil
+	return client.OK(http.DefaultClient.Do(req))
 }
 
 // The commands not yet generated from the spec.

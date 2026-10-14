@@ -26,6 +26,16 @@ func refusal(res *http.Response) error {
 		return fmt.Errorf("%s %s: %s, and its body: %w", res.Request.Method, res.Request.URL.Path, res.Status, err)
 	}
 	said := strings.TrimSpace(string(b))
+	if strings.HasPrefix(res.Header.Get("Content-Type"), "application/problem+json") {
+		var p ErrorModel
+		if err := json.Unmarshal(b, &p); err != nil {
+			return fmt.Errorf("%s %s: %s, and its problem: %w: %s", res.Request.Method, res.Request.URL.Path, res.Status, err, b)
+		}
+		said = ""
+		if p.Detail != nil {
+			said = *p.Detail
+		}
+	}
 	if said == "" {
 		said = res.Status
 	}
