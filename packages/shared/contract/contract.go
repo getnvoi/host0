@@ -301,9 +301,10 @@ type Pool struct {
 }
 
 type Worker struct {
-	Pool     string `json:"pool"`
-	Pod      string `json:"pod"`
-	Assigned bool   `json:"assigned"`
+	Pool     string   `json:"pool"`
+	Pod      string   `json:"pod"`
+	Assigned bool     `json:"assigned"`
+	Actors   []string `json:"actors,omitempty"`
 }
 
 // A host the plane serves; Error says why its record does not point at the cluster's tunnel.

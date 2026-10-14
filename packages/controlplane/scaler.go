@@ -30,6 +30,8 @@ type Pools interface {
 type Worker struct {
 	Pool, Pod string
 	Assigned  bool
+	// The actors assigned to it, by name.
+	Actors []string
 }
 
 const (

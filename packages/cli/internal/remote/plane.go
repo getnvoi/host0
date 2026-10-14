@@ -34,9 +34,9 @@ func status() *cobra.Command {
 			for _, p := range c.Pools {
 				fmt.Fprintf(w, "%s\t%d\t%d\t\n", p.Name, p.Replicas, p.Ready)
 			}
-			fmt.Fprintln(w, "\nWORKER\tPOOL\tASSIGNED\t")
+			fmt.Fprintln(w, "\nWORKER\tPOOL\tACTORS\t")
 			for _, wk := range c.Workers {
-				fmt.Fprintf(w, "%s\t%s\t%t\t\n", wk.Pod, wk.Pool, wk.Assigned)
+				fmt.Fprintf(w, "%s\t%s\t%s\t\n", wk.Pod, wk.Pool, strings.Join(wk.Actors, ","))
 			}
 			fmt.Fprintln(w, "\nHOST\tEDGE\t\t")
 			bad := 0

@@ -227,7 +227,11 @@ func (c *Client) Workers(ctx context.Context) ([]controlplane.Worker, error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, controlplane.Worker{Pool: w.GetWorkerPool(), Pod: w.GetWorkerPod(), Assigned: len(as.GetActorAssignments()) > 0})
+		var actors []string
+		for _, a := range as.GetActorAssignments() {
+			actors = append(actors, a.GetActor().GetName())
+		}
+		out = append(out, controlplane.Worker{Pool: w.GetWorkerPool(), Pod: w.GetWorkerPod(), Assigned: len(actors) > 0, Actors: actors})
 	}
 	return out, nil
 }
