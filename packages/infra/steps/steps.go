@@ -78,14 +78,15 @@ var Install = []infra.Step{
 		if err := kube.Run(ctx, e.Shell, "wait --for=condition=Ready node --all --timeout=300s", e.Out); err != nil {
 			return err
 		}
-		// k3s's own cloud controller copies node-external-ip into the node's addresses.
+		// k3s's own cloud controller copies node-external-ip into the node's addresses. The node is named by its
+		// server: the control-plane label may come after Ready.
 		for _, ip := range addresses(e.Control) {
-			if err := kube.Run(ctx, e.Shell, "wait --for=jsonpath='{.status.addresses[?(@.address==\""+ip+"\")].type}'=ExternalIP node "+
-				"-l node-role.kubernetes.io/control-plane --timeout=120s", e.Out); err != nil {
+			if err := kube.Run(ctx, e.Shell, "wait --for=jsonpath='{.status.addresses[?(@.address==\""+ip+"\")].type}'=ExternalIP node/"+
+				e.Control.Name+" --timeout=120s", e.Out); err != nil {
 				return err
 			}
 		}
-		if got, err := kube.Output(ctx, e.Shell, "get node -l node-role.kubernetes.io/control-plane -o jsonpath={.items[0].spec.providerID}"); err != nil || got != id {
+		if got, err := kube.Output(ctx, e.Shell, "get node "+e.Control.Name+" -o jsonpath={.spec.providerID}"); err != nil || got != id {
 			return fmt.Errorf("the control node's providerID is %q, not %s: %v", got, id, err)
 		}
 		return e.Shell.Run(ctx, "sh -s", strings.NewReader(node.Encrypt), e.Out)
