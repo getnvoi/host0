@@ -3,6 +3,7 @@ package dns
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -97,7 +98,7 @@ func (z *Zone) apply(plan func(existing models.Records) ([]edit, error)) ([]stri
 				dc.EnsureAbsent = append(dc.EnsureAbsent, r)
 				continue
 			}
-			dc.Records = append(dc.Records, r)
+			dc.Records = append(dc.Records, carried(r))
 			present[v] = true
 		}
 		for _, v := range e.add {
@@ -124,6 +125,24 @@ func (z *Zone) apply(plan func(existing models.Records) ([]edit, error)) ([]stri
 		done = append(done, c.Msg)
 	}
 	return done, nil
+}
+
+// A record read back from a provider, as that provider accepts it among desired records: Cloudflare reads its proxy
+// flag as true/false and validates the desired one as on/off.
+func carried(r *models.RecordConfig) *models.RecordConfig {
+	v, ok := r.Metadata["cloudflare_proxy"]
+	if !ok {
+		return r
+	}
+	c := *r
+	c.Metadata = maps.Clone(r.Metadata)
+	switch v {
+	case "true":
+		c.Metadata["cloudflare_proxy"] = "on"
+	case "false":
+		c.Metadata["cloudflare_proxy"] = "off"
+	}
+	return &c
 }
 
 // One edit per name and type, so a record already there is carried once.

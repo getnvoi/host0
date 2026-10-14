@@ -256,7 +256,11 @@ var Install = []infra.Step{
 		}
 		url := origin(e, naming.Host(e.Cluster, "api", e.Config.Zone))
 		if err := reachable(ctx, url, e.Out); err != nil {
-			return err
+			logs, lerr := output(ctx, e, "k3s kubectl -n "+naming.Namespace+" logs deploy/"+e.Edge.Deployment()+" --tail=15")
+			if lerr != nil {
+				logs = lerr.Error()
+			}
+			return fmt.Errorf("%w; %s says:\n%s", err, e.Edge.Deployment(), logs)
 		}
 		e.Say("api at %s", url)
 		e.Say("web UI at %s: sign in with hz open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
@@ -465,19 +469,33 @@ func kubeContext(e *infra.Env) string {
 func reachable(ctx context.Context, url string, out io.Writer) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 	deadline := time.Now().Add(5 * time.Minute)
+	last := ""
 	for streak := 0; streak < 5; {
-		if time.Now().After(deadline) {
-			return fmt.Errorf("%s does not answer through the edge", url)
-		}
 		res, err := client.Get(url + "/approvals")
+		got := ""
+		switch {
+		case err != nil:
+			got = err.Error()
 		// The plane refuses a request without its token; anything else is not the plane.
-		if err == nil && res.StatusCode == http.StatusUnauthorized && strings.HasPrefix(res.Header.Get("Content-Type"), "text/plain") {
+		case res.StatusCode == http.StatusUnauthorized && strings.HasPrefix(res.Header.Get("Content-Type"), "text/plain"):
+			got = "plane"
+		default:
+			got = res.Status
+		}
+		if res != nil {
+			res.Body.Close()
+		}
+		if got == "plane" {
 			streak++
 		} else {
 			streak = 0
 		}
-		if res != nil {
-			res.Body.Close()
+		if got != last {
+			fmt.Fprintf(out, "  %s: %s\n", url, got)
+			last = got
+		}
+		if streak < 5 && time.Now().After(deadline) {
+			return fmt.Errorf("%s does not answer through the edge in 5m; last: %s", url, last)
 		}
 		select {
 		case <-ctx.Done():
