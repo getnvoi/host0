@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
@@ -147,40 +146,19 @@ func (p *plane) terminal(appHost string) http.HandlerFunc {
 		}
 		s, env, err := p.ws.Awake(r.Context(), r.PathValue("id"))
 		if err != nil {
-			reply(w, nil, err)
+			writeProblem(w, refusal(status(err), err.Error()))
 			return
 		}
 		release, err := p.sc.Enter(r.Context(), s.Actor, env.Tier)
 		if err != nil {
-			reply(w, nil, err)
+			writeProblem(w, refusal(status(err), err.Error()))
 			return
 		}
 		defer release()
 		if err := p.ws.Keyed(r.Context(), s.Actor); err != nil {
-			reply(w, nil, err)
+			writeProblem(w, refusal(status(err), err.Error()))
 			return
 		}
 		relay.ServeHTTP(w, r.WithContext(box.ForActor(r.Context(), s.Actor)))
-	}
-}
-
-func read(r *http.Request, v any, then func() error) error {
-	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		return badRequest{err}
-	}
-	return then()
-}
-
-type badRequest struct{ error }
-
-func reply(w http.ResponseWriter, v any, err error) {
-	switch {
-	case err != nil:
-		writeProblem(w, refusal(status(err), err.Error()))
-	case v == nil:
-		w.WriteHeader(http.StatusNoContent)
-	default:
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(v)
 	}
 }

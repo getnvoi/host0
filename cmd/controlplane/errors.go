@@ -40,7 +40,6 @@ func refusal(status int, msg string, errs ...error) huma.StatusError {
 // The status err is answered with: not found 404, a bad request 400, a conflict 409, anything else 422.
 func status(err error) int {
 	var (
-		bad      badRequest
 		invalid  workspace.Invalid
 		shape    workers.Invalid
 		conflict workspace.Conflict
@@ -50,7 +49,7 @@ func status(err error) int {
 	switch {
 	case errors.Is(err, sandbox.ErrNotFound), errors.As(err, &missing), errors.As(err, &nobody):
 		return http.StatusNotFound
-	case errors.As(err, &bad), errors.As(err, &invalid), errors.As(err, &shape):
+	case errors.As(err, &invalid), errors.As(err, &shape):
 		return http.StatusBadRequest
 	case errors.As(err, &conflict):
 		return http.StatusConflict

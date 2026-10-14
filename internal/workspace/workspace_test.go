@@ -169,17 +169,3 @@ func (b boxed) State(context.Context, string) (string, error) { return "running"
 func (b boxed) Dial(ctx context.Context, _ string, _ int) (net.Conn, error) {
 	return (&net.Dialer{}).DialContext(ctx, "tcp", b.addr)
 }
-
-// Records the actors deleted.
-type removing struct {
-	sandbox.Sandboxes
-	mu   sync.Mutex
-	gone []string
-}
-
-func (r *removing) Delete(_ context.Context, name string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.gone = append(r.gone, name)
-	return nil
-}
