@@ -64,9 +64,11 @@ var Install = []infra.Step{
 		return err
 	}),
 	step("k3s", func(ctx context.Context, e *infra.Env) error {
-		id := e.Cloud.ProviderID(e.Control)
-		script := node.Server(id, strings.Join(addresses(e.Control), ","))
-		if err := e.Shell.Run(ctx, "cloud-init status --wait >/dev/null; sh -s", strings.NewReader(script), e.Out); err != nil {
+		id, ips := e.Cloud.ProviderID(e.Control), strings.Join(addresses(e.Control), ",")
+		if err := identity(ctx, e, id, ips); err != nil {
+			return err
+		}
+		if err := e.Shell.Run(ctx, "sh -s", strings.NewReader(node.Server(id, ips)), e.Out); err != nil {
 			return err
 		}
 		// `wait` on no nodes fails at once: first wait for the node to register at all.
@@ -288,6 +290,21 @@ func cloudSecret(ctx context.Context, e *infra.Env) error {
 	init := node.Worker(token, node.Labels(source.Substrate.Version()), e.Cloud.Identity())
 	return kube.Apply(ctx, e.Shell, cloud.Secret(naming.Namespace, "cloud", map[string]string{
 		"provider": e.Cloud.Name(), "credentials": string(creds), "worker-init": init}), e.Out)
+}
+
+// The cloud's Identity, which a worker joins with, run on the control node: it must read what the cloud's API says.
+func identity(ctx context.Context, e *infra.Env, id, ips string) error {
+	var b strings.Builder
+	script := "set -eu\n" + e.Cloud.Identity() + "printf '%s %s\\n' \"$provider_id\" \"$external_ips\"\n"
+	err := e.Shell.Run(ctx, "cloud-init status --wait >/dev/null; sh -s", strings.NewReader(script), &b)
+	out := strings.TrimSpace(b.String())
+	if err != nil {
+		return fmt.Errorf("the cloud's identity script on %s: %w: %s", e.Control.Name, err, out)
+	}
+	if lines := strings.Split(out, "\n"); lines[len(lines)-1] != id+" "+ips {
+		return fmt.Errorf("the cloud's identity script on %s reads %q, its API %q", e.Control.Name, out, id+" "+ips)
+	}
+	return nil
 }
 
 // Writes the cluster's shape, its workers and tiers, to the plane, which holds it as a row.
