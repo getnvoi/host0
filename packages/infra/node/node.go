@@ -15,6 +15,11 @@ var script string
 
 var tmpl = template.Must(template.New("k3s").Parse(script))
 
+// Run on the server once its node is Ready.
+//
+//go:embed encrypt.sh
+var Encrypt string
+
 type params struct {
 	Role, Token, NetRange, ControlIP, Registry, LocalRegistry string
 	Labels                                                    []string
