@@ -8,7 +8,6 @@ import (
 )
 
 const (
-	Label     = "hz.cluster"
 	NetRange  = "10.0.0.0/16"
 	Subnet    = "10.0.1.0/24"
 	ControlIP = "10.0.1.2"
@@ -18,6 +17,8 @@ const (
 	Namespace    = "hz-system"
 	// The Secret in Namespace holding the public edge's ACME account and certificates.
 	Certs = "proxy-certs"
+	// Every worker carries the taint; only sandbox workers and atelet land there.
+	WorkerTaint = "ate.dev/sandboxClass"
 )
 
 type Cluster struct{ Name string }
@@ -38,11 +39,7 @@ func (c Cluster) Control() string { return c.Prefix() + "-control" }
 func (c Cluster) Owner() string { return "hz/owner=" + c.Prefix() }
 
 // The Cloudflare tunnel: a name no other tool picks, since tunnels carry no labels and one found by name is ours.
-func (c Cluster) Tunnel() string   { return "hz-cluster-" + c.Name }
-func (c Cluster) Selector() string { return Label + "=" + c.Name }
-func (c Cluster) Labels() map[string]string {
-	return map[string]string{Label: c.Name}
-}
+func (c Cluster) Tunnel() string { return "hz-cluster-" + c.Name }
 
 // One label under the zone, which the zone's universal certificate covers.
 func Host(c Cluster, name, zone string) string { return fmt.Sprintf("%s-%s.%s", name, c.Name, zone) }

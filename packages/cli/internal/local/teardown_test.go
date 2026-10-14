@@ -7,18 +7,19 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/getnvoi/host0/cloud"
 	"github.com/getnvoi/host0/infra"
 	"github.com/getnvoi/host0/shared/naming"
 )
 
 type calls struct{ log []string }
 
-type cloud struct {
-	infra.Cloud
+type fakeCloud struct {
+	cloud.Cloud
 	c *calls
 }
 
-func (f cloud) Destroy(context.Context, naming.Cluster) error {
+func (f fakeCloud) Destroy(context.Context, naming.Cluster) error {
 	f.c.log = append(f.c.log, "servers")
 	return nil
 }
@@ -36,7 +37,7 @@ func (f edge) Destroy(context.Context, naming.Cluster) error {
 func TestTeardownKeepsFirst(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	c := &calls{}
-	e := &infra.Env{Cloud: cloud{c: c}, Edge: edge{c: c}, Out: io.Discard}
+	e := &infra.Env{Cloud: fakeCloud{c: c}, Edge: edge{c: c}, Out: io.Discard}
 	keep := func(context.Context, *infra.Env) error { c.log = append(c.log, "keep"); return nil }
 	if err := teardown(context.Background(), e, keep); err != nil {
 		t.Fatal(err)

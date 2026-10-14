@@ -15,6 +15,10 @@ done
 [ -n "$ip" ] || { echo "no address in {{.NetRange}}" >&2; exit 1; }
 iface=$(ip -4 -o addr show to {{.NetRange}} | awk '{print $2}' | head -1)
 
+{{.Identity}}
+case "$provider_id" in *://?*) ;; *) echo "no provider id: got \"$provider_id\"" >&2; exit 1 ;; esac
+[ -n "${external_ips%%,*}" ] || { echo "no public IPv4: got \"$external_ips\"" >&2; exit 1; }
+
 echo "net.ipv4.conf.all.proxy_arp=1" > /etc/sysctl.d/90-hz.conf
 sysctl -q -p /etc/sysctl.d/90-hz.conf
 
@@ -32,8 +36,8 @@ advertise-address: $ip
 flannel-iface: $iface
 tls-san: [$ip]
 secrets-encryption: true
+node-external-ip: "$external_ips"
 disable: [traefik, servicelb]
-disable-cloud-controller: true
 write-kubeconfig-mode: "0600"
 kube-apiserver-arg:
   - feature-gates=$GATES
@@ -42,6 +46,7 @@ kube-controller-manager-arg:
   - feature-gates=ClusterTrustBundle=true,PodCertificateRequest=true
 kubelet-arg:
   - cloud-provider=external
+  - provider-id=$provider_id
   - feature-gates=$GATES
 EOF
 {{else}}
@@ -49,11 +54,13 @@ cat > /etc/rancher/k3s/config.yaml <<EOF
 server: https://{{.ControlIP}}:6443
 token: {{.Token}}
 node-ip: $ip
+node-external-ip: "$external_ips"
 flannel-iface: $iface
 node-label: [{{range $i, $l := .Labels}}{{if $i}}, {{end}}{{$l}}{{end}}]
 node-taint: [ate.dev/sandboxClass=gvisor:NoSchedule]
 kubelet-arg:
   - cloud-provider=external
+  - provider-id=$provider_id
   - feature-gates=$GATES
 EOF
 {{end}}

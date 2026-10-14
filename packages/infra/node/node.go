@@ -1,9 +1,11 @@
-// The script that makes a node, and the cloud-init that runs it on a worker the autoscaler creates.
+// The script that makes a node, and the cloud-init that runs it on a worker. A node registers with the providerID and
+// public addresses hz gives it: the control node's from the server hz made, a worker's from the cloud's Identity.
 package node
 
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	"sort"
 	"text/template"
 
@@ -23,30 +25,36 @@ var Encrypt string
 type params struct {
 	Role, Token, NetRange, ControlIP, Registry, LocalRegistry string
 	Labels                                                    []string
+	// Shell that sets provider_id and external_ips.
+	Identity string
 }
 
-func render(role, token string, labels map[string]string) string {
+func render(role, token string, labels map[string]string, identity string) string {
 	var ls []string
 	for k, v := range labels {
 		ls = append(ls, k+"="+v)
 	}
 	sort.Strings(ls)
 	var b bytes.Buffer
-	_ = tmpl.Execute(&b, params{role, token, naming.NetRange, naming.ControlIP, naming.Registry, naming.LocalRegistry(), ls})
+	_ = tmpl.Execute(&b, params{role, token, naming.NetRange, naming.ControlIP, naming.Registry, naming.LocalRegistry(), ls, identity})
 	return b.String()
 }
 
-func Server() string { return render("server", "", nil) }
+// externalIPs is comma separated, IPv4 first.
+func Server(providerID, externalIPs string) string {
+	return render("server", "", nil, fmt.Sprintf("provider_id=%q\nexternal_ips=%q\n", providerID, externalIPs))
+}
 
 // The labels a worker joins with; the autoscaler is told the same ones so it can plan for them.
 func Labels(substrateVersion string) map[string]string {
 	return map[string]string{"hz.dev/worker": "true", "ate.dev/substrate-version": substrateVersion}
 }
 
-func Worker(token string, labels map[string]string) string {
+// identity is the cloud's: a worker's server id does not exist when its cloud-init is written.
+func Worker(token string, labels map[string]string, identity string) string {
 	var b bytes.Buffer
 	b.WriteString("#cloud-config\nwrite_files:\n  - path: /root/k3s.sh\n    permissions: \"0700\"\n    content: |\n")
-	for _, line := range bytes.Split([]byte(render("agent", token, labels)), []byte("\n")) {
+	for _, line := range bytes.Split([]byte(render("agent", token, labels, identity)), []byte("\n")) {
 		b.WriteString("      ")
 		b.Write(line)
 		b.WriteString("\n")

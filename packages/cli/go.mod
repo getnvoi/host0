@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	github.com/getnvoi/host0/cloudflare v0.0.0
 	github.com/getnvoi/host0/dns v0.0.0
-	github.com/getnvoi/host0/hetzner v0.0.0
+	github.com/getnvoi/host0/cloud v0.0.0
 	github.com/getnvoi/host0/infra v0.0.0
 	github.com/getnvoi/host0/shared v0.0.0
 	github.com/spf13/cobra v1.10.2
@@ -173,7 +173,7 @@ require (
 
 replace (
 	github.com/getnvoi/host0/cloudflare => ../cloudflare
-	github.com/getnvoi/host0/hetzner => ../hetzner
+	github.com/getnvoi/host0/cloud => ../cloud
 	github.com/getnvoi/host0/infra => ../infra
 	github.com/getnvoi/host0/shared => ../shared
 )

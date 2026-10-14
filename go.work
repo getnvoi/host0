@@ -4,9 +4,9 @@ use (
 	./packages/boxd
 	./packages/cli
 	./packages/controlplane
+	./packages/cloud
 	./packages/cloudflare
 	./packages/dns
-	./packages/hetzner
 	./packages/infra
 	./packages/shared
 )

@@ -2,11 +2,13 @@ package hetzner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"slices"
 	"strconv"
 
+	"github.com/getnvoi/host0/cloud"
 	"github.com/getnvoi/host0/shared/naming"
 )
 
@@ -17,11 +19,10 @@ type rule struct {
 	SourceIPs []string `json:"source_ips"`
 }
 
-// tcp 22 and each of open, from anywhere.
+// tcp Inbound(open), from anywhere.
 func rules(open []int) []rule {
-	ports := slices.Sorted(slices.Values(append([]int{22}, open...)))
 	var rs []rule
-	for _, p := range slices.Compact(ports) {
+	for _, p := range cloud.Inbound(open) {
 		rs = append(rs, rule{"in", "tcp", strconv.Itoa(p), []string{"0.0.0.0/0", "::/0"}})
 	}
 	return rs
@@ -37,26 +38,47 @@ func lines(rs []rule) []string {
 	return out
 }
 
+// The tcp ports a firewall create or set_rules body opens; conformance reads the rule writes with it.
+func Ports(body []byte) ([]int, error) {
+	var b struct{ Rules []rule }
+	if err := json.Unmarshal(body, &b); err != nil {
+		return nil, err
+	}
+	var ports []int
+	for _, r := range b.Rules {
+		p, err := strconv.Atoi(r.Port)
+		if err != nil || r.Direction != "in" || r.Protocol != "tcp" {
+			return nil, fmt.Errorf("rule %+v is not one tcp port in", r)
+		}
+		ports = append(ports, p)
+	}
+	slices.Sort(ports)
+	return ports, nil
+}
+
+type firewall struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Rules []rule `json:"rules"`
+}
+
 // The firewall named Cluster.Prefix() with exactly rules(open): made when absent, its rules set when they differ.
 func (h Client) firewall(ctx context.Context, c naming.Cluster, open []int) error {
 	want := rules(open)
 	var got struct {
-		Firewalls []struct {
-			ID    int64  `json:"id"`
-			Rules []rule `json:"rules"`
-		} `json:"firewalls"`
+		Firewalls []firewall `json:"firewalls"`
 	}
 	if err := h.do(ctx, "GET", "/firewalls?name="+url.QueryEscape(c.Prefix()), nil, &got); err != nil {
 		return err
 	}
-	if len(got.Firewalls) == 0 {
-		h.Say("firewall %s", c.Prefix())
-		return h.do(ctx, "POST", "/firewalls", map[string]any{"name": c.Prefix(), "labels": c.Labels(), "rules": want}, nil)
+	fw, ok := cloud.Exact(got.Firewalls, func(f firewall) string { return f.Name }, c.Prefix())
+	if !ok {
+		h.say("firewall %s", c.Prefix())
+		return h.do(ctx, "POST", "/firewalls", map[string]any{"name": c.Prefix(), "labels": cloud.Owner(c), "rules": want}, nil)
 	}
-	fw := got.Firewalls[0]
 	if slices.Equal(lines(fw.Rules), lines(want)) {
 		return nil
 	}
-	h.Say("firewall %s: %v", c.Prefix(), lines(want))
+	h.say("firewall %s: %v", c.Prefix(), lines(want))
 	return h.do(ctx, "POST", fmt.Sprintf("/firewalls/%d/actions/set_rules", fw.ID), map[string]any{"rules": want}, nil)
 }

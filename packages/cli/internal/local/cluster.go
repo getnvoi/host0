@@ -11,9 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/getnvoi/host0/cloud"
+	"github.com/getnvoi/host0/cloud/hetzner"
 	"github.com/getnvoi/host0/cloudflare"
 	"github.com/getnvoi/host0/dns"
-	"github.com/getnvoi/host0/hetzner"
 	"github.com/getnvoi/host0/infra"
 	"github.com/getnvoi/host0/infra/ssh"
 	"github.com/getnvoi/host0/infra/steps"
@@ -22,6 +23,9 @@ import (
 )
 
 var _ infra.Edge = dns.Edge{}
+
+// The clouds --cloud picks from.
+var clouds = []cloud.Provider{hetzner.Provider}
 
 const (
 	dnsHelp = "dnscontrol provider holding the zone: CLOUDFLAREAPI, ROUTE53, GANDI_V5, OVH, HETZNER_V2, ... " +
@@ -33,6 +37,7 @@ const (
 )
 
 type options struct {
+	cloud    string
 	file     string
 	cfg      infra.Config
 	edge     string
@@ -50,6 +55,20 @@ func common(c *cobra.Command, o *options) {
 	f.StringVar(&o.cfg.PreviewSuffix, "preview-suffix", "-preview", "previews are <name>-<cluster><suffix>.<zone>")
 	f.StringVar(&o.edge, "edge", "", edgeHelp)
 	f.StringVar(&o.provider, "dns", "CLOUDFLAREAPI", dnsHelp)
+	f.StringVar(&o.cloud, "cloud", "hetzner", cloudHelp())
+}
+
+// Each cloud with the shell variables its credentials are read from.
+func cloudHelp() string {
+	var each []string
+	for _, p := range clouds {
+		var vars []string
+		for _, c := range p.Creds {
+			vars = append(vars, c.Var+": "+c.Help)
+		}
+		each = append(each, p.Name+" ("+strings.Join(vars, "; ")+")")
+	}
+	return "cloud the servers are on: " + strings.Join(each, ", ") + "; -f cloud.credentials maps keys to other variables"
 }
 
 func Cluster() *cobra.Command {
@@ -57,7 +76,7 @@ func Cluster() *cobra.Command {
 	var o options
 	install := &cobra.Command{
 		Use:   "install [name]",
-		Short: "Hetzner servers, k3s, Substrate, autoscaling and the edge: Cloudflare's tunnel or public records and TLS",
+		Short: "Servers on a cloud, k3s, Substrate, autoscaling and the edge: Cloudflare's tunnel or public records and TLS",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			e, err := env(c, args, o, true)
@@ -69,16 +88,16 @@ func Cluster() *cobra.Command {
 	}
 	common(install, &o)
 	f := install.Flags()
-	f.StringVar(&o.cfg.Location, "location", "", "cloud location (Hetzner: fsn1)")
-	f.StringVar(&o.cfg.ControlType, "control-type", "", "control node server type (Hetzner: ccx23)")
-	f.StringVar(&o.cfg.WorkerType, "worker-type", "", "worker server type, one for all: a snapshot is tied to its CPU (Hetzner: ccx23)")
+	f.StringVar(&o.cfg.Location, "location", "", "cloud location; the cloud's default when empty")
+	f.StringVar(&o.cfg.ControlType, "control-type", "", "control node server type; the cloud's default when empty")
+	f.StringVar(&o.cfg.WorkerType, "worker-type", "", "worker server type, one for all: a snapshot is tied to its CPU; the cloud's default when empty")
 	f.IntVar(&o.cfg.WorkerMax, "worker-max", 10, "most workers the autoscaler makes")
 	f.StringVar(&o.key, "ssh-key", "~/.ssh/id_ed25519", "private key; its .pub is installed on every node")
 	f.StringSliceVar(&o.only, "only", nil, "run only these steps, by name")
 
 	destroy := &cobra.Command{
 		Use:   "destroy [name]",
-		Short: "Every server, network, firewall and key labelled with the cluster, and its tunnel or its records",
+		Short: "Every server, network, firewall and key the cluster owns, and its tunnel or its records",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			e, err := env(c, args, o, o.keepCert)
@@ -162,6 +181,7 @@ func merge(c *cobra.Command, o *options, f File) {
 	str("preview-suffix", &o.cfg.PreviewSuffix, f.Edge.PreviewSuffix)
 	str("edge", &o.edge, f.Edge.Mode)
 	str("dns", &o.provider, f.DNS.Provider)
+	str("cloud", &o.cloud, f.Cloud.Provider)
 	str("location", &o.cfg.Location, f.Cloud.Location)
 	str("control-type", &o.cfg.ControlType, f.Cloud.Control)
 	str("worker-type", &o.cfg.WorkerType, f.Cloud.Worker)
@@ -193,19 +213,14 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 	if o.cfg.Zone == "" {
 		return nil, fmt.Errorf("the zone: --zone, or edge.zone in -f")
 	}
-	if p := file.Cloud.Provider; p != "" && p != "hetzner" {
-		return nil, fmt.Errorf("%s: cloud.provider %q: hetzner is the one cloud", o.file, p)
-	}
-	cloudVars := file.Cloud.Credentials
-	if cloudVars == nil {
-		cloudVars = map[string]string{"token": "HCLOUD_TOKEN"}
-	}
-	cloudCreds, err := dns.Read(cloudVars, os.Getenv, true)
+	provider, err := cloud.Find(clouds, o.cloud)
 	if err != nil {
 		return nil, err
 	}
-	if o.cfg.HcloudToken = cloudCreds["token"]; o.cfg.HcloudToken == "" {
-		return nil, fmt.Errorf("%s: cloud.credentials has no token", o.file)
+	say := func(f string, a ...any) { fmt.Fprintf(os.Stdout, "  "+f+"\n", a...) }
+	cl, err := openCloud(provider, file.Cloud.Credentials, say)
+	if err != nil {
+		return nil, err
 	}
 
 	home, _ := os.UserHomeDir()
@@ -224,9 +239,11 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 	if err := os.MkdirAll(cache, 0o700); err != nil {
 		return nil, err
 	}
-	say := func(f string, a ...any) { fmt.Fprintf(os.Stdout, "  "+f+"\n", a...) }
-	cloud := hetzner.Client{Token: o.cfg.HcloudToken, Say: say}
-	d := cloud.Defaults()
+	d, err := cl.Defaults(c.Context())
+	if err != nil {
+		return nil, err
+	}
+	o.cfg.Arch = d.Arch
 	for _, v := range []struct {
 		dst *string
 		def string
@@ -238,7 +255,7 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 		}
 	}
 	edge, err := selectEdge(o, file, say, func(ctx context.Context) ([]string, error) {
-		s, err := cloud.Lookup(ctx, cluster.Control())
+		s, err := cl.Lookup(ctx, cluster.Control())
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +271,7 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 	return &infra.Env{
 		Cluster: cluster,
 		Config:  o.cfg,
-		Cloud:   cloud,
+		Cloud:   cl,
 		Edge:    edge,
 		Dial: func(ctx context.Context, addr string) (infra.Shell, error) {
 			return ssh.Dial(ctx, addr, o.cfg.PrivateKey)
@@ -264,6 +281,26 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 		Source: source(),
 		Vars:   map[string]string{},
 	}, nil
+}
+
+// The cloud with its credentials from the shell: from the variables vars names by key, else each Credential's Var.
+func openCloud(p cloud.Provider, vars map[string]string, say func(string, ...any)) (cloud.Cloud, error) {
+	if vars == nil {
+		vars = map[string]string{}
+		for _, c := range p.Creds {
+			vars[c.Key] = c.Var
+		}
+	}
+	creds, err := dns.Read(vars, os.Getenv, true)
+	if err != nil {
+		return nil, fmt.Errorf("cloud %s: %w", p.Name, err)
+	}
+	for _, c := range p.Creds {
+		if creds[c.Key] == "" {
+			return nil, fmt.Errorf("cloud %s needs %s: %s", p.Name, c.Key, c.Help)
+		}
+	}
+	return p.New(creds, say)
 }
 
 // The edge --edge names, on the zone's provider with its credentials from the shell.

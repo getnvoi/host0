@@ -7,32 +7,9 @@ import (
 	"io"
 	"slices"
 
+	"github.com/getnvoi/host0/cloud"
 	"github.com/getnvoi/host0/shared/naming"
 )
-
-type Server struct {
-	ID         int64
-	Name       string
-	PublicIP   string
-	PublicIPv6 string // empty when the server has none
-}
-
-type Cloud interface {
-	// Network, firewall and ssh key, each named Cluster.Prefix(); the autoscaler finds them by that name. The firewall
-	// lets in tcp 22 and open, and nothing else.
-	Base(ctx context.Context, c naming.Cluster, location, publicKey string, open []int) error
-	// The server by name as it is now; an error when there is none.
-	Lookup(ctx context.Context, name string) (Server, error)
-	Server(ctx context.Context, c naming.Cluster, name, serverType, location, privateIP string) (Server, error)
-	// This cloud's controller and autoscaler, and their secret; workers boot with workerInit and carry labels.
-	Addons(c naming.Cluster, cfg Config, workerInit string, labels map[string]string) (string, error)
-	// Location and server types, when the flags leave them empty.
-	Defaults() Config
-	Destroy(ctx context.Context, c naming.Cluster) error
-}
-
-// Every worker carries the taint; only sandbox workers and atelet land there.
-const WorkerTaint = "ate.dev/sandboxClass"
 
 // Where the cluster's hosts reach it: Cloudflare's tunnel, or records at the control node and a proxy there.
 type Edge interface {
@@ -63,20 +40,21 @@ type Config struct {
 	Zone        string
 	// Previews are <name>-<cluster><PreviewSuffix>.<Zone>.
 	PreviewSuffix string
-	HcloudToken   string
-	PublicKey     string
-	PrivateKey    []byte
+	// The nodes' GOARCH, which ko builds for.
+	Arch       string
+	PublicKey  string
+	PrivateKey []byte
 }
 
 type Env struct {
 	Cluster naming.Cluster
 	Config  Config
-	Cloud   Cloud
+	Cloud   cloud.Cloud
 	Edge    Edge
 	// Dials the control node; set by the step that creates it.
 	Dial    func(ctx context.Context, addr string) (Shell, error)
 	Shell   Shell
-	Control Server
+	Control cloud.Server
 	Out     io.Writer
 	Cache   string
 	// The repository root, where ko builds the plane and boxd.

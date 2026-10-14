@@ -50,12 +50,12 @@ func Machine() *cobra.Command {
 		say := func(f string, a ...any) { fmt.Fprintf(os.Stdout, "  "+f+"\n", a...) }
 		return &infra.Env{
 			Cluster: cluster,
-			Config:  cfg,
+			Config:  config(cfg),
 			Edge:    cloudflare.Client{Token: token, Zone: cfg.Zone, Suffix: cfg.PreviewSuffix, Say: say},
 			Out:     os.Stdout,
 			Cache:   cache,
 			Source:  source(),
-			Vars:    map[string]string{"local": "1", "platform": "linux/" + runtime.GOARCH},
+			Vars:    map[string]string{"local": "1"},
 		}, nil
 	}
 	up := &cobra.Command{
@@ -90,6 +90,12 @@ func Machine() *cobra.Command {
 	flags(down)
 	cmd.AddCommand(up, down)
 	return cmd
+}
+
+// kind runs on this machine's arch.
+func config(cfg infra.Config) infra.Config {
+	cfg.Arch = runtime.GOARCH
+	return cfg
 }
 
 func cacheDir() (string, error) {

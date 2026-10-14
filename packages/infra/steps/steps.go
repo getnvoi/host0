@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getnvoi/host0/cloud"
 	"github.com/getnvoi/host0/infra"
 	"github.com/getnvoi/host0/infra/kube"
 	"github.com/getnvoi/host0/infra/manifests"
@@ -49,19 +50,22 @@ const apiPort = "16443"
 
 var Install = []infra.Step{
 	step("dns credentials", func(ctx context.Context, e *infra.Env) error { return e.Edge.Reach(ctx) }),
-	step("network, firewall, ssh key", func(ctx context.Context, e *infra.Env) error {
+	step("base", func(ctx context.Context, e *infra.Env) error {
 		return e.Cloud.Base(ctx, e.Cluster, e.Config.Location, e.Config.PublicKey, e.Edge.Ports())
 	}),
 	always("control node", func(ctx context.Context, e *infra.Env) (err error) {
-		if e.Control, err = e.Cloud.Server(ctx, e.Cluster, e.Cluster.Control(), e.Config.ControlType, e.Config.Location, naming.ControlIP); err != nil {
+		spec := cloud.Spec{Name: e.Cluster.Control(), Type: e.Config.ControlType, Location: e.Config.Location, PrivateIP: naming.ControlIP}
+		if e.Control, err = e.Cloud.Server(ctx, e.Cluster, spec); err != nil {
 			return err
 		}
-		e.Say("%s at %s", e.Control.Name, e.Control.PublicIP)
+		e.Say("%s at %s", e.Control.Name, strings.Join(addresses(e.Control), ", "))
 		e.Shell, err = e.Dial(ctx, e.Control.PublicIP+":22")
 		return err
 	}),
 	step("k3s", func(ctx context.Context, e *infra.Env) error {
-		if err := e.Shell.Run(ctx, "cloud-init status --wait >/dev/null; sh -s", strings.NewReader(node.Server()), e.Out); err != nil {
+		id := e.Cloud.ProviderID(e.Control)
+		script := node.Server(id, strings.Join(addresses(e.Control), ","))
+		if err := e.Shell.Run(ctx, "cloud-init status --wait >/dev/null; sh -s", strings.NewReader(script), e.Out); err != nil {
 			return err
 		}
 		// `wait` on no nodes fails at once: first wait for the node to register at all.
@@ -71,6 +75,16 @@ var Install = []infra.Step{
 		if err := kube.Run(ctx, e.Shell, "wait --for=condition=Ready node --all --timeout=300s", e.Out); err != nil {
 			return err
 		}
+		// k3s's own cloud controller copies node-external-ip into the node's addresses.
+		for _, ip := range addresses(e.Control) {
+			if err := kube.Run(ctx, e.Shell, "wait --for=jsonpath='{.status.addresses[?(@.address==\""+ip+"\")].type}'=ExternalIP node "+
+				"-l node-role.kubernetes.io/control-plane --timeout=120s", e.Out); err != nil {
+				return err
+			}
+		}
+		if got, err := kube.Output(ctx, e.Shell, "get node -l node-role.kubernetes.io/control-plane -o jsonpath={.items[0].spec.providerID}"); err != nil || got != id {
+			return fmt.Errorf("the control node's providerID is %q, not %s: %v", got, id, err)
+		}
 		if err := e.Shell.Run(ctx, "sh -s", strings.NewReader(node.Encrypt), e.Out); err != nil {
 			return err
 		}
@@ -78,19 +92,22 @@ var Install = []infra.Step{
 		e.Vars["token"] = token
 		return err
 	}),
-	step("cloud controller and autoscaler", func(ctx context.Context, e *infra.Env) error {
+	step("autoscaler", func(ctx context.Context, e *infra.Env) error {
 		if err := apply(ctx, e, "namespace.yaml", nil); err != nil {
 			return err
 		}
+		scaler, ok := e.Cloud.(cloud.Autoscaler)
+		if !ok {
+			e.Say("%s has no autoscaler", e.Cloud.Name())
+			return nil
+		}
 		labels := node.Labels(source.Substrate.Version())
-		addons, err := e.Cloud.Addons(e.Cluster, e.Config, node.Worker(e.Vars["token"], labels), labels)
+		m, err := scaler.Autoscaler(e.Cluster, e.Config.WorkerMax, e.Config.WorkerType, e.Config.Location,
+			node.Worker(e.Vars["token"], labels, e.Cloud.Identity()), labels)
 		if err != nil {
 			return err
 		}
-		if err := kube.Apply(ctx, e.Shell, addons, e.Out); err != nil {
-			return err
-		}
-		return kube.Run(ctx, e.Shell, "wait --for=jsonpath={.spec.providerID} node --all --timeout=300s", e.Out)
+		return kube.Apply(ctx, e.Shell, m, e.Out)
 	}),
 	step("registry", func(ctx context.Context, e *infra.Env) error {
 		if err := apply(ctx, e, "registry.yaml", map[string]string{"Registry": naming.Registry}); err != nil {
@@ -178,7 +195,7 @@ var Install = []infra.Step{
 		}
 		var objs []string
 		for _, name := range slices.Sorted(maps.Keys(secrets)) {
-			objs = append(objs, kube.Secret(naming.Namespace, name, secrets[name]))
+			objs = append(objs, cloud.Secret(naming.Namespace, name, secrets[name]))
 		}
 		if err := kube.Apply(ctx, e.Shell, strings.Join(objs, "---\n"), e.Out); err != nil {
 			return err
@@ -225,7 +242,7 @@ var Install = []infra.Step{
 			e.Say("sealing key restored to the cluster from %s", state.KeyPath())
 		}
 		sum := sha256.Sum256([]byte(token))
-		if err := kube.Apply(ctx, e.Shell, kube.Secret(naming.Namespace, "plane", map[string]string{
+		if err := kube.Apply(ctx, e.Shell, cloud.Secret(naming.Namespace, "plane", map[string]string{
 			"token-sha256": hex.EncodeToString(sum[:]), "box-token": box, "seal": string(key)}), e.Out); err != nil {
 			return err
 		}
@@ -334,7 +351,7 @@ func certificates(ctx context.Context, e *infra.Env) error {
 		}
 		e.Say("certificates restored from %s", path)
 	}
-	return kube.Apply(ctx, e.Shell, kube.Secret(naming.Namespace, naming.Certs, data), e.Out)
+	return kube.Apply(ctx, e.Shell, cloud.Secret(naming.Namespace, naming.Certs, data), e.Out)
 }
 
 // Writes the proxy's certificate secret to ~/.hz/certs/<zone>, sealed with ~/.hz/key, for the next install of the
@@ -422,13 +439,9 @@ func output(ctx context.Context, e *infra.Env, cmd string) (string, error) {
 	return strings.TrimSpace(b.String()), err
 }
 
-// ko builds for the nodes and pushes through the registry tunnel: amd64 on Hetzner, this machine's on a local one.
+// ko builds for the nodes' arch and pushes through the registry tunnel.
 func ko(e *infra.Env) []string {
-	platform := e.Vars["platform"]
-	if platform == "" {
-		platform = "linux/amd64"
-	}
-	return []string{"KO_DOCKER_REPO=" + naming.LocalRegistry(), "KO_DEFAULTPLATFORMS=" + platform,
+	return []string{"KO_DOCKER_REPO=" + naming.LocalRegistry(), "KO_DEFAULTPLATFORMS=linux/" + e.Config.Arch,
 		"KUBECONFIG=" + e.Vars["kubeconfig"], "NO_DEV_ENV=true"}
 }
 
@@ -438,6 +451,14 @@ func resolve(ctx context.Context, e *infra.Env, dir string, stdin string, args .
 		in = strings.NewReader(stdin)
 	}
 	return source.Capture(ctx, dir, ko(e), in, e.Out, "ko", append([]string{"resolve"}, args...)...)
+}
+
+// The server's public addresses, IPv4 first.
+func addresses(s cloud.Server) []string {
+	if s.PublicIPv6 == "" {
+		return []string{s.PublicIP}
+	}
+	return []string{s.PublicIP, s.PublicIPv6}
 }
 
 func origin(_ *infra.Env, host string) string { return "https://" + host }
