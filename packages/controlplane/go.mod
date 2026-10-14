@@ -4,6 +4,7 @@ go 1.27.0
 
 require (
 	github.com/agent-substrate/substrate v0.0.0-20260924022005-31a5e0ba29a5
+	github.com/getnvoi/host0/cloud v0.0.0
 	github.com/getnvoi/host0/dns v0.0.0
 	github.com/getnvoi/host0/shared v0.0.0
 	google.golang.org/grpc v1.86.0-dev
@@ -169,6 +170,8 @@ require (
 replace github.com/getnvoi/host0/shared => ../shared
 
 replace github.com/getnvoi/host0/dns => ../dns
+
+replace github.com/getnvoi/host0/cloud => ../cloud
 
 // dnscontrol v5.4.0 builds against this fork, by a replace of its own that a dependent does not inherit.
 replace codeberg.org/miekg/dns => codeberg.org/TomOnTime/dns v0.6.116-0.20260922034352-350ee117c567

@@ -1,17 +1,15 @@
 # hz cluster install -f examples/cluster.yml: a flag given on the command line overrides its value here.
 # credentials map the provider's own key to the shell variable holding it; dns keys are dnscontrol's creds.json keys.
 name: dev
-cloud:
-  provider: hetzner
-  location: fsn1
-  control: cx32
-  worker: cx42
-  workerMax: 5
-  credentials: { token: HCLOUD_TOKEN }
-edge:
-  mode: public # tunnel: Cloudflare's tunnel, CLOUDFLAREAPI only; public: records at the control node, TLS on 80/443
-  zone: nvoi.to
-  previewSuffix: -preview
-dns:
-  provider: CLOUDFLAREAPI
-  credentials: { apitoken: CLOUDFLARE_API_TOKEN }
+cloud: { provider: hetzner, location: fsn1, credentials: { token: HCLOUD_TOKEN } }
+control: { type: ccx23 }
+# The plane makes a worker server when a pool's worker finds no node, and deletes one with no actor for idle.
+workers: { type: ccx23, max: 5, idle: 10m }
+# A tier is a worker pool; an environment names one, else gets the default.
+tiers:
+  - { name: small, cpu: 1, memory: 2Gi }
+  - { name: medium, cpu: 2, memory: 4Gi, default: true }
+  - { name: large, cpu: 4, memory: 8Gi }
+# tunnel: Cloudflare's tunnel, CLOUDFLAREAPI only; public: records at the control node, TLS on 80/443
+edge: { mode: public, zone: nvoi.to, previewSuffix: -preview }
+dns: { provider: CLOUDFLAREAPI, credentials: { apitoken: CLOUDFLARE_API_TOKEN } }

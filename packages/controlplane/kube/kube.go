@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -93,28 +94,73 @@ func (c *Client) Scale(ctx context.Context, pool string, replicas int) error {
 	return c.do(ctx, "PATCH", c.pool(pool), map[string]any{"spec": map[string]int{"replicas": replicas}}, nil)
 }
 
-func (c *Client) Hold(ctx context.Context, node string, on bool) error {
-	var v any
-	if on {
-		v = "true"
-	}
-	return c.do(ctx, "PATCH", "/api/v1/nodes/"+node, map[string]any{"metadata": map[string]any{"annotations": map[string]any{
-		held: v}}}, nil)
-}
-
-const held = "cluster-autoscaler.kubernetes.io/scale-down-disabled"
-
 func (c *Client) Forget(ctx context.Context, node string) error {
 	return c.do(ctx, "DELETE", "/api/v1/nodes/"+node, nil, nil)
+}
+
+func (c *Client) Cordon(ctx context.Context, node string, on bool) error {
+	return c.do(ctx, "PATCH", "/api/v1/nodes/"+node, map[string]any{"spec": map[string]bool{"unschedulable": on}}, nil)
+}
+
+type pod struct {
+	Metadata struct {
+		Name              string  `json:"name"`
+		DeletionTimestamp *string `json:"deletionTimestamp"`
+	} `json:"metadata"`
+	Status struct {
+		Phase      string `json:"phase"`
+		Conditions []struct {
+			Type, Status, Reason string
+		} `json:"conditions"`
+	} `json:"status"`
+}
+
+func (c *Client) pods(ctx context.Context, selector string) ([]pod, error) {
+	var list struct{ Items []pod }
+	path := fmt.Sprintf("/api/v1/namespaces/%s/pods?fieldSelector=%s", c.Namespace, url.QueryEscape(selector))
+	if err := c.do(ctx, "GET", path, nil, &list); err != nil {
+		return nil, err
+	}
+	return list.Items, nil
+}
+
+func (c *Client) Unplaced(ctx context.Context) (int, error) {
+	ps, err := c.pods(ctx, "status.phase=Pending")
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, p := range ps {
+		for _, cond := range p.Status.Conditions {
+			if cond.Type == "PodScheduled" && cond.Status == "False" && cond.Reason == "Unschedulable" {
+				n++
+			}
+		}
+	}
+	return n, nil
+}
+
+func (c *Client) Occupants(ctx context.Context, node string) (int, error) {
+	ps, err := c.pods(ctx, "spec.nodeName="+node)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, p := range ps {
+		if p.Metadata.DeletionTimestamp == nil && p.Status.Phase != "Succeeded" && p.Status.Phase != "Failed" {
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (c *Client) Nodes(ctx context.Context) ([]contract.Node, error) {
 	var list struct {
 		Items []struct {
 			Metadata struct {
-				Name        string            `json:"name"`
-				Labels      map[string]string `json:"labels"`
-				Annotations map[string]string `json:"annotations"`
+				Name              string            `json:"name"`
+				Labels            map[string]string `json:"labels"`
+				CreationTimestamp time.Time         `json:"creationTimestamp"`
 			} `json:"metadata"`
 			Spec struct {
 				ProviderID string `json:"providerID"`
@@ -130,8 +176,8 @@ func (c *Client) Nodes(ctx context.Context) ([]contract.Node, error) {
 	}
 	out := []contract.Node{}
 	for _, it := range list.Items {
-		n := contract.Node{Name: it.Metadata.Name, Roles: []string{}, Held: it.Metadata.Annotations[held] == "true",
-			Addresses: []string{}, ProviderID: it.Spec.ProviderID}
+		n := contract.Node{Name: it.Metadata.Name, Roles: []string{}, Addresses: []string{}, ProviderID: it.Spec.ProviderID,
+			Created: it.Metadata.CreationTimestamp}
 		for _, a := range it.Status.Addresses {
 			if a.Type == "ExternalIP" {
 				n.Addresses = append(n.Addresses, a.Address)

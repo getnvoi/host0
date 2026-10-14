@@ -509,6 +509,8 @@ func print(ev contract.Event) {
 		fmt.Printf("  ← %s\n", strings.ReplaceAll(c, "\n", " "))
 	case "message", "result", "prompt", "error":
 		fmt.Printf("%s: %s\n", ev.Kind, c)
+	case "notice":
+		fmt.Printf("  %s\n", c)
 	}
 }
 

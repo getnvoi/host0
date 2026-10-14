@@ -13,6 +13,7 @@ import (
 	"github.com/getnvoi/host0/infra"
 	"github.com/getnvoi/host0/infra/steps"
 	"github.com/getnvoi/host0/shared/naming"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // hz on this machine: a kind cluster in Docker in place of Hetzner servers, and above it the same install as
@@ -92,9 +93,9 @@ func Machine() *cobra.Command {
 	return cmd
 }
 
-// kind runs on this machine's arch.
+// kind runs on this machine's arch, and its one node takes every pool: the plane makes no worker server.
 func config(cfg infra.Config) infra.Config {
-	cfg.Arch = runtime.GOARCH
+	cfg.Arch, cfg.Tiers = runtime.GOARCH, tiers.Defaults
 	return cfg
 }
 

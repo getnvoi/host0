@@ -5,17 +5,19 @@ import (
 	"fmt"
 
 	"github.com/getnvoi/host0/shared/contract"
-	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // The cluster as it is now: nodes and pools from Kubernetes, workers from Substrate, the plane's hosts from the edge.
 func (p *Plane) Status(ctx context.Context) (contract.Cluster, error) {
 	out := contract.Cluster{Name: p.Cluster, Zone: p.Zone, Pools: []contract.Pool{}, Workers: []contract.Worker{}, Edge: []contract.Host{}}
-	var err error
+	shape, err := p.shape()
+	if err != nil {
+		return out, err
+	}
 	if out.Nodes, err = p.Pools.Nodes(ctx); err != nil {
 		return out, fmt.Errorf("nodes: %w", err)
 	}
-	for _, t := range tiers.All {
+	for _, t := range shape.Tiers {
 		pool := contract.Pool{Name: t.Pool()}
 		if pool.Replicas, err = p.Pools.Replicas(ctx, pool.Name); err != nil {
 			return out, fmt.Errorf("pool %s: %w", pool.Name, err)

@@ -4,6 +4,7 @@ package naming
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -34,6 +35,22 @@ func New(name string) (Cluster, error) {
 
 func (c Cluster) Prefix() string  { return "hz-" + c.Name }
 func (c Cluster) Control() string { return c.Prefix() + "-control" }
+
+// Worker n's server and node; every pool shares the workers, so the name holds no pool.
+func (c Cluster) Worker(n int) string { return fmt.Sprintf("%s-w%d", c.Prefix(), n) }
+
+// n when name is Worker(n).
+func (c Cluster) WorkerIndex(name string) (int, bool) {
+	rest, ok := strings.CutPrefix(name, c.Prefix()+"-w")
+	if !ok {
+		return 0, false
+	}
+	n, err := strconv.Atoi(rest)
+	return n, err == nil && n > 0 && c.Worker(n) == name
+}
+
+// Worker n's address on the private network.
+func WorkerIP(n int) string { return fmt.Sprintf("10.0.1.%d", 10+n) }
 
 // The TXT value that marks a DNS record as this cluster's, as hz/owner marks its other objects.
 func (c Cluster) Owner() string { return "hz/owner=" + c.Prefix() }

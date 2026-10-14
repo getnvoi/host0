@@ -28,19 +28,15 @@ var Provider = cloud.Provider{
 }
 
 type Client struct {
-	token string
 	rest  cloud.REST
 	say   func(string, ...any)
 	sleep cloud.Sleep
 }
 
-var (
-	_ cloud.Cloud      = Client{}
-	_ cloud.Autoscaler = Client{}
-)
+var _ cloud.Cloud = Client{}
 
 func New(token string, rt http.RoundTripper, say func(string, ...any), sleep cloud.Sleep) Client {
-	return Client{token: token, say: say, sleep: sleep, rest: cloud.REST{
+	return Client{say: say, sleep: sleep, rest: cloud.REST{
 		Provider:  "hetzner",
 		Base:      "https://api.hetzner.cloud/v1",
 		Auth:      func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+token) },
@@ -307,7 +303,7 @@ func (h Client) Delete(ctx context.Context, name string) error {
 	return h.action(ctx, "DELETE", fmt.Sprintf("/servers/%d", s.ID), nil)
 }
 
-// Servers first, the autoscaler's included: a network or firewall in use cannot go.
+// Servers first, the plane's workers included: a network or firewall in use cannot go.
 func (h Client) Destroy(ctx context.Context, c naming.Cluster) error {
 	sel := "label_selector=" + url.QueryEscape(cloud.OwnerSelector(c))
 	servers, err := h.servers(ctx, sel)

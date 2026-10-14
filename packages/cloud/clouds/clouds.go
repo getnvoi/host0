@@ -1,0 +1,11 @@
+// Every cloud hz runs on, by name: the cli installs on one, the plane makes its workers on the same.
+package clouds
+
+import (
+	"github.com/getnvoi/host0/cloud"
+	"github.com/getnvoi/host0/cloud/hetzner"
+)
+
+var All = []cloud.Provider{hetzner.Provider}
+
+func Find(name string) (cloud.Provider, error) { return cloud.Find(All, name) }

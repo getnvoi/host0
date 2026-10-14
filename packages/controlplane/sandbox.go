@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/getnvoi/host0/cloud"
 	"github.com/getnvoi/host0/controlplane/box"
 	"github.com/getnvoi/host0/shared/contract"
-	"github.com/getnvoi/host0/shared/tiers"
 )
 
 const (
@@ -33,6 +33,10 @@ const (
 type Plane struct {
 	Sandboxes Sandboxes
 	Pools     Pools
+	// Where worker servers are made; nil when the cluster's own nodes are all it has.
+	Cloud cloud.Cloud
+	// The cloud-init a worker server boots with: it joins the cluster as a worker node.
+	WorkerInit string
 	// Idle this long, an actor is paused; this long, suspended and its worker freed.
 	PauseAfter, SuspendAfter time.Duration
 	Store                    Store
@@ -430,7 +434,7 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 		return fail(err)
 	}
 	seed.Spec = spec(cs)
-	tier, err := tiers.Get(env.Tier)
+	tier, err := p.tier(env.Tier)
 	if err != nil {
 		return fail(err)
 	}
@@ -459,8 +463,14 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	if err := p.Sandboxes.Create(ctx, seed.Actor, seed.Template, ""); err != nil {
 		return fail(err)
 	}
+	// A worker server made for it is a step of the build.
+	waking := reporting(ctx, func(line string) {
+		if err := step(line); err != nil {
+			log.Printf("seed %s: %v", name, err)
+		}
+	})
 	// Held busy while it builds, so the scaler does not pause it midway.
-	release, err := p.enter(ctx, seed.Actor, tier.Name)
+	release, err := p.enter(waking, seed.Actor, tier.Name)
 	if err != nil {
 		return fail(err)
 	}

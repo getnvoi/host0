@@ -2,7 +2,6 @@ package controlplane
 
 import (
 	"context"
-	"errors"
 	"log"
 	"sync"
 	"time"
@@ -18,9 +17,14 @@ type Pools interface {
 	Ready(ctx context.Context, pool string) (int, error)
 	Scale(ctx context.Context, pool string, replicas int) error
 	Cost(ctx context.Context, pod string, cost int) error
-	// Keeps the node from the cluster autoscaler while it holds a paused actor's snapshot.
-	Hold(ctx context.Context, node string, on bool) error
 	Nodes(ctx context.Context) ([]contract.Node, error)
+	// The pools' pods the scheduler found no node for.
+	Unplaced(ctx context.Context) (int, error)
+	// The pools' pods on the node, not ending.
+	Occupants(ctx context.Context, node string) (int, error)
+	Cordon(ctx context.Context, node string, on bool) error
+	// Deletes the Node object; nothing else does once its server is gone.
+	Forget(ctx context.Context, node string) error
 }
 
 type Worker struct {
@@ -176,15 +180,31 @@ func (p *Plane) free(ctx context.Context, pool string, pods []string) ([]string,
 	return free, busy, nil
 }
 
-// Resumes an actor. With no free worker, a paused actor of the same tier gives up its own; failing that, the pool grows.
+// Resumes an actor. With no free worker, a paused actor of the same tier gives up its own; failing that, the pool grows,
+// and a worker server is made when the pool's new pod finds no node.
 func (p *Plane) wake(ctx context.Context, actor string, tier tiers.Tier) error {
+	waiting := map[string]bool{}
 	for deadline := time.Now().Add(10 * time.Minute); ; {
 		err := p.Sandboxes.Resume(ctx, actor)
+		if err == nil {
+			return p.joined(ctx, waiting)
+		}
 		if err != ErrNoWorker || time.Now().After(deadline) {
 			return err
 		}
 		if !p.evict(ctx, tier.Name, actor) {
 			p.grow(ctx, tier.Pool())
+		}
+		name, err := p.place(ctx)
+		if err != nil {
+			return err
+		}
+		if name != "" && !waiting[name] {
+			waiting[name] = true
+			report(ctx, "waiting for node %s", name)
+		}
+		if err := p.joined(ctx, waiting); err != nil {
+			return err
 		}
 		select {
 		case <-ctx.Done():
@@ -200,6 +220,9 @@ func (p *Plane) Scale(ctx context.Context) {
 			log.Printf("scaler: %v", err)
 		}
 		if err := p.shrink(ctx); err != nil {
+			log.Printf("scaler: %v", err)
+		}
+		if err := p.retire(ctx); err != nil {
 			log.Printf("scaler: %v", err)
 		}
 	}
@@ -228,7 +251,6 @@ func (p *Plane) rest(ctx context.Context) error {
 		p.lull(ctx, actor)
 		g.Unlock()
 	}
-	p.hold(ctx)
 	return nil
 }
 
@@ -247,80 +269,12 @@ func (p *Plane) lull(ctx context.Context, actor string) {
 		log.Printf("suspend %s, idle %s", actor, quiet.Round(time.Second))
 		err = p.Sandboxes.Suspend(ctx, actor)
 	case state == "running":
-		var node string
-		if node, err = p.Sandboxes.Node(ctx, actor); err != nil {
-			break
-		}
-		// Held before the pause: from then on the node carries the only copy of what changed since the last suspend.
-		if err = p.Store.Put("paused", actor, node); err != nil {
-			break
-		}
-		p.hold(ctx)
-		if idle(actor) < p.PauseAfter {
-			return
-		}
-		log.Printf("pause %s on %s, idle %s", actor, node, quiet.Round(time.Second))
+		log.Printf("pause %s, idle %s", actor, quiet.Round(time.Second))
 		err = p.Sandboxes.Pause(ctx, actor)
 	}
 	if err != nil {
 		log.Printf("rest %s: %v", actor, err)
 	}
-}
-
-// Holds every node that carries a paused actor's snapshot and releases the rest it held.
-func (p *Plane) hold(ctx context.Context) {
-	want := map[string]bool{}
-	var done []string
-	p.Store.List("paused", func(d func(any) error) error {
-		var node string
-		d(&node)
-		want[node] = true
-		return nil
-	})
-	for actor := range p.actors() {
-		var node string
-		if p.Store.Get("paused", actor, &node) != nil {
-			continue
-		}
-		// Released once the snapshot is uploaded or gone; a running actor keeps its node busy anyway.
-		switch state, err := p.Sandboxes.State(ctx, actor); {
-		case errors.Is(err, ErrNotFound):
-			done = append(done, actor)
-		case err != nil:
-		case state == "suspended", state == "crashed", state == "deleting":
-			done = append(done, actor)
-		}
-	}
-	for _, actor := range done {
-		p.Store.Delete("paused", actor)
-	}
-	if len(done) > 0 {
-		want = map[string]bool{}
-		p.Store.List("paused", func(d func(any) error) error {
-			var node string
-			d(&node)
-			want[node] = true
-			return nil
-		})
-	}
-	var held []string
-	p.Store.Get("held", "nodes", &held)
-	for _, n := range held {
-		if !want[n] {
-			if err := p.Pools.Hold(ctx, n, false); err != nil {
-				log.Printf("release %s: %v", n, err)
-				want[n] = true
-			}
-		}
-	}
-	held = held[:0]
-	for n := range want {
-		if err := p.Pools.Hold(ctx, n, true); err != nil {
-			log.Printf("hold %s: %v", n, err)
-		}
-		held = append(held, n)
-	}
-	p.Store.Put("held", "nodes", held)
 }
 
 // Suspends the tier's longest-idle paused actor, freeing its worker for another. False when there is none.
@@ -360,6 +314,10 @@ func (p *Plane) evict(ctx context.Context, tier, except string) bool {
 
 // Decided on a snapshot taken under sc.mu, which is released for the calls to the cluster.
 func (p *Plane) shrink(ctx context.Context) error {
+	shape, err := p.shape()
+	if err != nil {
+		return err
+	}
 	workers, err := p.Sandboxes.Workers(ctx)
 	if err != nil {
 		return err
@@ -390,7 +348,7 @@ func (p *Plane) shrink(ctx context.Context) error {
 	}
 	var plans []plan
 	sc.mu.Lock()
-	for _, t := range tiers.All {
+	for _, t := range shape.Tiers {
 		pool := t.Pool()
 		if time.Since(sc.grown[pool]) < settle {
 			continue

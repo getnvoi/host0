@@ -169,13 +169,13 @@ func (c checking) Check(_ context.Context, host string) error { return c[host] }
 
 func TestClusterStatus(t *testing.T) {
 	p, h := handler(t)
-	p.Pools = &fakePools{replicas: map[string]int{"hz-medium": 2}, ready: map[string]int{"hz-medium": 1}, held: map[string]bool{"w1": true}}
+	p.Pools = &fakePools{replicas: map[string]int{"hz-medium": 2}, ready: map[string]int{"hz-medium": 1}, nodes: []contract.Node{{Name: "w1", Ready: true}}}
 	p.Sandboxes = &fakeSandboxes{workers: []Worker{{Pool: "hz-medium", Pod: "p1", Assigned: true}}}
 	p.Edge = checking{"app-dev.nvoi.to": errors.New("app-dev.nvoi.to has no record")}
 	res := call(h, "GET", "api-dev.nvoi.to", "/cluster", "", bearer)
 	var c contract.Cluster
 	json.Unmarshal(res.Body.Bytes(), &c)
-	if res.Code != 200 || c.Name != "dev" || len(c.Nodes) != 1 || !c.Nodes[0].Held || len(c.Pools) != 3 || len(c.Workers) != 1 {
+	if res.Code != 200 || c.Name != "dev" || len(c.Nodes) != 1 || len(c.Pools) != 3 || len(c.Workers) != 1 {
 		t.Fatalf("status: %d %s", res.Code, res.Body)
 	}
 	for _, pool := range c.Pools {

@@ -8,7 +8,7 @@ kind: Role
 metadata: { name: plane, namespace: hz }
 rules:
   - { apiGroups: [ate.dev], resources: [workerpools], verbs: [get, patch] }
-  - { apiGroups: [""], resources: [pods], verbs: [patch] }
+  - { apiGroups: [""], resources: [pods], verbs: [get, list, patch] }
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -71,7 +71,8 @@ spec:
             [[- end ]]
           volumeMounts:
             - { name: data, mountPath: /var/lib/hz }
-            - { name: seal, mountPath: /etc/hz, readOnly: true }
+            - { name: seal, mountPath: /etc/hz/seal, subPath: seal, readOnly: true }
+            - { name: cloud, mountPath: /etc/hz/cloud, readOnly: true }
             - { name: ate-token, mountPath: /var/run/secrets/ateapi, readOnly: true }
             - { name: servicedns-ca, mountPath: /run/servicedns-ca, readOnly: true }
       volumes:
@@ -79,6 +80,8 @@ spec:
           hostPath: { path: /var/lib/hz/plane, type: DirectoryOrCreate }
         - name: seal
           secret: { secretName: plane, defaultMode: 0400, items: [{ key: seal, path: seal }] }
+        - name: cloud
+          secret: { secretName: cloud, defaultMode: 0400, optional: true }
         - name: ate-token
           projected:
             sources:

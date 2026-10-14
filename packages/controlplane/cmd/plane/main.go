@@ -4,10 +4,17 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
+
+	"github.com/getnvoi/host0/cloud"
+	"github.com/getnvoi/host0/cloud/clouds"
 
 	"github.com/getnvoi/host0/controlplane"
 	"github.com/getnvoi/host0/controlplane/edge"
@@ -61,9 +68,15 @@ func main() {
 		log.Fatalf("store: %v", err)
 	}
 	cluster, zone := must("HZ_CLUSTER"), must("HZ_ZONE")
+	cl, init, err := workers("/etc/hz/cloud")
+	if err != nil {
+		log.Fatalf("cloud: %v", err)
+	}
 	p := &controlplane.Plane{
 		Sandboxes:    sb,
 		Pools:        pools,
+		Cloud:        cl,
+		WorkerInit:   init,
 		Store:        st,
 		Edge:         selectEdge(pools, cluster, zone),
 		Forge:        forge.GitHub{},
@@ -88,6 +101,36 @@ func main() {
 	srv := &http.Server{Addr: ":8080", Handler: p.Handler(api, app, must("HZ_TOKEN_SHA256")),
 		ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
 	log.Fatal(srv.ListenAndServe())
+}
+
+// The cloud the plane makes worker servers on, from the Secret install mounts at dir; none on a cluster without one.
+func workers(dir string) (cloud.Cloud, string, error) {
+	name, err := os.ReadFile(filepath.Join(dir, "provider"))
+	if errors.Is(err, fs.ErrNotExist) {
+		log.Printf("no %s: worker servers are not made, the cluster's nodes are all it has", dir)
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	provider, err := clouds.Find(string(name))
+	if err != nil {
+		return nil, "", err
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "credentials"))
+	if err != nil {
+		return nil, "", err
+	}
+	var creds map[string]string
+	if err := json.Unmarshal(raw, &creds); err != nil {
+		return nil, "", fmt.Errorf("%s/credentials: %w", dir, err)
+	}
+	init, err := os.ReadFile(filepath.Join(dir, "worker-init"))
+	if err != nil {
+		return nil, "", err
+	}
+	cl, err := provider.New(creds, func(f string, a ...any) { log.Printf("cloud: "+f, a...) })
+	return cl, string(init), err
 }
 
 // The host's record, retried until it is made: an edge that is down at boot does not keep the plane down.

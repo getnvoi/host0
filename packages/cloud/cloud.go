@@ -43,11 +43,6 @@ type Cloud interface {
 	Destroy(ctx context.Context, c naming.Cluster) error
 }
 
-// A cloud whose cluster-autoscaler manifests hz applies, with the Secret they read.
-type Autoscaler interface {
-	Autoscaler(c naming.Cluster, max int, workerType, location, init string, labels map[string]string) (string, error)
-}
-
 type Provider struct {
 	Name  string
 	Creds []Credential

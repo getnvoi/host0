@@ -26,6 +26,7 @@ import (
 	"github.com/getnvoi/host0/infra/manifests"
 	"github.com/getnvoi/host0/infra/node"
 	"github.com/getnvoi/host0/infra/source"
+	"github.com/getnvoi/host0/shared/contract"
 	"github.com/getnvoi/host0/shared/naming"
 	"github.com/getnvoi/host0/shared/seal"
 	"github.com/getnvoi/host0/shared/state"
@@ -40,7 +41,7 @@ type pool struct {
 
 func pools(e *infra.Env) []pool {
 	var ps []pool
-	for _, t := range tiers.All {
+	for _, t := range e.Config.Tiers {
 		ps = append(ps, pool{Tier: t, Name: t.Pool(), Namespace: "hz"})
 	}
 	return ps
@@ -85,30 +86,9 @@ var Install = []infra.Step{
 		if got, err := kube.Output(ctx, e.Shell, "get node -l node-role.kubernetes.io/control-plane -o jsonpath={.items[0].spec.providerID}"); err != nil || got != id {
 			return fmt.Errorf("the control node's providerID is %q, not %s: %v", got, id, err)
 		}
-		if err := e.Shell.Run(ctx, "sh -s", strings.NewReader(node.Encrypt), e.Out); err != nil {
-			return err
-		}
-		token, err := output(ctx, e, "cat /var/lib/rancher/k3s/server/node-token")
-		e.Vars["token"] = token
-		return err
+		return e.Shell.Run(ctx, "sh -s", strings.NewReader(node.Encrypt), e.Out)
 	}),
-	step("autoscaler", func(ctx context.Context, e *infra.Env) error {
-		if err := apply(ctx, e, "namespace.yaml", nil); err != nil {
-			return err
-		}
-		scaler, ok := e.Cloud.(cloud.Autoscaler)
-		if !ok {
-			e.Say("%s has no autoscaler", e.Cloud.Name())
-			return nil
-		}
-		labels := node.Labels(source.Substrate.Version())
-		m, err := scaler.Autoscaler(e.Cluster, e.Config.WorkerMax, e.Config.WorkerType, e.Config.Location,
-			node.Worker(e.Vars["token"], labels, e.Cloud.Identity()), labels)
-		if err != nil {
-			return err
-		}
-		return kube.Apply(ctx, e.Shell, m, e.Out)
-	}),
+	step("namespaces", func(ctx context.Context, e *infra.Env) error { return apply(ctx, e, "namespace.yaml", nil) }),
 	step("registry", func(ctx context.Context, e *infra.Env) error {
 		if err := apply(ctx, e, "registry.yaml", map[string]string{"Registry": naming.Registry}); err != nil {
 			return err
@@ -246,6 +226,9 @@ var Install = []infra.Step{
 			"token-sha256": hex.EncodeToString(sum[:]), "box-token": box, "seal": string(key)}), e.Out); err != nil {
 			return err
 		}
+		if err := cloudSecret(ctx, e); err != nil {
+			return err
+		}
 		m, err := manifests.Render("plane.yaml", map[string]string{"Cluster": e.Cluster.Name, "Zone": e.Config.Zone,
 			"Edge":   e.Edge.Deployment(),
 			"Suffix": e.Config.PreviewSuffix, "ControlLabel": controlLabel(e),
@@ -279,10 +262,58 @@ var Install = []infra.Step{
 			}
 			return fmt.Errorf("%w; %s says:\n%s", err, e.Edge.Deployment(), logs)
 		}
+		if err := shape(ctx, e, url, token); err != nil {
+			return err
+		}
 		e.Say("api at %s", url)
 		e.Say("web UI at %s: sign in with hz open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
 		return state.Save(state.State{URL: url, Token: token})
 	}),
+}
+
+// The Secret the plane makes worker servers with: the cloud, its credentials, and the cloud-init a worker joins with.
+// A cluster with no cloud has none, and the plane makes no server.
+func cloudSecret(ctx context.Context, e *infra.Env) error {
+	if e.Cloud == nil {
+		return nil
+	}
+	token, err := output(ctx, e, "cat /var/lib/rancher/k3s/server/node-token")
+	if err != nil {
+		return fmt.Errorf("the join token: %w: %s", err, token)
+	}
+	creds, err := json.Marshal(e.CloudCreds)
+	if err != nil {
+		return err
+	}
+	init := node.Worker(token, node.Labels(source.Substrate.Version()), e.Cloud.Identity())
+	return kube.Apply(ctx, e.Shell, cloud.Secret(naming.Namespace, "cloud", map[string]string{
+		"provider": e.Cloud.Name(), "credentials": string(creds), "worker-init": init}), e.Out)
+}
+
+// Writes the cluster's shape, its workers and tiers, to the plane, which holds it as a row.
+func shape(ctx context.Context, e *infra.Env, url, token string) error {
+	body, err := json.Marshal(contract.Shape{Tiers: e.Config.Tiers, Workers: contract.Workers{Type: e.Config.WorkerType,
+		Location: e.Config.Location, Max: e.Config.WorkerMax, Idle: e.Config.WorkerIdle}})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, "PUT", url+"/cluster/shape", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		return fmt.Errorf("writing the cluster shape: %w", err)
+	}
+	defer res.Body.Close()
+	raw, _ := io.ReadAll(res.Body)
+	if res.StatusCode >= 300 {
+		return fmt.Errorf("writing the cluster shape: %s: %s", res.Status, strings.TrimSpace(string(raw)))
+	}
+	e.Say("workers: %s in %s, at most %d, deleted after %s idle", e.Config.WorkerType, e.Config.Location, e.Config.WorkerMax, e.Config.WorkerIdle)
+	return nil
 }
 
 // Every request on the edge goes to the plane, which reads the host.

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"time"
 
 	"github.com/getnvoi/host0/cloud"
 	"github.com/getnvoi/host0/shared/naming"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // Where the cluster's hosts reach it: Cloudflare's tunnel, or records at the control node and a proxy there.
@@ -37,7 +39,10 @@ type Config struct {
 	ControlType string
 	WorkerType  string
 	WorkerMax   int
-	Zone        string
+	// A worker server with no actor this long is deleted.
+	WorkerIdle time.Duration
+	Tiers      []tiers.Tier
+	Zone       string
 	// Previews are <name>-<cluster><PreviewSuffix>.<Zone>.
 	PreviewSuffix string
 	// The nodes' GOARCH, which ko builds for.
@@ -49,8 +54,11 @@ type Config struct {
 type Env struct {
 	Cluster naming.Cluster
 	Config  Config
-	Cloud   cloud.Cloud
-	Edge    Edge
+	// Nil on a cluster with no cloud, such as kind on this machine.
+	Cloud cloud.Cloud
+	// The cloud's credentials by its own keys, which the plane makes workers with.
+	CloudCreds map[string]string
+	Edge       Edge
 	// Dials the control node; set by the step that creates it.
 	Dial    func(ctx context.Context, addr string) (Shell, error)
 	Shell   Shell

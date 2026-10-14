@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/getnvoi/host0/shared/contract"
-	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // Minutes each actor spent per state per day, and worker minutes per pool, sampled every UsageEvery. The rest of
@@ -55,7 +54,7 @@ func (p *Plane) sample(ctx context.Context, now time.Time) {
 		}
 		var e contract.Environment
 		if p.Store.Get("environments", env, &e) == nil {
-			if t, err := tiers.Get(e.Tier); err == nil {
+			if t, err := p.tier(e.Tier); err == nil {
 				tierOf[env] = t.Name
 			}
 		}

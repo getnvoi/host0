@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -35,9 +36,14 @@ type fakeStore struct {
 	kv     map[string]map[string][]byte
 }
 
+// With the shape install writes: the default tiers, two workers idle for a minute at most.
 func newStore(routes ...Route) *fakeStore {
-	return &fakeStore{routes: routes, kv: map[string]map[string][]byte{}}
+	f := &fakeStore{routes: routes, kv: map[string]map[string][]byte{}}
+	f.Put("cluster", "shape", testShape)
+	return f
 }
+
+var testShape = contract.Shape{Workers: contract.Workers{Type: "ccx23", Location: "fsn1", Max: 2, Idle: time.Minute}, Tiers: tiers.Defaults}
 
 func (f *fakeStore) Get(kind, id string, v any) error {
 	f.mu.Lock()
@@ -98,10 +104,14 @@ func (f *fakeSandboxes) Resume(context.Context, string) error {
 func (f *fakeSandboxes) Dial(context.Context, string, int) (net.Conn, error) { return nil, nil }
 
 type fakePools struct {
-	replicas map[string]int
-	ready    map[string]int
-	costs    map[string]int
-	held     map[string]bool
+	replicas  map[string]int
+	ready     map[string]int
+	costs     map[string]int
+	nodes     []contract.Node
+	unplaced  int
+	occupants map[string]int
+	cordoned  map[string]bool
+	forgot    []string
 }
 
 func (f *fakePools) Replicas(_ context.Context, pool string) (int, error) {
@@ -118,20 +128,25 @@ func (f *fakePools) Scale(_ context.Context, pool string, n int) error {
 	return nil
 }
 func (f *fakePools) Nodes(context.Context) ([]contract.Node, error) {
-	var out []contract.Node
-	for n, on := range f.held {
-		out = append(out, contract.Node{Name: n, Ready: true, Held: on})
-	}
-	return out, nil
+	return append([]contract.Node{}, f.nodes...), nil
 }
-func (f *fakePools) Cost(_ context.Context, pod string, c int) error { f.costs[pod] = c; return nil }
-func (f *fakePools) Hold(_ context.Context, node string, on bool) error {
-	if f.held == nil {
-		f.held = map[string]bool{}
+func (f *fakePools) Unplaced(context.Context) (int, error) { return f.unplaced, nil }
+func (f *fakePools) Occupants(_ context.Context, node string) (int, error) {
+	return f.occupants[node], nil
+}
+func (f *fakePools) Cordon(_ context.Context, node string, on bool) error {
+	if f.cordoned == nil {
+		f.cordoned = map[string]bool{}
 	}
-	f.held[node] = on
+	f.cordoned[node] = on
 	return nil
 }
+func (f *fakePools) Forget(_ context.Context, node string) error {
+	f.forgot = append(f.forgot, node)
+	f.nodes = slices.DeleteFunc(f.nodes, func(n contract.Node) bool { return n.Name == node })
+	return nil
+}
+func (f *fakePools) Cost(_ context.Context, pod string, c int) error { f.costs[pod] = c; return nil }
 
 func TestShrink(t *testing.T) {
 	sc = newScaler()
@@ -140,7 +155,7 @@ func TestShrink(t *testing.T) {
 		{Pool: "hz-medium", Pod: "idle"},
 	}}
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
-	p := &Plane{Sandboxes: sb, Pools: pools}
+	p := &Plane{Sandboxes: sb, Pools: pools, Store: newStore()}
 	ctx := context.Background()
 
 	p.shrink(ctx)
@@ -169,7 +184,7 @@ func TestWakeGrows(t *testing.T) {
 	sb := &fakeSandboxes{full: 1}
 	pools := &fakePools{replicas: map[string]int{"hz-large": 0}, costs: map[string]int{}}
 	p := &Plane{Sandboxes: sb, Pools: pools, Store: newStore()}
-	large, _ := tiers.Get("large")
+	large, _ := tiers.Pick(tiers.Defaults, "large")
 	if err := p.wake(context.Background(), "a", large); err != nil {
 		t.Fatal(err)
 	}
@@ -192,14 +207,6 @@ func TestRest(t *testing.T) {
 	if sb.states["a"] != "paused" || sb.states["b"] != "running" || sb.states["c"] != "suspended" {
 		t.Fatalf("states %v", sb.states)
 	}
-	if held := p.Pools.(*fakePools).held; !held["n1"] {
-		t.Fatalf("the paused actor's node is not held: %v", held)
-	}
-	sb.states["a"] = "suspended"
-	p.hold(context.Background())
-	if held := p.Pools.(*fakePools).held; held["n1"] {
-		t.Fatal("the node is still held with nothing paused on it")
-	}
 }
 
 func TestWakeEvictsBeforeGrowing(t *testing.T) {
@@ -207,7 +214,7 @@ func TestWakeEvictsBeforeGrowing(t *testing.T) {
 	sb := &fakeSandboxes{full: 1, states: map[string]string{"old": "paused", "new": "suspended"}}
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, costs: map[string]int{}}
 	p := &Plane{Sandboxes: sb, Pools: pools, Store: newStore(Route{"old", 3000, "medium"}, Route{"new", 3000, "medium"})}
-	medium, _ := tiers.Get("medium")
+	medium, _ := tiers.Pick(tiers.Defaults, "medium")
 	if err := p.wake(context.Background(), "new", medium); err != nil {
 		t.Fatal(err)
 	}
@@ -222,33 +229,12 @@ func TestEvictSkipsBusy(t *testing.T) {
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, costs: map[string]int{}}
 	p := &Plane{Sandboxes: sb, Pools: pools, Store: newStore(Route{"old", 3000, "medium"}, Route{"new", 3000, "medium"})}
 	sc.open["old"] = 1
-	medium, _ := tiers.Get("medium")
+	medium, _ := tiers.Pick(tiers.Defaults, "medium")
 	if err := p.wake(context.Background(), "new", medium); err != nil {
 		t.Fatal(err)
 	}
 	if sb.states["old"] != "paused" || pools.replicas["hz-medium"] != 2 {
 		t.Fatalf("a busy actor was evicted: %v %v", sb.states, pools.replicas)
-	}
-}
-
-type goneSandboxes struct{ *fakeSandboxes }
-
-func (g goneSandboxes) State(ctx context.Context, a string) (string, error) {
-	if a == "gone" {
-		return "", ErrNotFound
-	}
-	return g.fakeSandboxes.State(ctx, a)
-}
-
-func TestHoldForgetsDeletedActors(t *testing.T) {
-	sc = newScaler()
-	pools := &fakePools{}
-	p := &Plane{Sandboxes: goneSandboxes{&fakeSandboxes{}}, Pools: pools, Store: newStore(Route{"gone", 3000, "medium"})}
-	p.Store.Put("paused", "gone", "n1")
-	p.Store.Put("held", "nodes", []string{"n1"})
-	p.hold(context.Background())
-	if p.Store.Get("paused", "gone", new(string)) == nil || pools.held["n1"] {
-		t.Fatalf("the node of a deleted actor is still held: %v", pools.held)
 	}
 }
 
@@ -279,7 +265,7 @@ func TestShrinkUnmarksTaken(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{workers: []Worker{{Pool: "hz-medium", Pod: "a"}, {Pool: "hz-medium", Pod: "b"}}}
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
-	p := &Plane{Sandboxes: sb, Pools: pools}
+	p := &Plane{Sandboxes: sb, Pools: pools, Store: newStore()}
 	ctx := context.Background()
 	p.shrink(ctx)
 	p.shrink(ctx)

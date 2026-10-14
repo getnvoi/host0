@@ -11,7 +11,6 @@ spec:
   replicas: [[.Replicas]]
   workerImage: ko://github.com/agent-substrate/substrate/cmd/ateom-gvisor
   template:
-    annotations: { cluster-autoscaler.kubernetes.io/safe-to-evict: "false" }
     nodeSelector: { hz.dev/worker: "true" }
     tolerations:
       - { key: ate.dev/sandboxClass, operator: Equal, value: gvisor, effect: NoSchedule }

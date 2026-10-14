@@ -105,6 +105,14 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		}
 		reply(w, nil, err)
 	})
+	api.HandleFunc("PUT /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
+		var s contract.Shape
+		reply(w, nil, read(r, &s, func() error { return p.SetShape(s) }))
+	})
+	api.HandleFunc("GET /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
+		s, err := p.shape()
+		reply(w, &s, err)
+	})
 	api.HandleFunc("GET /cluster", func(w http.ResponseWriter, r *http.Request) {
 		c, err := p.Status(r.Context())
 		reply(w, &c, err)

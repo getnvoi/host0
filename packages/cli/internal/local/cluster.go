@@ -8,11 +8,12 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/getnvoi/host0/cloud"
-	"github.com/getnvoi/host0/cloud/hetzner"
+	"github.com/getnvoi/host0/cloud/clouds"
 	"github.com/getnvoi/host0/cloudflare"
 	"github.com/getnvoi/host0/dns"
 	"github.com/getnvoi/host0/infra"
@@ -20,12 +21,10 @@ import (
 	"github.com/getnvoi/host0/infra/steps"
 	"github.com/getnvoi/host0/shared/naming"
 	"github.com/getnvoi/host0/shared/state"
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 var _ infra.Edge = dns.Edge{}
-
-// The clouds --cloud picks from.
-var clouds = []cloud.Provider{hetzner.Provider}
 
 const (
 	dnsHelp = "dnscontrol provider holding the zone: CLOUDFLAREAPI, ROUTE53, GANDI_V5, OVH, HETZNER_V2, ... " +
@@ -45,6 +44,9 @@ type options struct {
 	key      string
 	only     []string
 	keepCert bool
+	tiers    []string
+	// Credential key to shell variable, as the file's credentials.
+	cloudVars, dnsVars map[string]string
 }
 
 // Flags both install and destroy take.
@@ -56,12 +58,28 @@ func common(c *cobra.Command, o *options) {
 	f.StringVar(&o.edge, "edge", "", edgeHelp)
 	f.StringVar(&o.provider, "dns", "CLOUDFLAREAPI", dnsHelp)
 	f.StringVar(&o.cloud, "cloud", "hetzner", cloudHelp())
+	f.StringToStringVar(&o.cloudVars, "cloud-credentials", nil, "key=VARIABLE for each of the cloud's credentials; replaces cloud.credentials")
+	f.StringToStringVar(&o.dnsVars, "dns-credentials", nil, "key=VARIABLE for each of the DNS provider's credentials; replaces dns.credentials")
+}
+
+// Flags install alone takes.
+func installFlags(c *cobra.Command, o *options) {
+	f := c.Flags()
+	f.StringVar(&o.cfg.Location, "location", "", "cloud location; the cloud's default when empty")
+	f.StringVar(&o.cfg.ControlType, "control-type", "", "control node server type; the cloud's default when empty")
+	f.StringVar(&o.cfg.WorkerType, "worker-type", "", "worker server type, one for all: a snapshot is tied to its CPU; the cloud's default when empty")
+	f.IntVar(&o.cfg.WorkerMax, "worker-max", 5, "most worker servers the plane makes")
+	f.DurationVar(&o.cfg.WorkerIdle, "worker-idle", 10*time.Minute, "a worker server with no actor this long is deleted")
+	f.StringArrayVar(&o.tiers, "tier", nil, "a sandbox size, name:cpu:memory[:default], once per tier; replaces the file's tiers. "+
+		"Default: small 1:2Gi, medium 2:4Gi (default), large 4:8Gi")
+	f.StringVar(&o.key, "ssh-key", "~/.ssh/id_ed25519", "private key; its .pub is installed on every node")
+	f.StringSliceVar(&o.only, "only", nil, "run only these steps, by name")
 }
 
 // Each cloud with the shell variables its credentials are read from.
 func cloudHelp() string {
 	var each []string
-	for _, p := range clouds {
+	for _, p := range clouds.All {
 		var vars []string
 		for _, c := range p.Creds {
 			vars = append(vars, c.Var+": "+c.Help)
@@ -76,7 +94,7 @@ func Cluster() *cobra.Command {
 	var o options
 	install := &cobra.Command{
 		Use:   "install [name]",
-		Short: "Servers on a cloud, k3s, Substrate, autoscaling and the edge: Cloudflare's tunnel or public records and TLS",
+		Short: "Servers on a cloud, k3s, Substrate, the plane that makes its workers, and the edge: Cloudflare's tunnel or public records and TLS",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			e, err := env(c, args, o, true)
@@ -87,13 +105,7 @@ func Cluster() *cobra.Command {
 		},
 	}
 	common(install, &o)
-	f := install.Flags()
-	f.StringVar(&o.cfg.Location, "location", "", "cloud location; the cloud's default when empty")
-	f.StringVar(&o.cfg.ControlType, "control-type", "", "control node server type; the cloud's default when empty")
-	f.StringVar(&o.cfg.WorkerType, "worker-type", "", "worker server type, one for all: a snapshot is tied to its CPU; the cloud's default when empty")
-	f.IntVar(&o.cfg.WorkerMax, "worker-max", 10, "most workers the autoscaler makes")
-	f.StringVar(&o.key, "ssh-key", "~/.ssh/id_ed25519", "private key; its .pub is installed on every node")
-	f.StringSliceVar(&o.only, "only", nil, "run only these steps, by name")
+	installFlags(install, &o)
 
 	destroy := &cobra.Command{
 		Use:   "destroy [name]",
@@ -171,7 +183,7 @@ func teardown(ctx context.Context, e *infra.Env, keep func(context.Context, *inf
 }
 
 // Fills what a flag left unset from the file.
-func merge(c *cobra.Command, o *options, f File) {
+func merge(c *cobra.Command, o *options, f File) error {
 	str := func(flag string, dst *string, v string) {
 		if c.Flags().Lookup(flag) != nil && !c.Flags().Changed(flag) && v != "" {
 			*dst = v
@@ -182,22 +194,61 @@ func merge(c *cobra.Command, o *options, f File) {
 	str("edge", &o.edge, f.Edge.Mode)
 	str("dns", &o.provider, f.DNS.Provider)
 	str("cloud", &o.cloud, f.Cloud.Provider)
-	str("location", &o.cfg.Location, f.Cloud.Location)
-	str("control-type", &o.cfg.ControlType, f.Cloud.Control)
-	str("worker-type", &o.cfg.WorkerType, f.Cloud.Worker)
-	if c.Flags().Lookup("worker-max") != nil && !c.Flags().Changed("worker-max") && f.Cloud.WorkerMax != 0 {
-		o.cfg.WorkerMax = f.Cloud.WorkerMax
+	if !c.Flags().Changed("cloud-credentials") && f.Cloud.Credentials != nil {
+		o.cloudVars = f.Cloud.Credentials
 	}
+	if !c.Flags().Changed("dns-credentials") && f.DNS.Credentials != nil {
+		o.dnsVars = f.DNS.Credentials
+	}
+	str("location", &o.cfg.Location, f.Cloud.Location)
+	str("control-type", &o.cfg.ControlType, f.Control.Type)
+	str("worker-type", &o.cfg.WorkerType, f.Workers.Type)
+	unset := func(flag string) bool { return c.Flags().Lookup(flag) != nil && !c.Flags().Changed(flag) }
+	if unset("worker-max") && f.Workers.Max != 0 {
+		o.cfg.WorkerMax = f.Workers.Max
+	}
+	if unset("worker-idle") && f.Workers.Idle != "" {
+		d, err := time.ParseDuration(f.Workers.Idle)
+		if err != nil {
+			return fmt.Errorf("workers.idle: %w", err)
+		}
+		o.cfg.WorkerIdle = d
+	}
+	return nil
+}
+
+// The tiers --tier gives, else the file's, else the defaults.
+func tierList(o options, f File) ([]tiers.Tier, error) {
+	ts := f.Tiers
+	if len(o.tiers) > 0 {
+		ts = nil
+		for _, s := range o.tiers {
+			t, err := parseTier(s)
+			if err != nil {
+				return nil, err
+			}
+			ts = append(ts, t)
+		}
+	}
+	return resolve(ts)
 }
 
 func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, error) {
 	var file File
+	var err error
 	if o.file != "" {
-		var err error
 		if file, err = Load(o.file); err != nil {
 			return nil, err
 		}
-		merge(c, &o, file)
+		if err := merge(c, &o, file); err != nil {
+			return nil, fmt.Errorf("%s: %w", o.file, err)
+		}
+	}
+	if o.cfg.Tiers, err = tierList(o, file); err != nil {
+		return nil, err
+	}
+	if o.cfg.WorkerMax < 0 || o.cfg.WorkerMax > 200 {
+		return nil, fmt.Errorf("--worker-max %d: from 0 to 200", o.cfg.WorkerMax)
 	}
 	name := file.Name
 	if len(args) == 1 {
@@ -213,12 +264,12 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 	if o.cfg.Zone == "" {
 		return nil, fmt.Errorf("the zone: --zone, or edge.zone in -f")
 	}
-	provider, err := cloud.Find(clouds, o.cloud)
+	provider, err := clouds.Find(o.cloud)
 	if err != nil {
 		return nil, err
 	}
 	say := func(f string, a ...any) { fmt.Fprintf(os.Stdout, "  "+f+"\n", a...) }
-	cl, err := openCloud(provider, file.Cloud.Credentials, say)
+	cl, creds, err := openCloud(provider, o.cloudVars, say)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +305,7 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 			*v.dst = v.def
 		}
 	}
-	edge, err := selectEdge(o, file, say, func(ctx context.Context) ([]string, error) {
+	edge, err := selectEdge(o, say, func(ctx context.Context) ([]string, error) {
 		s, err := cl.Lookup(ctx, cluster.Control())
 		if err != nil {
 			return nil, err
@@ -269,10 +320,11 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 		return nil, err
 	}
 	return &infra.Env{
-		Cluster: cluster,
-		Config:  o.cfg,
-		Cloud:   cl,
-		Edge:    edge,
+		Cluster:    cluster,
+		Config:     o.cfg,
+		Cloud:      cl,
+		CloudCreds: creds,
+		Edge:       edge,
 		Dial: func(ctx context.Context, addr string) (infra.Shell, error) {
 			return ssh.Dial(ctx, addr, o.cfg.PrivateKey)
 		},
@@ -284,7 +336,7 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 }
 
 // The cloud with its credentials from the shell: from the variables vars names by key, else each Credential's Var.
-func openCloud(p cloud.Provider, vars map[string]string, say func(string, ...any)) (cloud.Cloud, error) {
+func openCloud(p cloud.Provider, vars map[string]string, say func(string, ...any)) (cloud.Cloud, map[string]string, error) {
 	if vars == nil {
 		vars = map[string]string{}
 		for _, c := range p.Creds {
@@ -293,23 +345,24 @@ func openCloud(p cloud.Provider, vars map[string]string, say func(string, ...any
 	}
 	creds, err := dns.Read(vars, os.Getenv, true)
 	if err != nil {
-		return nil, fmt.Errorf("cloud %s: %w", p.Name, err)
+		return nil, nil, fmt.Errorf("cloud %s: %w", p.Name, err)
 	}
 	for _, c := range p.Creds {
 		if creds[c.Key] == "" {
-			return nil, fmt.Errorf("cloud %s needs %s: %s", p.Name, c.Key, c.Help)
+			return nil, nil, fmt.Errorf("cloud %s needs %s: %s", p.Name, c.Key, c.Help)
 		}
 	}
-	return p.New(creds, say)
+	cl, err := p.New(creds, say)
+	return cl, creds, err
 }
 
 // The edge --edge names, on the zone's provider with its credentials from the shell.
-func selectEdge(o options, file File, say func(string, ...any), address func(context.Context) ([]string, error)) (infra.Edge, error) {
+func selectEdge(o options, say func(string, ...any), address func(context.Context) ([]string, error)) (infra.Edge, error) {
 	def, err := dns.Provider(o.provider)
 	if err != nil {
 		return nil, err
 	}
-	vars, all := file.DNS.Credentials, true
+	vars, all := o.dnsVars, true
 	if vars == nil {
 		if vars, err = dns.Vars(def.TypeName); err != nil {
 			return nil, err

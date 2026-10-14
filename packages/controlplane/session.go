@@ -19,7 +19,6 @@ import (
 	"github.com/getnvoi/host0/controlplane/codex"
 	"github.com/getnvoi/host0/controlplane/llm"
 	"github.com/getnvoi/host0/shared/contract"
-	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // The agent CLIs a credential may name.
@@ -211,13 +210,16 @@ func (p *Plane) fork(ctx context.Context, s *contract.Session, seed contract.See
 	if err != nil {
 		return err
 	}
-	tier, err := tiers.Get(env.Tier)
+	tier, err := p.tier(env.Tier)
 	if err != nil {
 		return err
 	}
 	if err := p.Sandboxes.Create(ctx, s.Actor, seed.Template, seed.Tag); err != nil {
 		return err
 	}
+	ctx = reporting(ctx, func(line string) {
+		p.put(s, func() { add(s, contract.Event{Kind: "notice", Content: line}) })
+	})
 	if err := p.wake(ctx, s.Actor, tier); err != nil {
 		return err
 	}
@@ -664,7 +666,7 @@ func (p *Plane) resume(ctx context.Context, actor, tierName string) error {
 	if state, err := p.Sandboxes.State(ctx, actor); err != nil || state == "running" {
 		return err
 	}
-	tier, err := tiers.Get(tierName)
+	tier, err := p.tier(tierName)
 	if err != nil {
 		return err
 	}

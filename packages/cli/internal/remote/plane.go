@@ -25,10 +25,10 @@ func status() *cobra.Command {
 			}
 			fmt.Printf("cluster %s, zone %s\n\n", c.Name, c.Zone)
 			w := table()
-			fmt.Fprintln(w, "NODE\tROLES\tREADY\tHELD\tADDRESSES\tPROVIDER ID")
+			fmt.Fprintln(w, "NODE\tROLES\tREADY\tAGE\tADDRESSES\tPROVIDER ID")
 			for _, n := range c.Nodes {
-				fmt.Fprintf(w, "%s\t%s\t%t\t%t\t%s\t%s\n", n.Name, strings.Join(n.Roles, ","), n.Ready, n.Held,
-					strings.Join(n.Addresses, ","), n.ProviderID)
+				fmt.Fprintf(w, "%s\t%s\t%t\t%s\t%s\t%s\n", n.Name, strings.Join(n.Roles, ","), n.Ready,
+					time.Since(n.Created).Round(time.Second), strings.Join(n.Addresses, ","), n.ProviderID)
 			}
 			fmt.Fprintln(w, "\nPOOL\tREPLICAS\tREADY\t")
 			for _, p := range c.Pools {

@@ -4,6 +4,8 @@ package contract
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/getnvoi/host0/shared/tiers"
 )
 
 type Service struct {
@@ -286,10 +288,10 @@ type Node struct {
 	Name  string   `json:"name"`
 	Roles []string `json:"roles"`
 	Ready bool     `json:"ready"`
-	Held  bool     `json:"held"` // kept from the autoscaler: it holds a paused actor's snapshot
 	// Its server's public addresses and id, as hz gave them to the node at boot.
-	Addresses  []string `json:"addresses"`
-	ProviderID string   `json:"providerID"`
+	Addresses  []string  `json:"addresses"`
+	ProviderID string    `json:"providerID"`
+	Created    time.Time `json:"created"`
 }
 
 type Pool struct {
@@ -308,4 +310,18 @@ type Worker struct {
 type Host struct {
 	Name  string `json:"name"`
 	Error string `json:"error,omitempty"`
+}
+
+// What install declares about the cluster's workers and sizes; the plane holds it as one row.
+type Shape struct {
+	Workers Workers      `json:"workers"`
+	Tiers   []tiers.Tier `json:"tiers"`
+}
+
+// The servers the plane creates for worker pools. Type and Location are empty on a cluster with no cloud.
+type Workers struct {
+	Type     string        `json:"type"`
+	Location string        `json:"location"`
+	Max      int           `json:"max"`
+	Idle     time.Duration `json:"idle"` // a worker with no actor this long is deleted
 }

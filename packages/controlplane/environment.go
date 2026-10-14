@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/getnvoi/host0/shared/contract"
-	"github.com/getnvoi/host0/shared/tiers"
 )
 
 // Held across each read and write of an environment row, so two patches do not lose one another.
@@ -131,17 +130,17 @@ func (p *Plane) store(e, old contract.Environment) error {
 		}
 		e.Secrets[k] = old.Secrets[k]
 	}
-	if err := valid(e); err != nil {
+	if err := p.valid(e); err != nil {
 		return badRequest{err}
 	}
 	return p.Store.Put("environments", e.Name, e)
 }
 
-func valid(e contract.Environment) error {
+func (p *Plane) valid(e contract.Environment) error {
 	if e.Name == "" {
 		return fmt.Errorf("an environment needs a name")
 	}
-	if _, err := tiers.Get(e.Tier); err != nil {
+	if _, err := p.tier(e.Tier); err != nil {
 		return err
 	}
 	for tool, pol := range e.Tools {

@@ -22,3 +22,23 @@ func TestOwns(t *testing.T) {
 		}
 	}
 }
+
+func TestWorker(t *testing.T) {
+	c := Cluster{Name: "edge"}
+	if got := c.Worker(3); got != "hz-edge-w3" {
+		t.Fatal(got)
+	}
+	for name, want := range map[string]int{"hz-edge-w3": 3, "hz-edge-w12": 12} {
+		if n, ok := c.WorkerIndex(name); !ok || n != want {
+			t.Errorf("%s: %d %t", name, n, ok)
+		}
+	}
+	for _, name := range []string{"hz-edge-control", "hz-edge-w0", "hz-edge-w03", "hz-edge-wx", "hz-edgy-w1", "hz-edge-w-1"} {
+		if _, ok := c.WorkerIndex(name); ok {
+			t.Errorf("%s is taken for a worker", name)
+		}
+	}
+	if WorkerIP(3) != "10.0.1.13" {
+		t.Fatal(WorkerIP(3))
+	}
+}

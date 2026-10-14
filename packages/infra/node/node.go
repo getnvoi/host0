@@ -45,7 +45,7 @@ func Server(providerID, externalIPs string) string {
 	return render("server", "", nil, fmt.Sprintf("provider_id=%q\nexternal_ips=%q\n", providerID, externalIPs))
 }
 
-// The labels a worker joins with; the autoscaler is told the same ones so it can plan for them.
+// The labels a worker joins with; the worker pools select hz.dev/worker.
 func Labels(substrateVersion string) map[string]string {
 	return map[string]string{"hz.dev/worker": "true", "ate.dev/substrate-version": substrateVersion}
 }
