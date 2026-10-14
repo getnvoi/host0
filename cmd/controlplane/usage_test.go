@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,26 +41,28 @@ func TestSample(t *testing.T) {
 	p.sample(context.Background(), now)
 	p.sample(context.Background(), now)
 
-	var u usage
-	if err := st.Get("usage", "2026-09-25/s1", &u); err != nil || u != (usage{Day: "2026-09-25", Session: "s1", Env: "web",
-		Tier: "large", By: "ben", Running: 2}) {
-		t.Fatalf("s1: %+v %v", u, err)
+	var rows []db.UsageHour
+	if err := p.DB.Order("tier, session").Find(&rows).Error; err != nil {
+		t.Fatal(err)
 	}
-	if st.Get("usage", "2026-09-25/s2", &u); u.Paused != 2 || u.Running != 0 {
-		t.Fatalf("s2: %+v", u)
-	}
-	if st.Get("usage", "2026-09-25/seed:web", &u); u.Suspended != 2 || u.By != "" || u.Session != "seed:web" {
-		t.Fatalf("seed: %+v", u)
-	}
-	for _, s := range []string{"s3", "s4"} {
-		if st.Get("usage", "2026-09-25/"+s, &u) == nil {
-			t.Fatalf("%s recorded: %+v", s, u)
+	hour := time.Date(2026, 9, 25, 23, 0, 0, 0, time.UTC)
+	got := map[string]db.UsageHour{}
+	for _, r := range rows {
+		if !r.Hour.Equal(hour) {
+			t.Errorf("%s/%s in hour %s", r.Tier, r.Session, r.Hour)
 		}
+		r.ID, r.Hour = 0, time.Time{}
+		got[r.Tier+"/"+r.Session] = r
 	}
-	var n nodes
-	st.Get("nodes", "2026-09-25", &n)
-	if !reflect.DeepEqual(n.Minutes, map[string]float64{"hz-large": 4, "worker": 2}) {
-		t.Fatalf("nodes: %+v", n)
+	want := map[string]db.UsageHour{
+		"large/s1":       {Tier: "large", Session: "s1", Env: "web", By: "ben", RunningS: 120},
+		"large/s2":       {Tier: "large", Session: "s2", Env: "web", By: "cli", PausedS: 120},
+		"large/seed:web": {Tier: "large", Session: "seed:web", Env: "web", SuspendedS: 120},
+		"large/":         {Tier: "large", WorkerS: 240},
+		"/":              {WorkerS: 120},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("usage hours\n%+v\nwant\n%+v", got, want)
 	}
 }
 
@@ -78,11 +81,19 @@ func usageStore(t *testing.T) data {
 	st.Put("sessions", "b", workspace.Session{ID: "b", Env: "api", By: "ann", At: day("2026-09-25", 3), Events: []llm.Event{
 		{Kind: "result", At: day("2026-09-25", 4), Meta: json.RawMessage(`{"tokens":7}`)},
 	}})
-	st.Put("usage", "2026-09-24/a", usage{Day: "2026-09-24", Session: "a", Env: "web", By: "ben", Running: 30})
-	st.Put("usage", "2026-09-25/b", usage{Day: "2026-09-25", Session: "b", Env: "api", By: "ann", Running: 10, Paused: 1})
-	st.Put("usage", "2026-09-25/seed:web", usage{Day: "2026-09-25", Session: "seed:web", Env: "web", Running: 5, Suspended: 3})
-	st.Put("usage", "2026-09-01/a", usage{Day: "2026-09-01", Session: "a", Env: "web", By: "ben", Running: 999})
-	st.Put("nodes", "2026-09-25", nodes{Day: "2026-09-25", Minutes: map[string]float64{"hz-medium": 20, "worker": 1}})
+	for _, u := range []db.UsageHour{
+		{Hour: day("2026-09-24", 9), Tier: "medium", Session: "a", Env: "web", By: "ben", RunningS: 1200},
+		{Hour: day("2026-09-24", 10), Tier: "medium", Session: "a", Env: "web", By: "ben", RunningS: 600},
+		{Hour: day("2026-09-25", 3), Tier: "medium", Session: "b", Env: "api", By: "ann", RunningS: 600, PausedS: 60},
+		{Hour: day("2026-09-25", 0), Tier: "medium", Session: "seed:web", Env: "web", RunningS: 300, SuspendedS: 180},
+		{Hour: day("2026-09-01", 0), Tier: "medium", Session: "a", Env: "web", By: "ben", RunningS: 59940},
+		{Hour: day("2026-09-25", 5), Tier: "medium", WorkerS: 1200},
+		{Hour: day("2026-09-25", 6), Tier: "", WorkerS: 60},
+	} {
+		if err := st.DB.Create(&u).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
 	at := day("2026-09-24", 10)
 	st.Put("approvals", "x", workspace.Approval{ID: "x", Session: "a", State: "done", At: at, Decided: at.Add(4 * time.Second)})
 	st.Put("approvals", "y", workspace.Approval{ID: "y", Session: "b", State: "denied", At: at, Decided: at.Add(2 * time.Second)})
@@ -136,13 +147,18 @@ func TestUsage(t *testing.T) {
 
 func TestUsageRoute(t *testing.T) {
 	_, h := serve(usageStore(t), nil, nil, nil)
-	res := call(h, "GET", "api-dev.nvoi.to", "/usage?days=1000", "", map[string]string{"Authorization": "Bearer cli-token"})
+	res := call(h, "GET", "api-dev.nvoi.to", "/usage?days=365&by=ben", "", bearer)
 	var u workspace.Usage
 	if json.NewDecoder(res.Body).Decode(&u); res.Code != 200 || len(u.Days) != 365 {
 		t.Fatalf("%d, %d days", res.Code, len(u.Days))
 	}
-	res = call(h, "GET", "api-dev.nvoi.to", "/usage", "", map[string]string{"Authorization": "Bearer cli-token"})
+	res = call(h, "GET", "api-dev.nvoi.to", "/usage", "", bearer)
 	if json.NewDecoder(res.Body).Decode(&u); len(u.Days) != 30 {
 		t.Fatalf("default %d days", len(u.Days))
+	}
+	for _, q := range []string{"days=1000", "days=0", "days=x"} {
+		if res := call(h, "GET", "api-dev.nvoi.to", "/usage?"+q, "", bearer); res.Code != 400 || !strings.Contains(detail(res), "days") {
+			t.Errorf("%s: %d %s", q, res.Code, detail(res))
+		}
 	}
 }

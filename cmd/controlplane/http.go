@@ -3,13 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/getnvoi/host0/internal/auth"
 	"github.com/getnvoi/host0/internal/box"
@@ -47,38 +46,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	api.HandleFunc("POST /sessions/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, nil, ws.Stop(r.Context(), r.PathValue("id")))
 	})
-	api.HandleFunc("PUT /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
-		var s sandbox.Shape
-		reply(w, nil, read(r, &s, func() error { return p.sc.SetShape(s) }))
-	})
-	api.HandleFunc("GET /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
-		s, err := p.sc.Shape()
-		reply(w, &s, err)
-	})
-	api.HandleFunc("GET /cluster/pods", func(w http.ResponseWriter, r *http.Request) {
-		if p.Pods == nil {
-			reply(w, nil, fmt.Errorf("this plane reads no pods"))
-			return
-		}
-		ps, err := p.Pods.List(r.Context(), r.URL.Query().Get("node"))
-		reply(w, &ps, err)
-	})
-	api.HandleFunc("GET /cluster/pods/{namespace}/{pod}/log", func(w http.ResponseWriter, r *http.Request) {
-		if p.Pods == nil {
-			reply(w, nil, fmt.Errorf("this plane reads no pods"))
-			return
-		}
-		tail, err := strconv.Atoi(r.URL.Query().Get("tail"))
-		if err != nil || tail <= 0 {
-			tail = 200
-		}
-		log, err := p.Pods.Log(r.Context(), r.PathValue("namespace"), r.PathValue("pod"), r.URL.Query().Get("container"), tail)
-		reply(w, &map[string]string{"log": log}, err)
-	})
-	api.HandleFunc("GET /cluster", func(w http.ResponseWriter, r *http.Request) {
-		c, err := p.Status(r.Context())
-		reply(w, &c, err)
-	})
 	api.HandleFunc("POST /sessions", func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Env, Prompt string }
 		var s workspace.Session
@@ -101,25 +68,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	api.HandleFunc("GET /sessions/{id}/preview", func(w http.ResponseWriter, r *http.Request) {
 		st, err := ws.PreviewStatus(r.Context(), r.PathValue("id"))
 		reply(w, &st, err)
-	})
-	api.HandleFunc("POST /previews", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Host string }
-		var out struct {
-			URL string `json:"url"`
-		}
-		reply(w, &out, read(r, &in, func() error {
-			var rt sandbox.Route
-			if err := p.Store.Get("routes", in.Host, &rt); err != nil {
-				// A session still forking has no route yet; its host is known all the same.
-				var s workspace.Session
-				sid, _, _ := strings.Cut(in.Host, "-")
-				if p.Store.Get("sessions", sid, &s) != nil || s.Preview != in.Host {
-					return err
-				}
-			}
-			out.URL = p.gate.URL(in.Host, 12*time.Hour)
-			return nil
-		}))
 	})
 	api.HandleFunc("GET /sessions/{id}/changes", func(w http.ResponseWriter, r *http.Request) {
 		c, err := ws.Changes(r.Context(), r.PathValue("id"))
@@ -166,11 +114,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	api.HandleFunc("GET /approvals/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var a workspace.Approval
 		reply(w, &a, p.Store.Get("approvals", r.PathValue("id"), &a))
-	})
-	api.HandleFunc("GET /usage", func(w http.ResponseWriter, r *http.Request) {
-		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
-		u, err := p.Usage(time.Now(), days, r.URL.Query().Get("by"))
-		reply(w, &u, err)
 	})
 	api.HandleFunc("POST /approvals/{id}/{decision}", func(w http.ResponseWriter, r *http.Request) {
 		// Accepted: the action and the outcome turn follow, and the stream tells how they went.
@@ -263,9 +206,13 @@ func (p *plane) preview(appHost string) http.Handler {
 		if !p.gate.Pass(w, r, host) {
 			return
 		}
-		var rt sandbox.Route
-		if err := p.Store.Get("routes", host, &rt); err != nil {
+		rt, err := p.ws.Route(host)
+		if errors.As(err, new(workspace.NotFound)) {
 			http.NotFound(w, r)
+			return
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		// A request open through here, a WebSocket included, is activity for as long as it lasts.

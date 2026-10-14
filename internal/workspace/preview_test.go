@@ -24,7 +24,9 @@ func TestPreviewStatus(t *testing.T) {
 	t.Cleanup(srv.Close)
 	p := newWorkspace(t, boxed{addr: srv.Listener.Addr().String()})
 	p.Store.Put("sessions", "s1", Session{ID: "s1", Env: "web", Actor: "wt-s1", Preview: "s1-dev-preview.x"})
-	p.Store.Put("routes", "s1-dev-preview.x", sandbox.Route{Actor: "wt-s1", Port: 3000, Tier: "medium"})
+	if err := p.route(context.Background(), "s1-dev-preview.x", sandbox.Route{Actor: "wt-s1", Port: 3000, Tier: "medium"}); err != nil {
+		t.Fatal(err)
+	}
 
 	st, err := p.PreviewStatus(context.Background(), "s1")
 	if err != nil || st.Up || st.Status != 502 {

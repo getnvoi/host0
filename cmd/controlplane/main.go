@@ -169,7 +169,7 @@ var runners = []llm.Runner{claude.Runner{}, codex.Runner{}}
 // Each part on the store and the sandboxes, and each told of the others.
 func wire(gdb *gorm.DB, st store.Store, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router, cluster, zone, suffix, boxToken string) *plane {
 	bus := stream.New(workspace.Update{Kind: "reset"})
-	sc := &workers.Scaler{Sandboxes: sb, Pools: pools, Store: st, Cluster: cluster}
+	sc := &workers.Scaler{Sandboxes: sb, Pools: pools, DB: gdb, Cluster: cluster}
 	ws := &workspace.Workspace{Sandboxes: sb, DB: gdb, Store: st, Edge: e, Workers: sc, Tools: toolbox{github.Forge{}}, Bus: bus,
 		Runners: runners, BoxToken: boxToken, Cluster: cluster, Zone: zone, Suffix: suffix}
 	sc.Named, sc.Woken = ws.Named, ws.Unkeyed

@@ -18,6 +18,41 @@ components:
         - at
         - until
       type: object
+    Cluster:
+      additionalProperties: false
+      properties:
+        edge:
+          items:
+            $ref: "#/components/schemas/Host"
+          nullable: true
+          type: array
+        name:
+          type: string
+        nodes:
+          items:
+            $ref: "#/components/schemas/Node"
+          nullable: true
+          type: array
+        pools:
+          items:
+            $ref: "#/components/schemas/Pool"
+          nullable: true
+          type: array
+        workers:
+          items:
+            $ref: "#/components/schemas/Worker"
+          nullable: true
+          type: array
+        zone:
+          type: string
+      required:
+        - name
+        - zone
+        - nodes
+        - pools
+        - workers
+        - edge
+      type: object
     CredentialsInput:
       additionalProperties: false
       properties:
@@ -246,6 +281,16 @@ components:
         - label
         - type
       type: object
+    Host:
+      additionalProperties: false
+      properties:
+        error:
+          type: string
+        name:
+          type: string
+      required:
+        - name
+      type: object
     LLMConfig:
       additionalProperties: false
       properties:
@@ -337,6 +382,36 @@ components:
         - cluster
         - zone
       type: object
+    Node:
+      additionalProperties: false
+      properties:
+        addresses:
+          items:
+            type: string
+          nullable: true
+          type: array
+        created:
+          format: date-time
+          type: string
+        name:
+          type: string
+        providerID:
+          type: string
+        ready:
+          type: boolean
+        roles:
+          items:
+            type: string
+          nullable: true
+          type: array
+      required:
+        - name
+        - roles
+        - ready
+        - addresses
+        - providerID
+        - created
+      type: object
     Option:
       additionalProperties: false
       properties:
@@ -347,6 +422,67 @@ components:
       required:
         - value
         - label
+      type: object
+    Pod:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        node:
+          type: string
+        phase:
+          type: string
+      required:
+        - namespace
+        - name
+        - node
+        - phase
+      type: object
+    PodLog:
+      additionalProperties: false
+      properties:
+        log:
+          description: The last lines of the container's log
+          type: string
+      required:
+        - log
+      type: object
+    Pool:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        ready:
+          format: int64
+          type: integer
+        replicas:
+          format: int64
+          type: integer
+      required:
+        - name
+        - replicas
+        - ready
+      type: object
+    PreviewInput:
+      additionalProperties: false
+      properties:
+        host:
+          description: The preview's host, as a session or a seed names it
+          minLength: 1
+          type: string
+      required:
+        - host
+      type: object
+    PreviewLink:
+      additionalProperties: false
+      properties:
+        url:
+          description: Opens the preview past its gate for 12 hours
+          type: string
+      required:
+        - url
       type: object
     Provider:
       additionalProperties: false
@@ -404,6 +540,25 @@ components:
         - state
         - at
       type: object
+    Servers:
+      additionalProperties: false
+      properties:
+        idle:
+          format: int64
+          type: integer
+        location:
+          type: string
+        max:
+          format: int64
+          type: integer
+        type:
+          type: string
+      required:
+        - type
+        - location
+        - max
+        - idle
+      type: object
     Service:
       additionalProperties: false
       properties:
@@ -426,6 +581,20 @@ components:
         - name
         - command
       type: object
+    Shape:
+      additionalProperties: false
+      properties:
+        tiers:
+          items:
+            $ref: "#/components/schemas/Tier"
+          nullable: true
+          type: array
+        workers:
+          $ref: "#/components/schemas/Servers"
+      required:
+        - workers
+        - tiers
+      type: object
     SignedOut:
       additionalProperties: false
       properties:
@@ -444,6 +613,165 @@ components:
           type: string
       required:
         - actor
+      type: object
+    Tier:
+      additionalProperties: false
+      properties:
+        cpu:
+          type: string
+        cpuRequest:
+          type: string
+        default:
+          type: boolean
+        memory:
+          type: string
+        name:
+          type: string
+      required:
+        - name
+        - cpu
+        - memory
+        - cpuRequest
+      type: object
+    Usage:
+      additionalProperties: false
+      properties:
+        days:
+          items:
+            $ref: "#/components/schemas/UsageDay"
+          nullable: true
+          type: array
+        environments:
+          items:
+            $ref: "#/components/schemas/UsageEnv"
+          nullable: true
+          type: array
+        from:
+          type: string
+        people:
+          items:
+            type: string
+          nullable: true
+          type: array
+        to:
+          type: string
+        totals:
+          $ref: "#/components/schemas/UsageTotal"
+      required:
+        - from
+        - to
+        - people
+        - totals
+        - days
+        - environments
+      type: object
+    UsageDay:
+      additionalProperties: false
+      properties:
+        compute:
+          additionalProperties:
+            format: double
+            type: number
+          type: object
+        day:
+          type: string
+        nodes:
+          format: double
+          type: number
+        pull_requests:
+          format: int64
+          type: integer
+        sessions:
+          format: int64
+          type: integer
+        states:
+          additionalProperties:
+            format: double
+            type: number
+          type: object
+        tokens:
+          format: int64
+          type: integer
+      required:
+        - day
+        - compute
+        - states
+        - sessions
+        - pull_requests
+        - tokens
+        - nodes
+      type: object
+    UsageEnv:
+      additionalProperties: false
+      properties:
+        compute_minutes:
+          format: double
+          type: number
+        name:
+          type: string
+        pull_requests:
+          format: int64
+          type: integer
+        sessions:
+          format: int64
+          type: integer
+        tokens:
+          format: int64
+          type: integer
+      required:
+        - name
+        - compute_minutes
+        - sessions
+        - pull_requests
+        - tokens
+      type: object
+    UsageTotal:
+      additionalProperties: false
+      properties:
+        approval_wait_ms:
+          format: int64
+          type: integer
+        approvals:
+          format: int64
+          type: integer
+        compute_minutes:
+          format: double
+          type: number
+        pull_requests:
+          format: int64
+          type: integer
+        sessions:
+          format: int64
+          type: integer
+        tokens:
+          format: int64
+          type: integer
+      required:
+        - sessions
+        - compute_minutes
+        - pull_requests
+        - tokens
+        - approvals
+        - approval_wait_ms
+      type: object
+    Worker:
+      additionalProperties: false
+      properties:
+        actors:
+          items:
+            type: string
+          nullable: true
+          type: array
+        assigned:
+          type: boolean
+        pod:
+          type: string
+        pool:
+          type: string
+      required:
+        - pool
+        - pod
+        - assigned
       type: object
   securitySchemes:
     bearer:
@@ -539,6 +867,155 @@ paths:
       x-hz:
         by:
           - logout
+  /cluster:
+    get:
+      operationId: ls
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cluster"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "The cluster now: its nodes, worker pools, workers and the plane's hosts"
+      x-hz:
+        by:
+          - ls
+  /cluster/pods:
+    get:
+      operationId: pods
+      parameters:
+        - description: Only this node's pods
+          explode: false
+          in: query
+          name: node
+          schema:
+            description: Only this node's pods
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Pod"
+                nullable: true
+                type: array
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Every pod in the cluster, or one node's
+      x-hz:
+        columns:
+          - namespace
+          - name
+          - node
+          - phase
+        output: table
+  /cluster/pods/{namespace}/{pod}/log:
+    get:
+      operationId: logs
+      parameters:
+        - description: The pod's namespace, as hz pods prints it
+          in: path
+          name: namespace
+          required: true
+          schema:
+            description: The pod's namespace, as hz pods prints it
+            type: string
+        - description: The pod's name
+          in: path
+          name: pod
+          required: true
+          schema:
+            description: The pod's name
+            type: string
+        - description: The container, when the pod has several
+          explode: false
+          in: query
+          name: container
+          schema:
+            description: The container, when the pod has several
+            type: string
+        - description: Lines from the end
+          explode: false
+          in: query
+          name: tail
+          schema:
+            default: 200
+            description: Lines from the end
+            format: int64
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PodLog"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: The end of a cluster pod's log
+      x-hz:
+        field: log
+        output: raw
+  /cluster/shape:
+    get:
+      operationId: cluster.shape
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shape"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: The workers and tiers hz cluster install declared
+      x-hz:
+        output: fields
+    put:
+      operationId: cluster.shape.put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Shape"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      security:
+        - bearer: []
+      summary: Declare the workers and tiers
+      x-hz:
+        by:
+          - cluster install
   /credentials:
     get:
       operationId: credentials.get
@@ -1069,6 +1546,32 @@ paths:
       summary: The cluster and zone this plane serves
       x-hz:
         output: fields
+  /previews:
+    post:
+      operationId: preview
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreviewInput"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PreviewLink"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: A 12-hour link to a preview, past its gate
+      x-hz:
+        by:
+          - preview
   /seeds/{name}/suspend:
     post:
       operationId: env.suspend
@@ -1096,6 +1599,45 @@ paths:
       summary: Suspend the actor the environment's preview routes to, freeing its worker
       x-hz:
         output: fields
+  /usage:
+    get:
+      operationId: usage
+      parameters:
+        - description: How many days back, today's included
+          explode: false
+          in: query
+          name: days
+          schema:
+            default: 30
+            description: How many days back, today's included
+            format: int64
+            maximum: 365
+            minimum: 1
+            type: integer
+        - description: "One person's usage: the sessions they started"
+          explode: false
+          in: query
+          name: by
+          schema:
+            description: "One person's usage: the sessions they started"
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usage"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Sessions, compute, pull requests and tokens over the last days
+      x-hz:
+        by:
+          - usage
 security:
   - bearer: []
   - cookie: []

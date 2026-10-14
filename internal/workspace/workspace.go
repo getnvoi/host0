@@ -610,21 +610,14 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 
 // Suspends the actor the environment's preview routes to, and names it.
 func (ws *Workspace) SuspendSeed(ctx context.Context, name string) (string, error) {
-	var rt sandbox.Route
-	if err := ws.Store.Get("routes", ws.Preview(name), &rt); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return "", fmt.Errorf("environment %s has no routed seed: hz env seed %s builds one", name, name)
-		}
+	rt, err := ws.Route(ws.Preview(name))
+	if errors.As(err, new(NotFound)) {
+		return "", NotFound{fmt.Errorf("environment %s has no routed seed: hz env seed %s builds one", name, name)}
+	}
+	if err != nil {
 		return "", err
 	}
 	return rt.Actor, ws.Sandboxes.Suspend(ctx, rt.Actor)
-}
-
-func (ws *Workspace) route(ctx context.Context, host string, rt sandbox.Route) error {
-	if err := ws.Store.Put("routes", host, rt); err != nil {
-		return err
-	}
-	return ws.Edge.Route(ctx, host)
 }
 
 func id() string {

@@ -1,0 +1,13 @@
+> GET /usage?days=7&by=ben
+2026-09-25 to 2026-10-01
+
+sessions       2
+compute        45 min
+pull requests  1
+tokens         107
+approvals      2
+approval wait  3s (median)
+people         ann, ben
+
+ENVIRONMENT  SESSIONS  COMPUTE  PRS  TOKENS
+web          2         45 min   1    107

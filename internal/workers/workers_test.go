@@ -56,22 +56,24 @@ var long = time.Now().Add(-time.Hour)
 
 func node(name string) kube.Node { return kube.Node{Name: name, Ready: true, Created: long} }
 
-func workerScaler(cl *fakeCloud, pools *fakePools, routes ...sandbox.Route) *Scaler {
+func workerScaler(t *testing.T, cl *fakeCloud, pools *fakePools, routes ...sandbox.Route) *Scaler {
 	fl = &fleet{free: map[string]time.Time{}}
 	return &Scaler{Cluster: "dev", Cloud: func(location string) (cloud.Cloud, error) {
 		if location != "fsn1" {
 			return nil, fmt.Errorf("location %q", location)
 		}
 		return cl, nil
-	}, WorkerInit: "#cloud-config", Pools: pools, Store: newStore(routes...),
+	}, WorkerInit: "#cloud-config", Pools: pools, DB: newDB(t, routes...),
 		Sandboxes: &fakeSandboxes{states: map[string]string{}}}
 }
 
 func TestPlaceNamesTheLowestFreeWorker(t *testing.T) {
 	cl := servers("hz-dev-w1", "hz-dev-w3", "hz-dev-control")
 	pools := &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w3"), node("hz-dev-control")}}
-	p := workerScaler(cl, pools)
-	p.Store.Put("cluster", "shape", sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 3}, Tiers: testShape.Tiers})
+	p := workerScaler(t, cl, pools)
+	if err := p.SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 3}, Tiers: testShape.Tiers}); err != nil {
+		t.Fatal(err)
+	}
 	var said []string
 	ctx := sandbox.WithProgress(context.Background(), func(l string) { said = append(said, l) })
 	name, err := p.place(ctx)
@@ -88,7 +90,7 @@ func TestPlaceNamesTheLowestFreeWorker(t *testing.T) {
 
 func TestPlaceWaitsForAJoiningWorker(t *testing.T) {
 	cl := servers("hz-dev-w1")
-	p := workerScaler(cl, &fakePools{unplaced: 1})
+	p := workerScaler(t, cl, &fakePools{unplaced: 1})
 	if name, err := p.place(context.Background()); err != nil || name != "hz-dev-w1" || len(cl.made) > 0 {
 		t.Fatalf("placed %q, made %v: %v", name, cl.made, err)
 	}
@@ -101,7 +103,7 @@ func TestPlaceWaitsForAJoiningWorker(t *testing.T) {
 
 func TestPlaceRefusesPastMax(t *testing.T) {
 	cl := servers("hz-dev-w1", "hz-dev-w2")
-	p := workerScaler(cl, &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w2")}})
+	p := workerScaler(t, cl, &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w2")}})
 	_, err := p.place(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "workers are at their max of 2") || len(cl.made) > 0 {
 		t.Fatalf("made %v: %v", cl.made, err)
@@ -110,7 +112,7 @@ func TestPlaceRefusesPastMax(t *testing.T) {
 
 func TestPlaceNothingWhenEveryPodHasANode(t *testing.T) {
 	cl := servers()
-	p := workerScaler(cl, &fakePools{})
+	p := workerScaler(t, cl, &fakePools{})
 	if name, err := p.place(context.Background()); err != nil || name != "" || len(cl.made) > 0 {
 		t.Fatalf("placed %q, made %v: %v", name, cl.made, err)
 	}
@@ -121,7 +123,7 @@ func TestRetireAnIdleWorker(t *testing.T) {
 	recent := kube.Node{Name: "hz-dev-w3", Ready: true, Created: time.Now()}
 	pools := &fakePools{occupants: map[string]int{"hz-dev-w2": 1},
 		nodes: []kube.Node{node("hz-dev-control"), node("hz-dev-w1"), node("hz-dev-w2"), recent, node("n1")}}
-	p := workerScaler(cl, pools, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"})
+	p := workerScaler(t, cl, pools, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"})
 	p.Sandboxes.(*fakeSandboxes).states["a"] = "paused"
 	// a is paused on n1, no worker; w2 holds a pod, w3 joined a moment ago, w4 has not joined.
 	if err := p.retire(context.Background()); err != nil {
@@ -152,7 +154,7 @@ func TestRetireAnIdleWorker(t *testing.T) {
 func TestRetireKeepsThePausedActorsNode(t *testing.T) {
 	cl := servers("hz-dev-w1")
 	pools := &fakePools{nodes: []kube.Node{node("hz-dev-w1")}}
-	p := workerScaler(cl, pools, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"})
+	p := workerScaler(t, cl, pools, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"})
 	p.Sandboxes = pausedOn{&fakeSandboxes{states: map[string]string{"a": "paused"}}, "hz-dev-w1"}
 	fl.free["hz-dev-w1"] = time.Now().Add(-time.Hour)
 	if err := p.retire(context.Background()); err != nil || len(cl.deleted) > 0 {
@@ -169,7 +171,7 @@ func (s pausedOn) Node(context.Context, string) (string, error) { return s.node,
 
 func TestRetireForgetsANodeWhoseServerIsGone(t *testing.T) {
 	pools := &fakePools{nodes: []kube.Node{{Name: "hz-dev-w1", Created: long}, node("hz-dev-w2")}}
-	p := workerScaler(servers("hz-dev-w2"), pools)
+	p := workerScaler(t, servers("hz-dev-w2"), pools)
 	if err := p.retire(context.Background()); err != nil || !slices.Equal(pools.forgot, []string{"hz-dev-w1"}) {
 		t.Fatalf("forgot %v: %v", pools.forgot, err)
 	}
@@ -180,8 +182,10 @@ func TestRetireForgetsANodeWhoseServerIsGone(t *testing.T) {
 func TestRestartPicksUpWorkers(t *testing.T) {
 	cl := servers("hz-dev-w1", "hz-dev-w2")
 	pools := &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w2")}}
-	p := workerScaler(cl, pools)
-	p.Store.Put("cluster", "shape", sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 5, Idle: time.Minute}, Tiers: testShape.Tiers})
+	p := workerScaler(t, cl, pools)
+	if err := p.SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 5, Idle: time.Minute}, Tiers: testShape.Tiers}); err != nil {
+		t.Fatal(err)
+	}
 	if name, err := p.place(context.Background()); err != nil || name != "hz-dev-w3" {
 		t.Fatalf("placed %q: %v", name, err)
 	}
@@ -195,7 +199,7 @@ func TestRestartPicksUpWorkers(t *testing.T) {
 }
 
 func TestNoCloudMakesNoWorker(t *testing.T) {
-	p := &Scaler{Cluster: "dev", Pools: &fakePools{unplaced: 1}, Store: newStore()}
+	p := &Scaler{Cluster: "dev", Pools: &fakePools{unplaced: 1}, DB: newDB(t)}
 	if name, err := p.place(context.Background()); err != nil || name != "" {
 		t.Fatalf("%q %v", name, err)
 	}
@@ -205,7 +209,7 @@ func TestNoCloudMakesNoWorker(t *testing.T) {
 }
 
 func TestShapeIsRequired(t *testing.T) {
-	p := &Scaler{Store: &fakeStore{kv: map[string]map[string][]byte{}}}
+	p := &Scaler{DB: emptyDB(t)}
 	if _, err := p.Tier(""); err == nil || !strings.Contains(err.Error(), "hz cluster install writes it") {
 		t.Fatal(err)
 	}

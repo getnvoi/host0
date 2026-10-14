@@ -543,8 +543,8 @@ func (ws *Workspace) PreviewStatus(ctx context.Context, sid string) (PreviewStat
 	if err := ws.Store.Get("sessions", sid, &s); err != nil {
 		return PreviewStatus{}, err
 	}
-	var rt sandbox.Route
-	if err := ws.Store.Get("routes", s.Preview, &rt); err != nil {
+	rt, err := ws.Route(s.Preview)
+	if err != nil {
 		return PreviewStatus{}, err
 	}
 	if err := ws.Workers.Ensure(ctx, rt.Actor, rt.Tier); err != nil {
@@ -609,7 +609,10 @@ func (ws *Workspace) DeleteSession(ctx context.Context, sid string) error {
 			return err
 		}
 	}
-	for _, row := range [][2]string{{"routes", s.Preview}, {"queue", sid}, {"sessions", sid}} {
+	if err := ws.unroute(s.Preview); err != nil {
+		return err
+	}
+	for _, row := range [][2]string{{"queue", sid}, {"sessions", sid}} {
 		if err := ws.Store.Delete(row[0], row[1]); err != nil {
 			return err
 		}
