@@ -135,7 +135,8 @@ func credentials() *cobra.Command {
 }
 
 func credentialsLs() *cobra.Command {
-	return &cobra.Command{
+	var output string
+	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "Which credentials are set, never their values, and the agent credentials",
 		Args:  cobra.NoArgs,
@@ -151,6 +152,9 @@ func credentialsLs() *cobra.Command {
 			cs, err := client.Read[[]workspace.LLMConfig](pl.LlmLs(cc.Context()))
 			if err != nil {
 				return err
+			}
+			if output != "" {
+				return asJSON(cc.OutOrStdout(), output, map[string]any{"stored": c.Stored, "llm": cs})
 			}
 			github := "not set"
 			if slices.Contains(c.Stored, "github") {
@@ -175,6 +179,8 @@ func credentialsLs() *cobra.Command {
 			return w.Flush()
 		},
 	}
+	outputFlag(cmd, &output)
+	return cmd
 }
 
 // CLAUDE_CODE_OAUTH_TOKEN, or a new one from claude setup-token, which opens a browser and prints the token last.

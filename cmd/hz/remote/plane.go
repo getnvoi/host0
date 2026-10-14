@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,7 +24,8 @@ func init() {
 }
 
 func status() *cobra.Command {
-	return &cobra.Command{
+	var output string
+	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "The cluster now: its nodes, worker pools, workers and the plane's hosts",
 		Args:  cobra.NoArgs,
@@ -35,6 +37,9 @@ func status() *cobra.Command {
 			c, err := client.Read[workers.Cluster](pl.Ls(cc.Context()))
 			if err != nil {
 				return err
+			}
+			if output != "" {
+				return asJSON(cc.OutOrStdout(), output, c)
 			}
 			out := cc.OutOrStdout()
 			fmt.Fprintf(out, "cluster %s, zone %s\n\n", c.Name, c.Zone)
@@ -70,11 +75,13 @@ func status() *cobra.Command {
 			return nil
 		},
 	}
+	outputFlag(cmd, &output)
+	return cmd
 }
 
 func usage() *cobra.Command {
 	var days int64
-	var by string
+	var by, output string
 	cmd := &cobra.Command{
 		Use:   "usage",
 		Short: "Sessions, compute, pull requests and tokens over the last days",
@@ -91,6 +98,9 @@ func usage() *cobra.Command {
 			u, err := client.Read[workspace.Usage](pl.Usage(cc.Context(), q))
 			if err != nil {
 				return err
+			}
+			if output != "" {
+				return asJSON(cc.OutOrStdout(), output, u)
 			}
 			t := u.Totals
 			out := cc.OutOrStdout()
@@ -110,6 +120,7 @@ func usage() *cobra.Command {
 	}
 	cmd.Flags().Int64Var(&days, "days", 30, "how many days back, at most 365")
 	cmd.Flags().StringVar(&by, "by", "", "one person's usage")
+	outputFlag(cmd, &output)
 	return cmd
 }
 
@@ -225,4 +236,21 @@ func visit(host, link string, out io.Writer) error {
 		return fmt.Errorf("%s answers %s with the cookie: %q", host, res.Status, said)
 	}
 	return nil
+}
+
+// The -o of a hand-written read: json prints the plane's answer as it is, like a generated command's.
+func outputFlag(cmd *cobra.Command, output *string) {
+	cmd.Flags().StringVarP(output, "output", "o", "", "json: the plane's answer as it is")
+}
+
+func asJSON(w io.Writer, output string, v any) error {
+	if output != "json" {
+		return fmt.Errorf("-o %s: want json", output)
+	}
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, string(b))
+	return err
 }
