@@ -158,4 +158,3 @@ func (z *Zone) label(name string) (string, error) {
 	}
 	return "", fmt.Errorf("%s is not in zone %s", name, z.Name)
 }
-
