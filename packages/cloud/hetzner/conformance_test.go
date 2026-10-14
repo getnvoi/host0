@@ -18,7 +18,8 @@ func TestConformance(t *testing.T) {
 			return New(token, location, rt, say, sleep)
 		},
 		Cassette: "testdata/hetzner.json",
-		Secret:   token,
+		Secrets:  []string{token},
+		Cluster:  "conf",
 		Location: "fsn1",
 		Type:     "ccx13",
 		Classify: classify,
@@ -49,7 +50,7 @@ func TestConformance(t *testing.T) {
 }
 
 // POST to a collection creates, DELETE deletes, an action writes.
-func classify(method, path string) (op, kind string) {
+func classify(method, path string, _ []byte) (op, kind string) {
 	parts := strings.Split(strings.TrimPrefix(path, "/v1/"), "/")
 	kind = parts[0]
 	switch {

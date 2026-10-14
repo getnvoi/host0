@@ -20,12 +20,14 @@ type Subject struct {
 	New func(rt http.RoundTripper, location string, say func(string, ...any), sleep cloud.Sleep) cloud.Cloud
 	// testdata/<provider>.json beside the provider's test.
 	Cassette string
-	// The credential, when recording; scrubbed from the cassette.
-	Secret         string
+	// The credentials when recording, the provider's key first; each is scrubbed from the cassette.
+	Secrets []string
+	// The cluster the run makes and destroys.
+	Cluster        string
 	Location, Type string
 	// op is "create", "delete", "write" or "" for a read; kind is the resource's, "servers" for a server. The path
 	// carries no query.
-	Classify func(method, path string) (op, kind string)
+	Classify func(method, path string, body []byte) (op, kind string)
 	// The id a create's response names, and the id a delete's path names.
 	Created func(response []byte) string
 	Deleted func(path string) string
@@ -37,8 +39,7 @@ type Subject struct {
 }
 
 const (
-	cluster = "conf"
-	key     = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICI1HYzQUDhIaxmM8+W5HLuG80KAjFg7N8Ilkb1v1WmR hz-conformance"
+	key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICI1HYzQUDhIaxmM8+W5HLuG80KAjFg7N8Ilkb1v1WmR hz-conformance"
 	// The cloud-init a worker gets; a real one holds the cluster's join token.
 	cloudInit = "#cloud-config\nruncmd:\n  - [true]\n"
 )
@@ -51,15 +52,15 @@ type event struct {
 	req *Interaction
 }
 
-// HZ_RECORD=1 records the cassette from a real run, the credential in s.Secret; otherwise the cassette replays.
+// HZ_RECORD=1 records the cassette from a real run, the credentials in s.Secrets; otherwise the cassette replays.
 func Run(t *testing.T, s Subject) {
 	record := os.Getenv("HZ_RECORD") != ""
 	var tape *Cassette
 	if record {
-		if s.Secret == "" {
+		if len(s.Secrets) == 0 || s.Secrets[0] == "" {
 			t.Fatal("HZ_RECORD needs the provider's credential")
 		}
-		tape = &Cassette{Record: true, Secrets: []string{s.Secret}}
+		tape = &Cassette{Record: true, Secrets: s.Secrets}
 	} else {
 		var err error
 		if tape, err = Load(s.Cassette); err != nil {
@@ -74,7 +75,7 @@ func Run(t *testing.T, s Subject) {
 		sleep = cloud.Wait
 	}
 	cl := s.New(tape, s.Location, say, sleep)
-	c := naming.Cluster{Name: cluster}
+	c := naming.Cluster{Name: s.Cluster}
 	ctx := context.Background()
 	if record {
 		// Recording starts and ends with nothing of the cluster's, whatever happens between.
@@ -107,7 +108,7 @@ func Run(t *testing.T, s Subject) {
 	writes := func(is []Interaction) []string {
 		var out []string
 		for _, i := range is {
-			if op, _ := s.Classify(i.Method, i.Path); op != "" {
+			if op, _ := s.Classify(i.Method, i.Path, []byte(i.Body)); op != "" {
 				out = append(out, i.String())
 			}
 		}
@@ -121,8 +122,14 @@ func Run(t *testing.T, s Subject) {
 	}
 
 	must("base", cl.Base(ctx, c, key, open))
-	if len(writes(since())) == 0 {
-		t.Fatal("the first base wrote nothing")
+	base := map[string]bool{}
+	for _, i := range since() {
+		if op, kind := s.Classify(i.Method, i.Path, []byte(i.Body)); op == "create" {
+			base[kind] = true
+		}
+	}
+	if len(base) == 0 {
+		t.Fatal("the first base created nothing")
 	}
 	must("base again", cl.Base(ctx, c, key, open))
 	if w := writes(since()); len(w) > 0 {
@@ -214,11 +221,11 @@ func Run(t *testing.T, s Subject) {
 	if n := tape.Left(); n > 0 {
 		t.Errorf("%d recorded requests were not made", n)
 	}
-	check(t, s, c, log)
+	check(t, s, c, log, base)
 }
 
-// What holds over the whole run: marks, announcements, ports, and teardown order.
-func check(t *testing.T, s Subject, c naming.Cluster, log []event) {
+// What holds over the whole run: marks, announcements, ports, and teardown order. base holds the kinds Base creates.
+func check(t *testing.T, s Subject, c naming.Cluster, log []event, base map[string]bool) {
 	said, rules := false, 0
 	created, deleted := map[string]string{}, map[string]bool{}
 	lastServer, firstOther := -1, -1
@@ -228,7 +235,7 @@ func check(t *testing.T, s Subject, c naming.Cluster, log []event) {
 			continue
 		}
 		i := *e.req
-		op, kind := s.Classify(i.Method, i.Path)
+		op, kind := s.Classify(i.Method, i.Path, []byte(i.Body))
 		if ports, ok, err := s.Ports(i.Method, i.Path, []byte(i.Body)); err != nil {
 			t.Errorf("%s: %v", i, err)
 		} else if ok {
@@ -254,7 +261,7 @@ func check(t *testing.T, s Subject, c naming.Cluster, log []event) {
 			deleted[s.Deleted(i.Path)] = true
 			if kind == "servers" {
 				lastServer = n
-			} else if firstOther < 0 {
+			} else if base[kind] && firstOther < 0 {
 				firstOther = n
 			}
 		}
@@ -268,7 +275,7 @@ func check(t *testing.T, s Subject, c naming.Cluster, log []event) {
 		}
 	}
 	if firstOther >= 0 && firstOther < lastServer {
-		t.Error("a network, firewall or key is deleted before the last server")
+		t.Error("what Base made is deleted before the last server")
 	}
 }
 

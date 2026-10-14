@@ -34,10 +34,19 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("%s %s %s: %d %s", e.Provider, e.Method, e.Path, e.Status, e.Message)
 }
 
+// A request body sent as it is, text/plain.
+type Text string
+
+// in is sent as JSON, or as text/plain when it is a Text.
 func (r REST) Do(ctx context.Context, method, path string, in, out any) error {
 	var body io.Reader
-	if in != nil {
-		b, err := json.Marshal(in)
+	ctype := "application/json"
+	switch v := in.(type) {
+	case nil:
+	case Text:
+		body, ctype = strings.NewReader(string(v)), "text/plain"
+	default:
+		b, err := json.Marshal(v)
 		if err != nil {
 			return err
 		}
@@ -49,7 +58,7 @@ func (r REST) Do(ctx context.Context, method, path string, in, out any) error {
 	}
 	r.Auth(req)
 	if in != nil {
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", ctype)
 	}
 	client := &http.Client{Transport: r.Transport, Timeout: time.Minute}
 	res, err := client.Do(req)
