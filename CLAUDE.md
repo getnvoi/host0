@@ -243,9 +243,6 @@ because they cannot live inside it:
 ~/.hz/hz.db  SQLite
 ```
 
-`.env.seed` is read exactly once by `hz seed`, sealed into rows, then it is
-yours to delete. Nothing reads it at runtime.
-
 Secrets are AES-256-GCM, fresh nonce per seal. A provider declares what it needs
 via `Requires() []Requirement`; configs compose secrets by key, so one
 credential is one row however many things use it.
