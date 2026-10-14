@@ -53,7 +53,7 @@ spec:
       nodeSelector: { node-role.kubernetes.io/control-plane: "[[.ControlLabel]]" }
       containers:
         - name: plane
-          image: ko://github.com/getnvoi/host0/controlplane/cmd/plane
+          image: ko://github.com/getnvoi/host0/plane/cmd/plane
           env:
             - { name: HZ_CLUSTER, value: "[[.Cluster]]" }
             - { name: HZ_ZONE, value: "[[.Zone]]" }

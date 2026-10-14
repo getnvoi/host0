@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/getnvoi/host0/edge"
 	"github.com/getnvoi/host0/infra"
 	"github.com/getnvoi/host0/shared/naming"
 	"github.com/getnvoi/host0/shared/seal"
@@ -38,13 +39,13 @@ func (s *shell) Run(_ context.Context, cmd string, stdin io.Reader, out io.Write
 
 func (*shell) Forward(context.Context, string, string) (func(), error) { return func() {}, nil }
 
-type edge struct{ infra.Edge }
+type public struct{ edge.Edge }
 
-func (edge) Deployment() string { return proxy }
+func (public) Deployment() string { return proxy }
 
-func (edge) Reach(context.Context) error { return nil }
+func (public) Reach(context.Context) error { return nil }
 
-func (edge) Records(context.Context, naming.Cluster) ([]string, error) { return nil, nil }
+func (public) Records(context.Context, naming.Cluster) ([]string, error) { return nil, nil }
 
 func TestCertificatesBeforeEdge(t *testing.T) {
 	var names []string
@@ -66,7 +67,7 @@ func TestCertificatesBeforeEdge(t *testing.T) {
 func TestCertificatesRestore(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	ctx := context.Background()
-	e := &infra.Env{Edge: edge{}, Config: infra.Config{Zone: "nvoi.to"}, Out: io.Discard}
+	e := &infra.Env{Edge: public{}, Config: infra.Config{Zone: "nvoi.to"}, Out: io.Discard}
 
 	// No saved file: an empty secret for the proxy to fill.
 	sh := &shell{}

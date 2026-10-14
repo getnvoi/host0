@@ -1,12 +1,12 @@
 go 1.27.0
 
 use (
-	./packages/boxd
-	./packages/cli
-	./packages/controlplane
+	./apps/boxd
+	./apps/hz
+	./apps/plane
+	./apps/proxy
 	./packages/cloud
-	./packages/cloudflare
-	./packages/dns
+	./packages/edge
 	./packages/infra
 	./packages/shared
 )

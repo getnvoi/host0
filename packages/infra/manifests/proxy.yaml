@@ -32,7 +32,7 @@ spec:
       nodeSelector: { node-role.kubernetes.io/control-plane: "[[.ControlLabel]]" }
       containers:
         - name: proxy
-          image: ko://github.com/getnvoi/host0/dns/cmd/proxy
+          image: ko://github.com/getnvoi/host0/proxy
           # The image's user is not root; binding 80 and 443 needs root with this one capability.
           securityContext:
             runAsUser: 0

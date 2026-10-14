@@ -115,23 +115,29 @@ command.
 ## Modules follow who implements what
 
 ```
-shared/        names, the api contract                everyone
-infra/         the install: interfaces, steps, manifests  local commands only
-cloud/         the contract, conformance, hetzner, scaleway
-cloudflare/    infra.Edge
-controlplane/  the api, sandboxes, turns, approvals   runs in the cluster
-cli/           the hz binary
+apps/plane/      the api, sandboxes, turns, approvals; embeds the ui    runs in the cluster
+apps/boxd/       commands and their durable output in each actor        runs in the cluster
+apps/proxy/      TLS for the public edge, every request to the plane    runs in the cluster
+apps/hz/         the hz binary
+apps/ui/         the web UI, built into apps/plane/web/dist
+packages/shared/ names, the api contract                                everyone
+packages/cloud/  the contract, conformance, hetzner, scaleway
+packages/edge/   the contract, cloudflare, dns
+packages/infra/  the install: steps, manifests                          local commands only
 ```
 
-**A contract lives with its consumer; a provider is its own module.** `infra` declares `Edge` and `Shell` and
-imports no provider; `cloudflare` implements `Edge` and the cli wires it in. The control plane declares
-`Sandboxes` and `Runner` the same way; `substrate` and `claude` implement them.
+`apps/` holds what runs; `packages/` holds what they share.
+
+**A contract lives with its consumer; a provider is its own module.** `infra` declares `Shell` and imports no
+provider; the cli wires the providers in. The plane declares `Sandboxes`, `llm.Runner` and its own `Edge`
+(`Route`, `Check`) the same way; `substrate`, `claude` and `codex`, and `plane/edge` implement them.
 
 **A contract with several providers lives in its own module, with its conformance suite.** `cloud` declares
 `Cloud`, each provider implements it under `cloud/` and passes `cloud/conformance` against a cassette recorded
-from a real run; `infra` and the control plane consume it.
+from a real run; `infra` and the plane consume it. `edge` declares the install's `Edge`; `edge/cloudflare` and
+`edge/dns` implement it, and `edge` imports no `infra`.
 
-**`controlplane` must not import `infra`.** Anything the control plane needs from the install is in `shared`,
+**`plane` must not import `infra`.** Anything the plane needs from the install is in `shared` or `edge`,
 or it does not exist.
 
 ## Two kinds of command, and no command is both
@@ -295,7 +301,7 @@ One namespace per worktree, from day one, even with one worktree.
 ## Working here
 
 ```
-go build -C packages/cli -o ../../bin/hz ./cmd/hz
+go build -C apps/hz -o ../../bin/hz ./cmd/hz
 go test -C packages/infra ./...
 ```
 

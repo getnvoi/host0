@@ -27,9 +27,13 @@ hz cluster destroy dev --zone example.com
 ## Layout
 
 ```
-packages/shared      names and the API contract
-packages/infra       the install: interfaces (Cloud, Edge, Shell), steps, manifests, the node script
-packages/hetzner     infra.Cloud
-packages/cloudflare  infra.Edge
-packages/cli         the hz binary
+apps/plane       the api, sandboxes, turns, approvals; serves the web UI
+apps/boxd        commands and their durable output in each actor
+apps/proxy       TLS for the public edge
+apps/hz          the hz binary
+apps/ui          the web UI, embedded in the plane
+packages/shared  names and the API contract
+packages/cloud   the Cloud contract: hetzner, scaleway
+packages/edge    the Edge contract: cloudflare, dns
+packages/infra   the install: Shell, steps, manifests, the node script
 ```

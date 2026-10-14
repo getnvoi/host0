@@ -240,7 +240,7 @@ var Install = []infra.Step{
 			return err
 		}
 		// The web UI is embedded in the plane binary, so it is built before ko builds the plane.
-		ui := filepath.Join(e.Source, "packages", "ui")
+		ui := filepath.Join(e.Source, "apps", "ui")
 		if err := source.Cmd(ctx, ui, nil, e.Out, "bun", "install", "--frozen-lockfile"); err != nil {
 			return err
 		}

@@ -9,24 +9,10 @@ import (
 	"time"
 
 	"github.com/getnvoi/host0/cloud"
+	"github.com/getnvoi/host0/edge"
 	"github.com/getnvoi/host0/shared/naming"
 	"github.com/getnvoi/host0/shared/tiers"
 )
-
-// Where the cluster's hosts reach it: Cloudflare's tunnel, or records at the control node and a proxy there.
-type Edge interface {
-	// tcp ports the control node opens to the world, beyond ssh.
-	Ports() []int
-	// Points hosts at the cluster, every request going to service; returns the Secrets, by name, its Deployment reads.
-	Serve(ctx context.Context, c naming.Cluster, service string, hosts []string) (map[string]map[string]string, error)
-	// The Deployment that runs it in naming.Namespace, from manifests/<Deployment>.yaml.
-	Deployment() string
-	// Reads the zone with the given credentials; install runs it before anything is created.
-	Reach(ctx context.Context) error
-	// The cluster's records in the zone now, one line each: name, type, value.
-	Records(ctx context.Context, c naming.Cluster) ([]string, error)
-	Destroy(ctx context.Context, c naming.Cluster) error
-}
 
 type Shell interface {
 	Run(ctx context.Context, cmd string, stdin io.Reader, out io.Writer) error
@@ -58,7 +44,7 @@ type Env struct {
 	Cloud cloud.Cloud
 	// The cloud's credentials by its own keys, which the plane makes workers with.
 	CloudCreds map[string]string
-	Edge       Edge
+	Edge       edge.Edge
 	// Dials the control node; set by the step that creates it.
 	Dial    func(ctx context.Context, addr string) (Shell, error)
 	Shell   Shell
