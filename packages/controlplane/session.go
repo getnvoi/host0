@@ -233,7 +233,10 @@ func (p *Plane) fork(ctx context.Context, s *contract.Session, seed contract.See
 	if err := p.route(ctx, s.Preview, Route{s.Actor, env.Preview, tier.Name}); err != nil {
 		return err
 	}
-	p.put(s, func() { s.State, s.Forked = "running", true })
+	p.put(s, func() {
+		s.State, s.Forked = "running", true
+		add(s, contract.Event{Kind: "notice", Content: fmt.Sprintf("forked in %s", time.Since(s.At).Round(100*time.Millisecond))})
+	})
 	return nil
 }
 
