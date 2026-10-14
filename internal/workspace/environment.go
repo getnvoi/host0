@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -263,21 +263,11 @@ func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 	}
 	defer seeding.Delete(name)
 	var users []string
-	err = ws.Store.List("sessions", func(d func(any) error) error {
-		var s Session
-		if err := d(&s); err != nil {
-			return err
-		}
-		if s.Env == name {
-			users = append(users, s.ID)
-		}
-		return nil
-	})
-	if err != nil {
+	if err := ws.DB.Model(&db.Session{}).Where("environment_id = ?", row.ID).Order("public_id").
+		Pluck("public_id", &users).Error; err != nil {
 		return err
 	}
 	if len(users) > 0 {
-		sort.Strings(users)
 		return Conflict{fmt.Errorf("environment %s has sessions %s: remove them first", name, strings.Join(users, ", "))}
 	}
 	var actors []string
@@ -293,7 +283,21 @@ func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 	if err := ws.Store.Delete("routes", ws.Preview(name)); err != nil {
 		return err
 	}
-	if err := ws.DB.Delete(&row).Error; err != nil {
+	// Removed sessions keep their environment's row, archived: their history still names it.
+	var gone int64
+	if err := ws.DB.Unscoped().Model(&db.Session{}).Where("environment_id = ?", row.ID).Count(&gone).Error; err != nil {
+		return err
+	}
+	if gone == 0 {
+		if err := ws.DB.Delete(&row).Error; err != nil {
+			return err
+		}
+	} else if err := ws.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("environment_id = ?", row.ID).Delete(&db.Seed{}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&row).Update("archived_at", time.Now()).Error
+	}); err != nil {
 		return err
 	}
 	ws.Bus.Publish(Update{Kind: "reset"})

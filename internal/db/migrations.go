@@ -23,6 +23,7 @@ var migrations = []*gormigrate.Migration{
 	{ID: "0002", Migrate: migrate0002},
 	{ID: "0003", Migrate: migrate0003},
 	{ID: "0004", Migrate: migrate0004},
+	{ID: "0005", Migrate: migrate0005},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -97,6 +98,26 @@ type m4Seed struct {
 }
 
 func (m4Seed) TableName() string { return "seeds" }
+
+// What a session's turns need of their own: whether its fork was made, the auto tools' outcomes waiting on its
+// approvals, when it started and when it last changed.
+func migrate0005(tx *gorm.DB) error {
+	for _, c := range []string{"Forked", "Outcomes", "StartedAt", "LastAt"} {
+		if err := tx.Migrator().AddColumn(&m5Session{}, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type m5Session struct {
+	Forked    bool   `gorm:"not null;default:false"`
+	Outcomes  string `gorm:"type:text"`
+	StartedAt time.Time
+	LastAt    time.Time
+}
+
+func (m5Session) TableName() string { return "sessions" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {

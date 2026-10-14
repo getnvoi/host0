@@ -3,7 +3,10 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
+
+	"github.com/getnvoi/host0/internal/db"
 )
 
 // Guards the queue records. Taken after a session's lock, never before it.
@@ -14,8 +17,8 @@ var queues sync.Mutex
 func (ws *Workspace) Say(sid, prompt, to string) error {
 	unlock := lock(sid)
 	defer unlock()
-	var s Session
-	if err := ws.Store.Get("sessions", sid, &s); err != nil {
+	s, err := ws.load(sid)
+	if err != nil {
 		return err
 	}
 	if to != "" {
@@ -80,43 +83,71 @@ func (ws *Workspace) Say(sid, prompt, to string) error {
 	return nil
 }
 
+// The session's queued messages, in order.
+func (ws *Workspace) queue(sid string) ([]db.QueuedMessage, error) {
+	r, err := rowOf(ws.DB, sid)
+	if err != nil {
+		return nil, err
+	}
+	var q []db.QueuedMessage
+	return q, ws.DB.Where("session_id = ?", r.ID).Order("position").Find(&q).Error
+}
+
 func (ws *Workspace) enqueue(sid, prompt string) error {
 	queues.Lock()
 	defer queues.Unlock()
-	var q []string
-	ws.Store.Get("queue", sid, &q)
-	return ws.Store.Put("queue", sid, append(q, prompt))
+	r, err := rowOf(ws.DB, sid)
+	if err != nil {
+		return err
+	}
+	var last struct{ N *int }
+	if err := ws.DB.Model(&db.QueuedMessage{}).Select("max(position) AS n").Where("session_id = ?", r.ID).Scan(&last).Error; err != nil {
+		return err
+	}
+	next := 0
+	if last.N != nil {
+		next = *last.N + 1
+	}
+	return ws.DB.Create(&db.QueuedMessage{SessionID: r.ID, Position: next, Text: prompt}).Error
 }
 
 // The first queued message, left in place.
 func (ws *Workspace) peek(sid string) (string, bool) {
 	queues.Lock()
 	defer queues.Unlock()
-	var q []string
-	if ws.Store.Get("queue", sid, &q) != nil || len(q) == 0 {
+	q, err := ws.queue(sid)
+	if err != nil {
+		log.Printf("session %s: its queue: %v", sid, err)
+	}
+	if len(q) == 0 {
 		return "", false
 	}
-	return q[0], true
+	return q[0].Text, true
 }
 
 // Removes the first queued message.
 func (ws *Workspace) shift(sid string) {
 	queues.Lock()
 	defer queues.Unlock()
-	var q []string
-	if ws.Store.Get("queue", sid, &q) != nil || len(q) == 0 {
-		return
+	q, err := ws.queue(sid)
+	if err == nil && len(q) > 0 {
+		err = ws.DB.Delete(&q[0]).Error
 	}
-	ws.Store.Put("queue", sid, q[1:])
+	if err != nil {
+		log.Printf("session %s: its queue: %v", sid, err)
+	}
 }
 
 // The queue as it stands, for the UI to show and withdraw from.
-func (ws *Workspace) Queue(sid string) []string {
+func (ws *Workspace) Queue(sid string) ([]string, error) {
 	queues.Lock()
 	defer queues.Unlock()
-	q := []string{}
-	ws.Store.Get("queue", sid, &q)
-	return q
+	q, err := ws.queue(sid)
+	out := make([]string, len(q))
+	for i, m := range q {
+		out[i] = m.Text
+	}
+	return out, err
 }
 
 // Withdraws queued message i, provided it is still text; the check keeps a stale click from removing its neighbour.
@@ -124,19 +155,22 @@ func (ws *Workspace) Unqueue(sid string, i int, text string) error {
 	unlock := lock(sid)
 	defer unlock()
 	queues.Lock()
-	var q []string
-	ws.Store.Get("queue", sid, &q)
-	if i < 0 || i >= len(q) || q[i] != text {
+	q, err := ws.queue(sid)
+	if err != nil {
 		queues.Unlock()
-		return fmt.Errorf("that message is no longer queued")
+		return err
 	}
-	err := ws.Store.Put("queue", sid, append(q[:i:i], q[i+1:]...))
+	if i < 0 || i >= len(q) || q[i].Text != text {
+		queues.Unlock()
+		return Conflict{fmt.Errorf("that message is no longer queued")}
+	}
+	err = ws.DB.Delete(&q[i]).Error
 	queues.Unlock()
 	if err != nil {
 		return err
 	}
-	var s Session
-	if err := ws.Store.Get("sessions", sid, &s); err != nil {
+	s, err := ws.load(sid)
+	if err != nil {
 		return err
 	}
 	ws.announce(&s)
@@ -146,7 +180,9 @@ func (ws *Workspace) Unqueue(sid string, i int, text string) error {
 func (ws *Workspace) queued(sid string) int {
 	queues.Lock()
 	defer queues.Unlock()
-	var q []string
-	ws.Store.Get("queue", sid, &q)
+	q, err := ws.queue(sid)
+	if err != nil {
+		log.Printf("session %s: its queue: %v", sid, err)
+	}
 	return len(q)
 }

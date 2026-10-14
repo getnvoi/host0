@@ -182,6 +182,29 @@ func seedRow(t *testing.T, p *Workspace, s Seed) {
 	}
 }
 
+// Writes s as a session's rows, its environment (web when it names none) declared first if it is not.
+func sessionRow(t *testing.T, p *Workspace, s Session) {
+	t.Helper()
+	if s.Env == "" {
+		s.Env = "web"
+	}
+	if _, err := p.Environment(s.Env); err != nil {
+		env(t, p, Environment{Name: s.Env})
+	}
+	if err := p.write(&s); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func queueRows(t *testing.T, p *Workspace, sid string, msgs ...string) {
+	t.Helper()
+	for _, m := range msgs {
+		if err := p.enqueue(sid, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // A sandbox whose every port is one boxd stand-in.
 type boxed struct {
 	sandbox.Sandboxes

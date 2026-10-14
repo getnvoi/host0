@@ -1,0 +1,11 @@
+> GET /sessions/a1b2c3d4
+id       a1b2c3d4
+env      shop
+state    idle
+branch   hz/a1b2c3d4
+preview  
+turns    2
+by       ben
+at       2026-10-01T09:00:00Z
+title    Fix the cart
+error    

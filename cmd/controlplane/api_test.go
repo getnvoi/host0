@@ -1,11 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"slices"
 	"testing"
 
 	"github.com/getnvoi/host0/internal/api"
+	"github.com/getnvoi/host0/internal/workspace"
 )
 
 // internal/api/openapi.yaml is the spec this plane serves.
@@ -16,6 +22,43 @@ func TestSpec(t *testing.T) {
 	}
 	if !bytes.Equal(b, api.Spec) {
 		t.Fatal("internal/api/openapi.yaml is not the plane's spec: go generate ./internal/api")
+	}
+}
+
+// The stream through Huma: server-sent events whose first message says where the stream stands.
+func TestStream(t *testing.T) {
+	p, h := handler(t)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/stream", nil)
+	req.Host = "api-dev.nvoi.to"
+	req.Header.Set("Authorization", "Bearer cli-token")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 || res.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("%s %s", res.Status, res.Header.Get("Content-Type"))
+	}
+	r := bufio.NewReader(res.Body)
+	if line, _ := r.ReadString('\n'); !strings.HasPrefix(line, "id: ") {
+		t.Fatalf("first line %q", line)
+	}
+	p.bus.Publish(workspace.Update{Kind: "reset"})
+	for {
+		line, err := r.ReadString('\n')
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.HasPrefix(line, "data: ") {
+			if line != "data: {\"kind\":\"reset\",\"from\":0}\n" {
+				t.Fatalf("data %q", line)
+			}
+			return
+		}
 	}
 }
 
@@ -38,12 +81,7 @@ func TestOutside(t *testing.T) {
 }
 
 // The routes still to move into Huma.
-var moving = []string{"api GET /stream", "api GET /sessions", "api GET /sessions/{id}/queue",
-	"api DELETE /sessions/{id}/queue/{i}", "api POST /sessions/{id}/stop", "api PUT /cluster/shape", "api GET /cluster/shape", "api GET /cluster/pods",
-	"api GET /cluster/pods/{namespace}/{pod}/log", "api GET /cluster", "api POST /sessions", "api GET /sessions/{id}",
-	"api DELETE /sessions/{id}", "api POST /sessions/{id}/turns", "api POST /sessions/{id}/suspend",
-	"api GET /sessions/{id}/preview", "api POST /previews", "api GET /sessions/{id}/changes",
-	"api GET /sessions/{id}/logs", "api GET /sessions/{id}/logs/{name}", "api GET /sessions/{id}/terminals",
-	"api DELETE /sessions/{id}/terminals/{tid}", "api GET /approvals", "api GET /approvals/{id}", "api GET /usage",
+var moving = []string{"api PUT /cluster/shape", "api GET /cluster/shape", "api GET /cluster/pods",
+	"api GET /cluster/pods/{namespace}/{pod}/log", "api GET /cluster", "api POST /previews", "api GET /approvals", "api GET /approvals/{id}", "api GET /usage",
 	"api POST /approvals/{id}/{decision}", "bearer /", "bearer POST /login-links", "bearer GET /browsers",
 	"bearer DELETE /browsers", "bearer DELETE /browsers/{label}"}

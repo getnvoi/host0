@@ -273,11 +273,11 @@ func TestEnvironmentCRUD(t *testing.T) {
 		t.Fatalf("put back lost the secret: %q", v)
 	}
 
-	p.Store.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", State: "idle"})
+	sessionRow(t, p, "web", db.Session{PublicID: "s1", State: "idle"})
 	if code, body := api("DELETE", "/environments/web", ""); code != 409 || !strings.Contains(body, "s1") {
 		t.Fatalf("delete under a session: %d %s", code, body)
 	}
-	p.Store.Delete("sessions", "s1")
+	p.DB.Unscoped().Where("public_id = ?", "s1").Delete(&db.Session{})
 	seedRow(t, p, "web", db.Seed{Actor: "tpl-a", State: "ready"})
 	seedRow(t, p, "web", db.Seed{Actor: "tpl-b", State: "building"})
 	p.Store.Put("routes", p.ws.Preview("web"), sandbox.Route{Actor: "tpl-a", Port: 3000, Tier: "medium"})
@@ -310,6 +310,27 @@ func seedRow(t *testing.T, p *plane, env string, s db.Seed) {
 	}
 }
 
+// Writes s as a session row of the environment named, declared first when it is not.
+func sessionRow(t *testing.T, p *plane, env string, s db.Session) db.Session {
+	t.Helper()
+	var e db.Environment
+	if p.DB.Where("name = ?", env).First(&e).Error != nil {
+		putEnv(t, p, workspace.Environment{Name: env})
+		if err := p.DB.Where("name = ?", env).First(&e).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	a := db.Agent{Slug: "hz"}
+	if err := p.DB.Where(&a).Attrs(db.Agent{Name: "hz"}).FirstOrCreate(&a).Error; err != nil {
+		t.Fatal(err)
+	}
+	s.EnvironmentID, s.AgentID = e.ID, a.ID
+	if err := p.DB.Create(&s).Error; err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
 // The value the database holds for the secret named.
 func secret(t *testing.T, p *plane, name string) string {
 	t.Helper()
@@ -323,14 +344,15 @@ func secret(t *testing.T, p *plane, name string) string {
 func TestSessionDelete(t *testing.T) {
 	sb := &removing{}
 	p, h := serve(newStore(t), sb, nil, nil)
-	p.Store.Put("sessions", "r1", workspace.Session{ID: "r1", State: "running", Actor: "wt-r1"})
+	sessionRow(t, p, "web", db.Session{PublicID: "r1", State: "running"})
 	if res := call(h, "DELETE", "api-dev.nvoi.to", "/sessions/r1", "", bearer); res.Code != 409 {
 		t.Fatalf("delete while running: %d %s", res.Code, res.Body)
 	}
-	s := workspace.Session{ID: "d1", State: "awaiting_approval", Actor: "wt-d1", Preview: p.ws.Preview("d1")}
-	p.Store.Put("sessions", "d1", s)
+	s := sessionRow(t, p, "web", db.Session{PublicID: "d1", State: "awaiting_approval", Preview: p.ws.Preview("d1")})
 	p.Store.Put("routes", s.Preview, sandbox.Route{Actor: "wt-d1", Port: 3000, Tier: "medium"})
-	p.Store.Put("queue", "d1", []string{"next"})
+	if err := p.DB.Create(&db.QueuedMessage{SessionID: s.ID, Text: "next"}).Error; err != nil {
+		t.Fatal(err)
+	}
 	p.Store.Put("approvals", "a1", workspace.Approval{ID: "a1", Session: "d1", State: "pending"})
 	p.Store.Put("approvals", "a2", workspace.Approval{ID: "a2", Session: "d1", State: "deciding"})
 	if res := call(h, "DELETE", "api-dev.nvoi.to", "/sessions/d1", "", bearer); res.Code != 409 {
@@ -345,10 +367,13 @@ func TestSessionDelete(t *testing.T) {
 	if a.State != "stopped" || !reflect.DeepEqual(sb.gone, []string{"wt-d1"}) {
 		t.Fatalf("approval %s, deleted %v", a.State, sb.gone)
 	}
-	for _, kind := range []string{"sessions", "queue"} {
-		if p.Store.Get(kind, "d1", &[]any{}) != store.ErrNotFound {
-			t.Errorf("%s row left behind", kind)
-		}
+	var queued int64
+	if p.DB.Model(&db.QueuedMessage{}).Count(&queued); queued != 0 {
+		t.Errorf("%d queued messages left behind", queued)
+	}
+	var kept db.Session
+	if err := p.DB.Unscoped().Where("public_id = ?", "d1").First(&kept).Error; err != nil || !kept.DeletedAt.Valid {
+		t.Errorf("the session's row is not kept removed: %+v %v", kept, err)
 	}
 	if res := call(h, "GET", "api-dev.nvoi.to", "/sessions/d1", "", bearer); res.Code != 404 {
 		t.Fatalf("get after delete: %d", res.Code)
@@ -422,7 +447,7 @@ func TestApprovalShow(t *testing.T) {
 // A second click on an approval, or a second build of a seed, is a conflict.
 func TestConflicts(t *testing.T) {
 	p, h := handler(t)
-	p.Store.Put("sessions", "d2", workspace.Session{ID: "d2", State: "idle"})
+	sessionRow(t, p, "web", db.Session{PublicID: "d2", State: "idle"})
 	p.Store.Put("approvals", "b1", workspace.Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
 	if res := call(h, "POST", "api-dev.nvoi.to", "/approvals/b1/deny", "", bearer); res.Code != http.StatusAccepted {
 		t.Fatalf("first click %d %s", res.Code, res.Body.String())

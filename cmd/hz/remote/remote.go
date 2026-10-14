@@ -22,7 +22,6 @@ import (
 
 	"github.com/getnvoi/host0/cmd/hz/state"
 	"github.com/getnvoi/host0/internal/api/client"
-	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -65,7 +64,7 @@ func send(method, path string, in any) (*http.Response, error) {
 
 // The commands not yet generated from the spec.
 func legacy() map[string]func() *cobra.Command {
-	return map[string]func() *cobra.Command{"session": session, "approval": approval, "preview": preview, "open": open, "invite": invite, "ls": status,
+	return map[string]func() *cobra.Command{"approval": approval, "preview": preview, "open": open, "invite": invite, "ls": status,
 		"pods": pods, "logs": podLogs, "usage": usage, "browsers": browsers, "logout": logout}
 }
 
@@ -133,7 +132,7 @@ func (b *build) once() (drop, heard bool, err error) {
 	defer cancel()
 	frames := make(chan frame)
 	ended := make(chan error, 1)
-	go func() { ended <- listen(ctx, b.st, b.last, frames) }()
+	go func() { ended <- listen(ctx, b.c, b.last, frames) }()
 	quiet := time.NewTimer(silence)
 	defer quiet.Stop()
 	for {
@@ -212,21 +211,16 @@ type frame struct {
 }
 
 // Reads the stream from after last, sending each message to out, and returns why it ended.
-func listen(ctx context.Context, st state.State, last string, out chan<- frame) error {
-	req, _ := http.NewRequestWithContext(ctx, "GET", st.URL+"/stream", nil)
-	req.Header.Set("Authorization", "Bearer "+st.Token)
+func listen(ctx context.Context, c *client.Client, last string, out chan<- frame) error {
+	params := &client.StreamParams{}
 	if last != "" {
-		req.Header.Set("Last-Event-ID", last)
+		params.LastEventID = &last
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := client.OK(c.Stream(ctx, params))
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
-	if res.StatusCode >= 300 {
-		b, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("GET /stream: %s", strings.TrimSpace(string(b)))
-	}
 	sc := bufio.NewScanner(res.Body)
 	// A session's update carries its new events, which can be long.
 	sc.Buffer(make([]byte, 64<<10), 16<<20)
@@ -257,106 +251,6 @@ func listen(ctx context.Context, st state.State, last string, out chan<- frame) 
 		return err
 	}
 	return errors.New("the plane closed the stream")
-}
-
-func session() *cobra.Command {
-	cmd := &cobra.Command{Use: "session", Short: "Sessions: a fork of the seed and the agent working in it"}
-	cmd.AddCommand(&cobra.Command{
-		Use:  "start <env> <prompt>",
-		Args: cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			var s workspace.Session
-			if err := call("POST", "/sessions", map[string]string{"env": args[0], "prompt": args[1]}, &s); err != nil {
-				return err
-			}
-			fmt.Printf("session %s on %s, preview %s\n", s.ID, s.Branch, link(s.Preview))
-			return follow(s.ID)
-		},
-	}, &cobra.Command{
-		Use:  "say <id> <prompt>",
-		Args: cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if err := call("POST", "/sessions/"+args[0]+"/turns", map[string]string{"prompt": args[1]}, nil); err != nil {
-				return err
-			}
-			return follow(args[0])
-		},
-	}, &cobra.Command{
-		Use:   "suspend <id>",
-		Short: "Snapshot the session and free its worker; a preview request or a turn resumes it",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return call("POST", "/sessions/"+args[0]+"/suspend", nil, nil)
-		},
-	}, &cobra.Command{
-		Use:  "follow <id>",
-		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error { return follow(args[0]) },
-	})
-	cmd.AddCommand(sessions()...)
-	return cmd
-}
-
-// Prints events as they arrive until the session stops for the user.
-func follow(id string) error { return watch(id, false) }
-
-// Prints the session's events until it rests. decided: an approval was just decided, so a session still awaiting
-// approval with none left open is carrying the action out, and is watched on.
-func watch(id string, decided bool) error {
-	seen := 0
-	for {
-		var s workspace.Session
-		if err := call("GET", "/sessions/"+id, nil, &s); err != nil {
-			return err
-		}
-		for _, ev := range s.Events[min(seen, len(s.Events)):] {
-			print(ev)
-		}
-		seen = len(s.Events)
-		switch s.State {
-		case "awaiting_approval":
-			if decided && !asking(s.ID) {
-				break
-			}
-			fmt.Printf("session %s: %s %s\n", s.ID, s.State, s.Error)
-			return nil
-		case "idle", "failed":
-			fmt.Printf("session %s: %s %s\n", s.ID, s.State, s.Error)
-			return nil
-		}
-		time.Sleep(2 * time.Second)
-	}
-}
-
-// Whether the session has approvals still waiting for a decision.
-func asking(sid string) bool {
-	var as []workspace.Approval
-	if call("GET", "/approvals", nil, &as) != nil {
-		return true
-	}
-	for _, a := range as {
-		if a.Session == sid {
-			return true
-		}
-	}
-	return false
-}
-
-func print(ev llm.Event) {
-	c := strings.TrimSpace(ev.Content)
-	if len(c) > 300 {
-		c = c[:300] + "…"
-	}
-	switch ev.Kind {
-	case "tool_use":
-		fmt.Printf("  → %s %s\n", ev.Tool, c)
-	case "tool_result":
-		fmt.Printf("  ← %s\n", strings.ReplaceAll(c, "\n", " "))
-	case "message", "result", "prompt", "error":
-		fmt.Printf("%s: %s\n", ev.Kind, c)
-	case "notice":
-		fmt.Printf("  %s\n", c)
-	}
 }
 
 // A preview link carrying a gate token; the bare host answers 401.
@@ -549,7 +443,11 @@ func approval() *cobra.Command {
 					return err
 				}
 				fmt.Printf("%s %s: %s\n", a.Tool, a.ID, a.State)
-				return watch(a.Session, true)
+				pl, err := api()
+				if err != nil {
+					return err
+				}
+				return watch(context.Background(), os.Stdout, pl, a.Session, true)
 			},
 		})
 	}

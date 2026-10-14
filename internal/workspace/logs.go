@@ -14,8 +14,8 @@ const Logs = "/workspace/.hz/logs"
 
 // The setup script's log, then one per service, in the environment's order.
 func (ws *Workspace) Logs(sid string) ([]Log, error) {
-	var s Session
-	if err := ws.Store.Get("sessions", sid, &s); err != nil {
+	s, err := ws.load(sid)
+	if err != nil {
 		return nil, err
 	}
 	env, _, err := ws.env(s.Env)

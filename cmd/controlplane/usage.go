@@ -60,14 +60,12 @@ func (p *plane) sample(ctx context.Context, now time.Time) {
 		return tierOf[env]
 	}
 	actors := map[string]usage{}
-	if err := p.Store.List("sessions", func(d func(any) error) error {
-		var s struct{ ID, Env, Actor, By string }
-		if d(&s) == nil && s.Actor != "" {
-			actors[s.Actor] = usage{Session: s.ID, Env: s.Env, By: s.By}
-		}
-		return nil
-	}); err != nil {
+	live, err := p.ws.Sessions("")
+	if err != nil {
 		log.Printf("usage: sessions: %v", err)
+	}
+	for _, s := range live {
+		actors["wt-"+s.ID] = usage{Session: s.ID, Env: s.Env, By: s.By}
 	}
 	seeds, err := p.ws.Seeds()
 	if err != nil {
@@ -158,16 +156,16 @@ func (p *plane) Usage(now time.Time, days int, by string) (workspace.Usage, erro
 	people := map[string]bool{}
 
 	scope := map[string]bool{}
-	err := p.Store.List("sessions", func(d func(any) error) error {
-		var s workspace.Session
-		if err := d(&s); err != nil {
-			return err
-		}
+	history, err := p.ws.History()
+	if err != nil {
+		return out, err
+	}
+	for _, s := range history {
 		if s.By != "" {
 			people[s.By] = true
 		}
 		if by != "" && s.By != by {
-			return nil
+			continue
 		}
 		scope[s.ID] = true
 		if day := at(s.At); day != nil {
@@ -197,10 +195,6 @@ func (p *plane) Usage(now time.Time, days int, by string) (workspace.Usage, erro
 				}
 			}
 		}
-		return nil
-	})
-	if err != nil {
-		return out, err
 	}
 	labels, err := p.auth.People()
 	if err != nil {

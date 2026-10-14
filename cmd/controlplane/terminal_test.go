@@ -31,7 +31,7 @@ func withBox(t *testing.T, boxd http.HandlerFunc) (*plane, http.Handler) {
 		t.Fatal(err)
 	}
 	seedRow(t, p, "web", db.Seed{Run: "seed-1", State: "ready"})
-	p.Store.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", Actor: "wt-s1"})
+	sessionRow(t, p, "web", db.Session{PublicID: "s1", State: "idle"})
 	return p, h
 }
 

@@ -126,25 +126,30 @@ type Seed struct {
 
 // DeletedAt hides a session; its events stay, and the foreign key refuses a hard delete while they do.
 type Session struct {
-	ID             uint
-	PublicID       string   `gorm:"not null;uniqueIndex;size:8"` // 8 hex, the id in names
-	AgentID        uint     `gorm:"not null;index"`
-	EnvironmentID  uint     `gorm:"not null;index"`
-	MemberID       *uint    `gorm:"index"` // who started it; nil when no member did
-	Member         *Member  `gorm:"constraint:OnDelete:RESTRICT"`
-	ParentID       *uint    `gorm:"index"` // the session that spawned this sub-agent
-	Parent         *Session `gorm:"constraint:OnDelete:SET NULL"`
-	Branch         string
-	Preview        string
-	Transcript     string // the runner's session id
-	Turns          int    `gorm:"not null;default:0"`
-	State          string `gorm:"not null"`
-	Title          string
-	Error          string
-	Cursor         int64 `gorm:"not null;default:0"` // bytes of the runner's log already read
-	Mark           int   `gorm:"not null;default:0"` // position of the running turn's prompt in events
-	Pending        string
-	DeletedAt      gorm.DeletedAt  `gorm:"index"`
+	ID            uint
+	PublicID      string   `gorm:"not null;uniqueIndex;size:8"` // 8 hex, the id in names
+	AgentID       uint     `gorm:"not null;index"`
+	EnvironmentID uint     `gorm:"not null;index"`
+	MemberID      *uint    `gorm:"index"` // who started it; nil when no member did
+	Member        *Member  `gorm:"constraint:OnDelete:RESTRICT"`
+	ParentID      *uint    `gorm:"index"` // the session that spawned this sub-agent
+	Parent        *Session `gorm:"constraint:OnDelete:SET NULL"`
+	Branch        string
+	Preview       string
+	Transcript    string // the runner's session id
+	Turns         int    `gorm:"not null;default:0"`
+	State         string `gorm:"not null"`
+	Title         string
+	Error         string
+	Cursor        int64 `gorm:"not null;default:0"` // bytes of the runner's log already read
+	Mark          int   `gorm:"not null;default:0"` // position of the running turn's prompt in events
+	Pending       string
+	DeletedAt     gorm.DeletedAt `gorm:"index"`
+	Forked        bool           `gorm:"not null;default:false"` // its sandbox was made and the branch checked out
+	// What the auto tools of a turn did, kept until its approvals are decided.
+	Outcomes       []string `gorm:"type:text;serializer:json"`
+	StartedAt      time.Time
+	LastAt         time.Time
 	Events         []Event         `gorm:"constraint:OnDelete:RESTRICT"`
 	QueuedMessages []QueuedMessage `gorm:"constraint:OnDelete:CASCADE"`
 	Approvals      []Approval      `gorm:"constraint:OnDelete:CASCADE"`

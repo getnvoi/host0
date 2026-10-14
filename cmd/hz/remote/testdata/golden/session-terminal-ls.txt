@@ -1,0 +1,3 @@
+> GET /sessions/a1b2c3d4/terminals
+ID  COMMAND  STARTED  CLIENTS
+t1  bash              1

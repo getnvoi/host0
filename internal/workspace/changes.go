@@ -14,8 +14,8 @@ const patchLimit = 2 << 20
 
 // The session and its environment, with its actor running.
 func (ws *Workspace) Awake(ctx context.Context, sid string) (Session, Environment, error) {
-	var s Session
-	if err := ws.Store.Get("sessions", sid, &s); err != nil {
+	s, err := ws.load(sid)
+	if err != nil {
 		return s, Environment{}, err
 	}
 	env, _, err := ws.env(s.Env)

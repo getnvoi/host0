@@ -110,8 +110,7 @@ func (ws *Workspace) Decide(aid string, approve bool, by string) (Approval, erro
 }
 
 func (ws *Workspace) decide(a Approval, approve bool) {
-	var s Session
-	err := ws.Store.Get("sessions", a.Session, &s)
+	s, err := ws.load(a.Session)
 	switch {
 	case !approve:
 		a.Outcome, a.State = a.Tool+": denied by the user", "denied"
@@ -146,8 +145,8 @@ func (ws *Workspace) decide(a Approval, approve bool) {
 func (ws *Workspace) retitle(sid, title string) {
 	unlock := lock(sid)
 	defer unlock()
-	var s Session
-	if ws.Store.Get("sessions", sid, &s) != nil || s.State != "awaiting_approval" {
+	s, err := ws.load(sid)
+	if err != nil || s.State != "awaiting_approval" {
 		return
 	}
 	s.Title = title
@@ -169,8 +168,8 @@ func asked(s Session, a Approval) bool {
 // the auto tools that ran alongside.
 func (ws *Workspace) settle(sid string) {
 	unlock := lock(sid)
-	var s Session
-	if ws.Store.Get("sessions", sid, &s) != nil || s.State != "awaiting_approval" {
+	s, err := ws.load(sid)
+	if err != nil || s.State != "awaiting_approval" {
 		unlock()
 		return
 	}

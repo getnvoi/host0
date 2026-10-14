@@ -1,0 +1,3 @@
+> GET /sessions?env=shop
+ID        ENV   STATE  QUEUED  BY   LAST                  TITLE
+a1b2c3d4  shop  idle   1       ben  2026-10-01T09:00:00Z  Fix the cart

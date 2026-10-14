@@ -136,8 +136,7 @@ func (ws *Workspace) envOf(actor string) string {
 	}
 	var env string
 	if sid, ok := strings.CutPrefix(actor, "wt-"); ok {
-		var s Session
-		if ws.Store.Get("sessions", sid, &s) == nil {
+		if s, err := ws.load(sid); err == nil {
 			env = s.Env
 		}
 	} else {

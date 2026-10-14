@@ -68,6 +68,7 @@ func (p *plane) API(mux *http.ServeMux) huma.API {
 	p.environments(a)
 	p.credentials(a)
 	p.seeds(a)
+	p.sessions(a)
 	return a
 }
 

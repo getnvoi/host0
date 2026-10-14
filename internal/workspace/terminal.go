@@ -29,13 +29,13 @@ func (ws *Workspace) Kill(ctx context.Context, sid, tid string) error {
 // Every actor a record names: a session's, a ready seed's, and the one a build is making.
 func (ws *Workspace) Named() map[string]bool {
 	out := map[string]bool{}
-	ws.Store.List("sessions", func(d func(any) error) error {
-		var s Session
-		if d(&s) == nil {
-			out[s.Actor] = true
-		}
-		return nil
-	})
+	sessions, err := ws.sessions(false, false)
+	if err != nil {
+		log.Printf("session actors: %v", err)
+	}
+	for _, s := range sessions {
+		out[s.Actor] = true
+	}
 	seeds, err := ws.Seeds()
 	if err != nil {
 		log.Printf("seed actors: %v", err)

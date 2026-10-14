@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -37,7 +38,7 @@ func (ws *Workspace) keep(s *Session, now bool) error {
 	w, _ := writes.Load(s.ID)
 	last, _ := w.(write)
 	if now || time.Since(last.at) >= flush {
-		if err := ws.Store.Put("sessions", s.ID, s); err != nil {
+		if err := ws.write(s); err != nil {
 			return err
 		}
 		writes.Store(s.ID, write{at: time.Now()})
@@ -47,7 +48,9 @@ func (ws *Workspace) keep(s *Session, now bool) error {
 			unlock := lock(s.ID)
 			defer unlock()
 			if w, _ := writes.Load(s.ID); w.(write).due {
-				ws.Store.Put("sessions", s.ID, s)
+				if err := ws.write(s); err != nil {
+					log.Printf("session %s: %v", s.ID, err)
+				}
 				writes.Store(s.ID, write{at: time.Now()})
 			}
 		})

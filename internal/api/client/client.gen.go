@@ -17,6 +17,32 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Approval defines model for Approval.
+type Approval struct {
+	Allow   *bool      `json:"allow,omitempty"`
+	At      time.Time  `json:"at"`
+	By      *string    `json:"by,omitempty"`
+	Decided *time.Time `json:"decided,omitempty"`
+	Id      string     `json:"id"`
+	Input   string     `json:"input"`
+	Outcome *string    `json:"outcome,omitempty"`
+	Session string     `json:"session"`
+	State   string     `json:"state"`
+	Tool    string     `json:"tool"`
+	Turn    *int64     `json:"turn,omitempty"`
+}
+
+// Changes defines model for Changes.
+type Changes struct {
+	Added     int64         `json:"added"`
+	At        time.Time     `json:"at"`
+	Base      string        `json:"base"`
+	Files     *[]FileChange `json:"files"`
+	Patch     string        `json:"patch"`
+	Removed   int64         `json:"removed"`
+	Truncated bool          `json:"truncated"`
+}
+
 // CredentialsInput defines model for CredentialsInput.
 type CredentialsInput struct {
 	Github *string `json:"github,omitempty"`
@@ -123,6 +149,17 @@ type ErrorModel struct {
 	Type *string `json:"type,omitempty"`
 }
 
+// Event defines model for Event.
+type Event struct {
+	At      time.Time   `json:"at"`
+	Content *string     `json:"content,omitempty"`
+	Kind    string      `json:"kind"`
+	Meta    interface{} `json:"meta,omitempty"`
+	Parent  *string     `json:"parent,omitempty"`
+	Tool    *string     `json:"tool,omitempty"`
+	ToolId  *string     `json:"tool_id,omitempty"`
+}
+
 // Field defines model for Field.
 type Field struct {
 	Default     *string   `json:"default,omitempty"`
@@ -134,6 +171,16 @@ type Field struct {
 	Required    *bool     `json:"required,omitempty"`
 	Secret      *bool     `json:"secret,omitempty"`
 	Type        string    `json:"type"`
+}
+
+// FileChange defines model for FileChange.
+type FileChange struct {
+	Added   int64   `json:"added"`
+	Binary  bool    `json:"binary"`
+	OldPath *string `json:"old_path,omitempty"`
+	Path    string  `json:"path"`
+	Removed int64   `json:"removed"`
+	Status  string  `json:"status"`
 }
 
 // LLMConfig defines model for LLMConfig.
@@ -160,16 +207,37 @@ type LLMConfigValues struct {
 	Values *map[string]string `json:"values,omitempty"`
 }
 
+// Log defines model for Log.
+type Log struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
 // Me defines model for Me.
 type Me struct {
 	Cluster string `json:"cluster"`
 	Zone    string `json:"zone"`
 }
 
+// Message defines model for Message.
+type Message struct {
+	Prompt string `json:"prompt"`
+
+	// To The sub-agent's tool call it is for; the main agent passes it on
+	To *string `json:"to,omitempty"`
+}
+
 // Option defines model for Option.
 type Option struct {
 	Label string `json:"label"`
 	Value string `json:"value"`
+}
+
+// PreviewStatus defines model for PreviewStatus.
+type PreviewStatus struct {
+	Error  *string `json:"error,omitempty"`
+	Status *int64  `json:"status,omitempty"`
+	Up     bool    `json:"up"`
 }
 
 // Provider defines model for Provider.
@@ -206,16 +274,104 @@ type Service struct {
 	Port    *int64             `json:"port,omitempty"`
 }
 
+// Session defines model for Session.
+type Session struct {
+	Actor      string    `json:"actor"`
+	At         time.Time `json:"at"`
+	Branch     string    `json:"branch"`
+	By         *string   `json:"by,omitempty"`
+	Env        string    `json:"env"`
+	Error      *string   `json:"error,omitempty"`
+	Events     *[]Event  `json:"events"`
+	Forked     *bool     `json:"forked,omitempty"`
+	Id         string    `json:"id"`
+	Last       time.Time `json:"last"`
+	Mark       int64     `json:"mark"`
+	Outcomes   *[]string `json:"outcomes,omitempty"`
+	Pending    *string   `json:"pending,omitempty"`
+	Preview    string    `json:"preview"`
+	State      string    `json:"state"`
+	Title      *string   `json:"title,omitempty"`
+	Transcript string    `json:"transcript"`
+	Turns      int64     `json:"turns"`
+}
+
+// SessionInput defines model for SessionInput.
+type SessionInput struct {
+	// Env The environment whose seed it forks
+	Env string `json:"env"`
+
+	// Prompt Its first message
+	Prompt *string `json:"prompt,omitempty"`
+}
+
+// Summary defines model for Summary.
+type Summary struct {
+	At      time.Time `json:"at"`
+	Branch  string    `json:"branch"`
+	By      *string   `json:"by,omitempty"`
+	Env     string    `json:"env"`
+	Error   *string   `json:"error,omitempty"`
+	Id      string    `json:"id"`
+	Last    time.Time `json:"last"`
+	Preview string    `json:"preview"`
+	Prompt  string    `json:"prompt"`
+	Queued  int64     `json:"queued"`
+	State   string    `json:"state"`
+	Title   *string   `json:"title,omitempty"`
+}
+
 // Suspended defines model for Suspended.
 type Suspended struct {
 	// Actor The actor suspended
 	Actor string `json:"actor"`
 }
 
+// Terminal defines model for Terminal.
+type Terminal struct {
+	Clients int64  `json:"clients"`
+	Command string `json:"command"`
+	Id      string `json:"id"`
+	Started string `json:"started"`
+}
+
+// Update defines model for Update.
+type Update struct {
+	Approval *Approval `json:"approval,omitempty"`
+	Events   *[]Event  `json:"events,omitempty"`
+	From     int64     `json:"from"`
+	Kind     string    `json:"kind"`
+	Seed     *Seed     `json:"seed,omitempty"`
+	Session  *Summary  `json:"session,omitempty"`
+}
+
+// Withdrawal defines model for Withdrawal.
+type Withdrawal struct {
+	Text string `json:"text"`
+}
+
 // LlmRmParams defines parameters for LlmRm.
 type LlmRmParams struct {
 	// Remove Delete it rather than archive it
 	Remove *bool `form:"remove,omitempty" json:"remove,omitempty"`
+}
+
+// SessionLsParams defines parameters for SessionLs.
+type SessionLsParams struct {
+	// Env Only this environment's
+	Env *string `form:"env,omitempty" json:"env,omitempty"`
+}
+
+// SessionLogShowParams defines parameters for SessionLogShow.
+type SessionLogShowParams struct {
+	// Offset Bytes already read
+	Offset *int64 `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// StreamParams defines parameters for Stream.
+type StreamParams struct {
+	// LastEventID The last id read
+	LastEventID *string `json:"Last-Event-ID,omitempty"`
 }
 
 // CredentialsPutJSONRequestBody defines body for CredentialsPut for application/json ContentType.
@@ -232,6 +388,15 @@ type LlmAddJSONRequestBody = LLMConfigInput
 
 // LlmSetJSONRequestBody defines body for LlmSet for application/json ContentType.
 type LlmSetJSONRequestBody = LLMConfigValues
+
+// SessionStartJSONRequestBody defines body for SessionStart for application/json ContentType.
+type SessionStartJSONRequestBody = SessionInput
+
+// SessionQueueRmJSONRequestBody defines body for SessionQueueRm for application/json ContentType.
+type SessionQueueRmJSONRequestBody = Withdrawal
+
+// SessionSayJSONRequestBody defines body for SessionSay for application/json ContentType.
+type SessionSayJSONRequestBody = Message
 
 // RequestEditorFn is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -446,6 +611,113 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
 	EnvSuspend(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionLs Sessions, the most recently active first
+	//
+	// Corresponds with GET /sessions (the `SessionLs` operationId).
+	SessionLs(ctx context.Context, params *SessionLsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionStartWithBody Fork the environment's seed and run the prompt in it
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /sessions (the `SessionStart` operationId).
+	SessionStartWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionStart Fork the environment's seed and run the prompt in it
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /sessions (the `SessionStart` operationId).
+	SessionStart(ctx context.Context, body SessionStartJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionRm Remove the session and its sandbox; refused while it runs
+	//
+	// Corresponds with DELETE /sessions/{id} (the `SessionRm` operationId).
+	SessionRm(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionShow The session and everything it printed
+	//
+	// Corresponds with GET /sessions/{id} (the `SessionShow` operationId).
+	SessionShow(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionChanges What the session changed against its environment's branch
+	//
+	// Corresponds with GET /sessions/{id}/changes (the `SessionChanges` operationId).
+	SessionChanges(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionLogLs The session's logs: its setup and each service
+	//
+	// Corresponds with GET /sessions/{id}/logs (the `SessionLogLs` operationId).
+	SessionLogLs(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionLogShow A log's bytes from offset; X-Offset is where the next read starts
+	//
+	// Corresponds with GET /sessions/{id}/logs/{name} (the `SessionLogShow` operationId).
+	SessionLogShow(ctx context.Context, id string, name string, params *SessionLogShowParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionPreview Whether the session's app answers, waking it first
+	//
+	// Corresponds with GET /sessions/{id}/preview (the `SessionPreview` operationId).
+	SessionPreview(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionQueueLs Messages waiting for the session's turn to end
+	//
+	// Corresponds with GET /sessions/{id}/queue (the `SessionQueueLs` operationId).
+	SessionQueueLs(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionQueueRmWithBody Withdraw queued message i, counted from 0
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with DELETE /sessions/{id}/queue/{i} (the `SessionQueueRm` operationId).
+	SessionQueueRmWithBody(ctx context.Context, id string, i int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionQueueRm Withdraw queued message i, counted from 0
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with DELETE /sessions/{id}/queue/{i} (the `SessionQueueRm` operationId).
+	SessionQueueRm(ctx context.Context, id string, i int64, body SessionQueueRmJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionStop Stop the running turn
+	//
+	// Corresponds with POST /sessions/{id}/stop (the `SessionStop` operationId).
+	SessionStop(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionSuspend Snapshot the session and free its worker; a preview request or a turn resumes it
+	//
+	// Corresponds with POST /sessions/{id}/suspend (the `SessionSuspend` operationId).
+	SessionSuspend(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionTerminalLs The session's terminals
+	//
+	// Corresponds with GET /sessions/{id}/terminals (the `SessionTerminalLs` operationId).
+	SessionTerminalLs(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionTerminalRm End a terminal
+	//
+	// Corresponds with DELETE /sessions/{id}/terminals/{tid} (the `SessionTerminalRm` operationId).
+	SessionTerminalRm(ctx context.Context, id string, tid string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionSayWithBody Send the session a message
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /sessions/{id}/turns (the `SessionSay` operationId).
+	SessionSayWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionSay Send the session a message
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /sessions/{id}/turns (the `SessionSay` operationId).
+	SessionSay(ctx context.Context, id string, body SessionSayJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Stream What happens, as server-sent events; Last-Event-ID resumes after it
+	//
+	// Corresponds with GET /stream (the `Stream` operationId).
+	Stream(ctx context.Context, params *StreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 // CredentialsGet Which credentials hold a value, never the values
@@ -818,6 +1090,303 @@ func (c *Client) Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.R
 // Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
 func (c *Client) EnvSuspend(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewEnvSuspendRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionLs Sessions, the most recently active first
+//
+// Corresponds with GET /sessions (the `SessionLs` operationId).
+func (c *Client) SessionLs(ctx context.Context, params *SessionLsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionLsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionStartWithBody Fork the environment's seed and run the prompt in it
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /sessions (the `SessionStart` operationId).
+func (c *Client) SessionStartWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionStartRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionStart Fork the environment's seed and run the prompt in it
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /sessions (the `SessionStart` operationId).
+func (c *Client) SessionStart(ctx context.Context, body SessionStartJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionStartRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionRm Remove the session and its sandbox; refused while it runs
+//
+// Corresponds with DELETE /sessions/{id} (the `SessionRm` operationId).
+func (c *Client) SessionRm(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionRmRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionShow The session and everything it printed
+//
+// Corresponds with GET /sessions/{id} (the `SessionShow` operationId).
+func (c *Client) SessionShow(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionShowRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionChanges What the session changed against its environment's branch
+//
+// Corresponds with GET /sessions/{id}/changes (the `SessionChanges` operationId).
+func (c *Client) SessionChanges(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionChangesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionLogLs The session's logs: its setup and each service
+//
+// Corresponds with GET /sessions/{id}/logs (the `SessionLogLs` operationId).
+func (c *Client) SessionLogLs(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionLogLsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionLogShow A log's bytes from offset; X-Offset is where the next read starts
+//
+// Corresponds with GET /sessions/{id}/logs/{name} (the `SessionLogShow` operationId).
+func (c *Client) SessionLogShow(ctx context.Context, id string, name string, params *SessionLogShowParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionLogShowRequest(c.Server, id, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionPreview Whether the session's app answers, waking it first
+//
+// Corresponds with GET /sessions/{id}/preview (the `SessionPreview` operationId).
+func (c *Client) SessionPreview(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionPreviewRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionQueueLs Messages waiting for the session's turn to end
+//
+// Corresponds with GET /sessions/{id}/queue (the `SessionQueueLs` operationId).
+func (c *Client) SessionQueueLs(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionQueueLsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionQueueRmWithBody Withdraw queued message i, counted from 0
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with DELETE /sessions/{id}/queue/{i} (the `SessionQueueRm` operationId).
+func (c *Client) SessionQueueRmWithBody(ctx context.Context, id string, i int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionQueueRmRequestWithBody(c.Server, id, i, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionQueueRm Withdraw queued message i, counted from 0
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with DELETE /sessions/{id}/queue/{i} (the `SessionQueueRm` operationId).
+func (c *Client) SessionQueueRm(ctx context.Context, id string, i int64, body SessionQueueRmJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionQueueRmRequest(c.Server, id, i, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionStop Stop the running turn
+//
+// Corresponds with POST /sessions/{id}/stop (the `SessionStop` operationId).
+func (c *Client) SessionStop(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionStopRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionSuspend Snapshot the session and free its worker; a preview request or a turn resumes it
+//
+// Corresponds with POST /sessions/{id}/suspend (the `SessionSuspend` operationId).
+func (c *Client) SessionSuspend(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionSuspendRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionTerminalLs The session's terminals
+//
+// Corresponds with GET /sessions/{id}/terminals (the `SessionTerminalLs` operationId).
+func (c *Client) SessionTerminalLs(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionTerminalLsRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionTerminalRm End a terminal
+//
+// Corresponds with DELETE /sessions/{id}/terminals/{tid} (the `SessionTerminalRm` operationId).
+func (c *Client) SessionTerminalRm(ctx context.Context, id string, tid string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionTerminalRmRequest(c.Server, id, tid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionSayWithBody Send the session a message
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /sessions/{id}/turns (the `SessionSay` operationId).
+func (c *Client) SessionSayWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionSayRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionSay Send the session a message
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /sessions/{id}/turns (the `SessionSay` operationId).
+func (c *Client) SessionSay(ctx context.Context, id string, body SessionSayJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionSayRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Stream What happens, as server-sent events; Last-Event-ID resumes after it
+//
+// Corresponds with GET /stream (the `Stream` operationId).
+func (c *Client) Stream(ctx context.Context, params *StreamParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStreamRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1517,6 +2086,658 @@ func NewEnvSuspendRequest(server string, name string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewSessionLsRequest constructs an http.Request for the SessionLs method
+func NewSessionLsRequest(server string, params *SessionLsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Env != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "env", *params.Env, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionStartRequest calls the generic SessionStart builder with application/json body
+func NewSessionStartRequest(server string, body SessionStartJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSessionStartRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSessionStartRequestWithBody constructs an http.Request for the SessionStart method, with any body, and a specified content type
+func NewSessionStartRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSessionRmRequest constructs an http.Request for the SessionRm method
+func NewSessionRmRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionShowRequest constructs an http.Request for the SessionShow method
+func NewSessionShowRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionChangesRequest constructs an http.Request for the SessionChanges method
+func NewSessionChangesRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/changes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionLogLsRequest constructs an http.Request for the SessionLogLs method
+func NewSessionLogLsRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/logs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionLogShowRequest constructs an http.Request for the SessionLogShow method
+func NewSessionLogShowRequest(server string, id string, name string, params *SessionLogShowParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/logs/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionPreviewRequest constructs an http.Request for the SessionPreview method
+func NewSessionPreviewRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/preview", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionQueueLsRequest constructs an http.Request for the SessionQueueLs method
+func NewSessionQueueLsRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/queue", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionQueueRmRequest calls the generic SessionQueueRm builder with application/json body
+func NewSessionQueueRmRequest(server string, id string, i int64, body SessionQueueRmJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSessionQueueRmRequestWithBody(server, id, i, "application/json", bodyReader)
+}
+
+// NewSessionQueueRmRequestWithBody constructs an http.Request for the SessionQueueRm method, with any body, and a specified content type
+func NewSessionQueueRmRequestWithBody(server string, id string, i int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "i", i, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/queue/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSessionStopRequest constructs an http.Request for the SessionStop method
+func NewSessionStopRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/stop", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionSuspendRequest constructs an http.Request for the SessionSuspend method
+func NewSessionSuspendRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/suspend", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionTerminalLsRequest constructs an http.Request for the SessionTerminalLs method
+func NewSessionTerminalLsRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/terminals", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionTerminalRmRequest constructs an http.Request for the SessionTerminalRm method
+func NewSessionTerminalRmRequest(server string, id string, tid string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "tid", tid, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/terminals/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionSayRequest calls the generic SessionSay builder with application/json body
+func NewSessionSayRequest(server string, id string, body SessionSayJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSessionSayRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSessionSayRequestWithBody constructs an http.Request for the SessionSay method, with any body, and a specified content type
+func NewSessionSayRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/turns", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStreamRequest constructs an http.Request for the Stream method
+func NewStreamRequest(server string, params *StreamParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/stream")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.LastEventID != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Last-Event-ID", *params.LastEventID, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Last-Event-ID", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1728,6 +2949,139 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
 	EnvSuspendWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvSuspendResponse, error)
+
+	// SessionLsWithResponse Sessions, the most recently active first
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sessions (the `SessionLs` operationId).
+	SessionLsWithResponse(ctx context.Context, params *SessionLsParams, reqEditors ...RequestEditorFn) (*SessionLsResponse, error)
+
+	// SessionStartWithBodyWithResponse Fork the environment's seed and run the prompt in it
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions (the `SessionStart` operationId).
+	SessionStartWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionStartResponse, error)
+
+	// SessionStartWithResponse Fork the environment's seed and run the prompt in it
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions (the `SessionStart` operationId).
+	SessionStartWithResponse(ctx context.Context, body SessionStartJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionStartResponse, error)
+
+	// SessionRmWithResponse Remove the session and its sandbox; refused while it runs
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /sessions/{id} (the `SessionRm` operationId).
+	SessionRmWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionRmResponse, error)
+
+	// SessionShowWithResponse The session and everything it printed
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sessions/{id} (the `SessionShow` operationId).
+	SessionShowWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionShowResponse, error)
+
+	// SessionChangesWithResponse What the session changed against its environment's branch
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sessions/{id}/changes (the `SessionChanges` operationId).
+	SessionChangesWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionChangesResponse, error)
+
+	// SessionLogLsWithResponse The session's logs: its setup and each service
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sessions/{id}/logs (the `SessionLogLs` operationId).
+	SessionLogLsWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionLogLsResponse, error)
+
+	// SessionLogShowWithResponse A log's bytes from offset; X-Offset is where the next read starts
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sessions/{id}/logs/{name} (the `SessionLogShow` operationId).
+	SessionLogShowWithResponse(ctx context.Context, id string, name string, params *SessionLogShowParams, reqEditors ...RequestEditorFn) (*SessionLogShowResponse, error)
+
+	// SessionPreviewWithResponse Whether the session's app answers, waking it first
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sessions/{id}/preview (the `SessionPreview` operationId).
+	SessionPreviewWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionPreviewResponse, error)
+
+	// SessionQueueLsWithResponse Messages waiting for the session's turn to end
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sessions/{id}/queue (the `SessionQueueLs` operationId).
+	SessionQueueLsWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionQueueLsResponse, error)
+
+	// SessionQueueRmWithBodyWithResponse Withdraw queued message i, counted from 0
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /sessions/{id}/queue/{i} (the `SessionQueueRm` operationId).
+	SessionQueueRmWithBodyWithResponse(ctx context.Context, id string, i int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionQueueRmResponse, error)
+
+	// SessionQueueRmWithResponse Withdraw queued message i, counted from 0
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /sessions/{id}/queue/{i} (the `SessionQueueRm` operationId).
+	SessionQueueRmWithResponse(ctx context.Context, id string, i int64, body SessionQueueRmJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionQueueRmResponse, error)
+
+	// SessionStopWithResponse Stop the running turn
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/stop (the `SessionStop` operationId).
+	SessionStopWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionStopResponse, error)
+
+	// SessionSuspendWithResponse Snapshot the session and free its worker; a preview request or a turn resumes it
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/suspend (the `SessionSuspend` operationId).
+	SessionSuspendWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionSuspendResponse, error)
+
+	// SessionTerminalLsWithResponse The session's terminals
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /sessions/{id}/terminals (the `SessionTerminalLs` operationId).
+	SessionTerminalLsWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionTerminalLsResponse, error)
+
+	// SessionTerminalRmWithResponse End a terminal
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /sessions/{id}/terminals/{tid} (the `SessionTerminalRm` operationId).
+	SessionTerminalRmWithResponse(ctx context.Context, id string, tid string, reqEditors ...RequestEditorFn) (*SessionTerminalRmResponse, error)
+
+	// SessionSayWithBodyWithResponse Send the session a message
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/turns (the `SessionSay` operationId).
+	SessionSayWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionSayResponse, error)
+
+	// SessionSayWithResponse Send the session a message
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/turns (the `SessionSay` operationId).
+	SessionSayWithResponse(ctx context.Context, id string, body SessionSayJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionSayResponse, error)
+
+	// StreamWithResponse What happens, as server-sent events; Last-Event-ID resumes after it
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /stream (the `Stream` operationId).
+	StreamWithResponse(ctx context.Context, params *StreamParams, reqEditors ...RequestEditorFn) (*StreamResponse, error)
 }
 
 type CredentialsGetResponse struct {
@@ -2586,6 +3940,726 @@ func (r EnvSuspendResponse) ContentType() string {
 	return ""
 }
 
+type SessionLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Summary
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionLsResponse) GetJSON200() *[]Summary {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionLsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionLsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionStartResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Session
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionStartResponse) GetJSON200() *Session {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionStartResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionStartResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionStartResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionStartResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionStartResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionRmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionShowResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Session
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionShowResponse) GetJSON200() *Session {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionShowResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionShowResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionShowResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionShowResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionShowResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionChangesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Changes
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionChangesResponse) GetJSON200() *Changes {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionChangesResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionChangesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionChangesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionChangesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionChangesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionLogLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Log
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionLogLsResponse) GetJSON200() *[]Log {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionLogLsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionLogLsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionLogLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionLogLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionLogLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+// SessionLogShowResponse200Headers the declared response headers of an HTTP 200 response for SessionLogShow
+type SessionLogShowResponse200Headers struct {
+	ContentType *string
+	XOffset     *int64
+}
+
+type SessionLogShowResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *SessionLogShowResponse200Headers
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionLogShowResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionLogShowResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionLogShowResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionLogShowResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionLogShowResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionPreviewResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PreviewStatus
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionPreviewResponse) GetJSON200() *PreviewStatus {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionPreviewResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionPreviewResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionPreviewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionPreviewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionPreviewResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionQueueLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]string
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionQueueLsResponse) GetJSON200() *[]string {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionQueueLsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionQueueLsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionQueueLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionQueueLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionQueueLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionQueueRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionQueueRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionQueueRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionQueueRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionQueueRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionQueueRmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionStopResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionStopResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionStopResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionStopResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionStopResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionStopResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionSuspendResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionSuspendResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionSuspendResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionSuspendResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionSuspendResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionSuspendResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionTerminalLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Terminal
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionTerminalLsResponse) GetJSON200() *[]Terminal {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionTerminalLsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionTerminalLsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionTerminalLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionTerminalLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionTerminalLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionTerminalRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionTerminalRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionTerminalRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionTerminalRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionTerminalRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionTerminalRmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionSayResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionSayResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionSayResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionSayResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionSayResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionSayResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type StreamResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r StreamResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r StreamResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r StreamResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StreamResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r StreamResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // CredentialsGetWithResponse Which credentials hold a value, never the values
 //
 // Returns a wrapper object for the known response body format(s).
@@ -2896,6 +4970,253 @@ func (c *ClientWithResponses) EnvSuspendWithResponse(ctx context.Context, name s
 		return nil, err
 	}
 	return ParseEnvSuspendResponse(rsp)
+}
+
+// SessionLsWithResponse Sessions, the most recently active first
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sessions (the `SessionLs` operationId).
+func (c *ClientWithResponses) SessionLsWithResponse(ctx context.Context, params *SessionLsParams, reqEditors ...RequestEditorFn) (*SessionLsResponse, error) {
+	rsp, err := c.SessionLs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionLsResponse(rsp)
+}
+
+// SessionStartWithBodyWithResponse Fork the environment's seed and run the prompt in it
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions (the `SessionStart` operationId).
+func (c *ClientWithResponses) SessionStartWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionStartResponse, error) {
+	rsp, err := c.SessionStartWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionStartResponse(rsp)
+}
+
+// SessionStartWithResponse Fork the environment's seed and run the prompt in it
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions (the `SessionStart` operationId).
+func (c *ClientWithResponses) SessionStartWithResponse(ctx context.Context, body SessionStartJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionStartResponse, error) {
+	rsp, err := c.SessionStart(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionStartResponse(rsp)
+}
+
+// SessionRmWithResponse Remove the session and its sandbox; refused while it runs
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /sessions/{id} (the `SessionRm` operationId).
+func (c *ClientWithResponses) SessionRmWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionRmResponse, error) {
+	rsp, err := c.SessionRm(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionRmResponse(rsp)
+}
+
+// SessionShowWithResponse The session and everything it printed
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sessions/{id} (the `SessionShow` operationId).
+func (c *ClientWithResponses) SessionShowWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionShowResponse, error) {
+	rsp, err := c.SessionShow(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionShowResponse(rsp)
+}
+
+// SessionChangesWithResponse What the session changed against its environment's branch
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sessions/{id}/changes (the `SessionChanges` operationId).
+func (c *ClientWithResponses) SessionChangesWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionChangesResponse, error) {
+	rsp, err := c.SessionChanges(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionChangesResponse(rsp)
+}
+
+// SessionLogLsWithResponse The session's logs: its setup and each service
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sessions/{id}/logs (the `SessionLogLs` operationId).
+func (c *ClientWithResponses) SessionLogLsWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionLogLsResponse, error) {
+	rsp, err := c.SessionLogLs(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionLogLsResponse(rsp)
+}
+
+// SessionLogShowWithResponse A log's bytes from offset; X-Offset is where the next read starts
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sessions/{id}/logs/{name} (the `SessionLogShow` operationId).
+func (c *ClientWithResponses) SessionLogShowWithResponse(ctx context.Context, id string, name string, params *SessionLogShowParams, reqEditors ...RequestEditorFn) (*SessionLogShowResponse, error) {
+	rsp, err := c.SessionLogShow(ctx, id, name, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionLogShowResponse(rsp)
+}
+
+// SessionPreviewWithResponse Whether the session's app answers, waking it first
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sessions/{id}/preview (the `SessionPreview` operationId).
+func (c *ClientWithResponses) SessionPreviewWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionPreviewResponse, error) {
+	rsp, err := c.SessionPreview(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionPreviewResponse(rsp)
+}
+
+// SessionQueueLsWithResponse Messages waiting for the session's turn to end
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sessions/{id}/queue (the `SessionQueueLs` operationId).
+func (c *ClientWithResponses) SessionQueueLsWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionQueueLsResponse, error) {
+	rsp, err := c.SessionQueueLs(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionQueueLsResponse(rsp)
+}
+
+// SessionQueueRmWithBodyWithResponse Withdraw queued message i, counted from 0
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /sessions/{id}/queue/{i} (the `SessionQueueRm` operationId).
+func (c *ClientWithResponses) SessionQueueRmWithBodyWithResponse(ctx context.Context, id string, i int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionQueueRmResponse, error) {
+	rsp, err := c.SessionQueueRmWithBody(ctx, id, i, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionQueueRmResponse(rsp)
+}
+
+// SessionQueueRmWithResponse Withdraw queued message i, counted from 0
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /sessions/{id}/queue/{i} (the `SessionQueueRm` operationId).
+func (c *ClientWithResponses) SessionQueueRmWithResponse(ctx context.Context, id string, i int64, body SessionQueueRmJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionQueueRmResponse, error) {
+	rsp, err := c.SessionQueueRm(ctx, id, i, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionQueueRmResponse(rsp)
+}
+
+// SessionStopWithResponse Stop the running turn
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/stop (the `SessionStop` operationId).
+func (c *ClientWithResponses) SessionStopWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionStopResponse, error) {
+	rsp, err := c.SessionStop(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionStopResponse(rsp)
+}
+
+// SessionSuspendWithResponse Snapshot the session and free its worker; a preview request or a turn resumes it
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/suspend (the `SessionSuspend` operationId).
+func (c *ClientWithResponses) SessionSuspendWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionSuspendResponse, error) {
+	rsp, err := c.SessionSuspend(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionSuspendResponse(rsp)
+}
+
+// SessionTerminalLsWithResponse The session's terminals
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /sessions/{id}/terminals (the `SessionTerminalLs` operationId).
+func (c *ClientWithResponses) SessionTerminalLsWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionTerminalLsResponse, error) {
+	rsp, err := c.SessionTerminalLs(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionTerminalLsResponse(rsp)
+}
+
+// SessionTerminalRmWithResponse End a terminal
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /sessions/{id}/terminals/{tid} (the `SessionTerminalRm` operationId).
+func (c *ClientWithResponses) SessionTerminalRmWithResponse(ctx context.Context, id string, tid string, reqEditors ...RequestEditorFn) (*SessionTerminalRmResponse, error) {
+	rsp, err := c.SessionTerminalRm(ctx, id, tid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionTerminalRmResponse(rsp)
+}
+
+// SessionSayWithBodyWithResponse Send the session a message
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/turns (the `SessionSay` operationId).
+func (c *ClientWithResponses) SessionSayWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionSayResponse, error) {
+	rsp, err := c.SessionSayWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionSayResponse(rsp)
+}
+
+// SessionSayWithResponse Send the session a message
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/turns (the `SessionSay` operationId).
+func (c *ClientWithResponses) SessionSayWithResponse(ctx context.Context, id string, body SessionSayJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionSayResponse, error) {
+	rsp, err := c.SessionSay(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionSayResponse(rsp)
+}
+
+// StreamWithResponse What happens, as server-sent events; Last-Event-ID resumes after it
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /stream (the `Stream` operationId).
+func (c *ClientWithResponses) StreamWithResponse(ctx context.Context, params *StreamParams, reqEditors ...RequestEditorFn) (*StreamResponse, error) {
+	rsp, err := c.Stream(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStreamResponse(rsp)
 }
 
 // ParseCredentialsGetResponse parses an HTTP response from a CredentialsGetWithResponse call
@@ -3481,6 +5802,516 @@ func ParseEnvSuspendResponse(rsp *http.Response) (*EnvSuspendResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionLsResponse parses an HTTP response from a SessionLsWithResponse call
+func ParseSessionLsResponse(rsp *http.Response) (*SessionLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Summary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionStartResponse parses an HTTP response from a SessionStartWithResponse call
+func ParseSessionStartResponse(rsp *http.Response) (*SessionStartResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionStartResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Session
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionRmResponse parses an HTTP response from a SessionRmWithResponse call
+func ParseSessionRmResponse(rsp *http.Response) (*SessionRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionShowResponse parses an HTTP response from a SessionShowWithResponse call
+func ParseSessionShowResponse(rsp *http.Response) (*SessionShowResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionShowResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Session
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionChangesResponse parses an HTTP response from a SessionChangesWithResponse call
+func ParseSessionChangesResponse(rsp *http.Response) (*SessionChangesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionChangesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Changes
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionLogLsResponse parses an HTTP response from a SessionLogLsWithResponse call
+func ParseSessionLogLsResponse(rsp *http.Response) (*SessionLogLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionLogLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Log
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionLogShowResponse parses an HTTP response from a SessionLogShowWithResponse call
+func ParseSessionLogShowResponse(rsp *http.Response) (*SessionLogShowResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionLogShowResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers SessionLogShowResponse200Headers
+		if values := rsp.Header.Values("Content-Type"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Content-Type", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.ContentType = &value
+		}
+		if values := rsp.Header.Values("X-Offset"); len(values) > 0 {
+			var value int64
+			if err := runtime.BindStyledParameterWithOptions("simple", "X-Offset", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			}
+			headers.XOffset = &value
+		}
+		response.Headers200 = &headers
+	}
+
+	return response, nil
+}
+
+// ParseSessionPreviewResponse parses an HTTP response from a SessionPreviewWithResponse call
+func ParseSessionPreviewResponse(rsp *http.Response) (*SessionPreviewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionPreviewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PreviewStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionQueueLsResponse parses an HTTP response from a SessionQueueLsWithResponse call
+func ParseSessionQueueLsResponse(rsp *http.Response) (*SessionQueueLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionQueueLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []string
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionQueueRmResponse parses an HTTP response from a SessionQueueRmWithResponse call
+func ParseSessionQueueRmResponse(rsp *http.Response) (*SessionQueueRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionQueueRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionStopResponse parses an HTTP response from a SessionStopWithResponse call
+func ParseSessionStopResponse(rsp *http.Response) (*SessionStopResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionStopResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionSuspendResponse parses an HTTP response from a SessionSuspendWithResponse call
+func ParseSessionSuspendResponse(rsp *http.Response) (*SessionSuspendResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionSuspendResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionTerminalLsResponse parses an HTTP response from a SessionTerminalLsWithResponse call
+func ParseSessionTerminalLsResponse(rsp *http.Response) (*SessionTerminalLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionTerminalLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Terminal
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionTerminalRmResponse parses an HTTP response from a SessionTerminalRmWithResponse call
+func ParseSessionTerminalRmResponse(rsp *http.Response) (*SessionTerminalRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionTerminalRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionSayResponse parses an HTTP response from a SessionSayWithResponse call
+func ParseSessionSayResponse(rsp *http.Response) (*SessionSayResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionSayResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStreamResponse parses an HTTP response from a StreamWithResponse call
+func ParseStreamResponse(rsp *http.Response) (*StreamResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StreamResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

@@ -130,6 +130,23 @@ type Session struct {
 	Last     time.Time `json:"last"`
 }
 
+// A new session: a fork of the environment's seed. An empty prompt forks and rests.
+type SessionInput struct {
+	Env    string `json:"env" doc:"The environment whose seed it forks"`
+	Prompt string `json:"prompt,omitempty" doc:"Its first message"`
+}
+
+// A message to a session: run now when it rests, queued otherwise.
+type Message struct {
+	Prompt string `json:"prompt"`
+	To     string `json:"to,omitempty" doc:"The sub-agent's tool call it is for; the main agent passes it on"`
+}
+
+// The text a queued message must still hold, so a stale click does not withdraw its neighbour.
+type Withdrawal struct {
+	Text string `json:"text"`
+}
+
 // A session without its events, for lists.
 type Summary struct {
 	ID      string    `json:"id"`

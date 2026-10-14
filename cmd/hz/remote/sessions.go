@@ -1,155 +1,200 @@
 package remote
 
 import (
+	"context"
 	"fmt"
 	"io"
-	"net/url"
-	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/getnvoi/host0/internal/api/client"
+	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
-func sessionPath(id string) string { return "/sessions/" + url.PathEscape(id) }
+func init() {
+	for path, c := range map[string]func() *cobra.Command{
+		"session start": sessionStart, "session say": sessionSay, "session follow": sessionFollow,
+		"session queue rm": queueRm, "session log show": logShow,
+	} {
+		written[path] = c
+	}
+	groups["queue"] = "Messages waiting for the session's turn to end"
+	groups["log"] = "The session's logs: its setup and each service"
+	groups["terminal"] = "The session's terminals"
+}
 
-func sessions() []*cobra.Command {
-	var env string
-	ls := &cobra.Command{
-		Use:   "ls",
-		Short: "Sessions, the most recently active first",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			var ss []workspace.Summary
-			if err := call("GET", "/sessions", nil, &ss); err != nil {
+func sessionStart() *cobra.Command {
+	return &cobra.Command{
+		Use:   "start <env> <prompt>",
+		Short: "Fork the environment's seed, run the prompt in it and follow the session",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(c *cobra.Command, args []string) error {
+			pl, err := api()
+			if err != nil {
 				return err
 			}
-			w := table(os.Stdout)
-			fmt.Fprintln(w, "ID\tENV\tSTATE\tQUEUED\tBY\tLAST\tTITLE")
-			for _, s := range ss {
-				if env != "" && s.Env != env {
-					continue
-				}
-				title := s.Title
-				if title == "" {
-					title = clip(s.Prompt, 60)
-				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\t%s\n", s.ID, s.Env, s.State, s.Queued, s.By, s.Last.Local().Format(time.DateTime), title)
+			body, err := jsonBody(map[string]string{"env": args[0], "prompt": args[1]})
+			if err != nil {
+				return err
 			}
-			return w.Flush()
+			s, err := client.Read[workspace.Session](pl.SessionStartWithBody(c.Context(), "application/json", body))
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(c.OutOrStdout(), "session %s on %s, preview %s\n", s.ID, s.Branch, link(s.Preview))
+			return watch(c.Context(), c.OutOrStdout(), pl, s.ID, false)
 		},
 	}
-	ls.Flags().StringVar(&env, "env", "", "only this environment's")
-	return []*cobra.Command{ls, {
-		Use:   "show <id>",
-		Short: "The session and everything it printed",
+}
+
+func sessionSay() *cobra.Command {
+	return &cobra.Command{
+		Use:   "say <id> <prompt>",
+		Short: "Send the session a message and follow it",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(c *cobra.Command, args []string) error {
+			pl, err := api()
+			if err != nil {
+				return err
+			}
+			body, err := jsonBody(map[string]string{"prompt": args[1]})
+			if err != nil {
+				return err
+			}
+			if err := client.Done(pl.SessionSayWithBody(c.Context(), args[0], "application/json", body)); err != nil {
+				return err
+			}
+			return watch(c.Context(), c.OutOrStdout(), pl, args[0], false)
+		},
+	}
+}
+
+func sessionFollow() *cobra.Command {
+	return &cobra.Command{
+		Use:   "follow <id>",
+		Short: "Print the session's events as they come, until it stops for you",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			var s workspace.Session
-			if err := call("GET", sessionPath(args[0]), nil, &s); err != nil {
+		RunE: func(c *cobra.Command, args []string) error {
+			pl, err := api()
+			if err != nil {
 				return err
 			}
-			w := table(os.Stdout)
-			fmt.Fprintf(w, "id\t%s\nenv\t%s\nstate\t%s\nbranch\t%s\npreview\t%s\nturns\t%d\nby\t%s\nstarted\t%s\n",
-				s.ID, s.Env, s.State, s.Branch, s.Preview, s.Turns, s.By, s.At.Local().Format(time.DateTime))
-			if s.Title != "" {
-				fmt.Fprintf(w, "title\t%s\n", s.Title)
-			}
-			if s.Error != "" {
-				fmt.Fprintf(w, "error\t%s\n", s.Error)
-			}
-			if err := w.Flush(); err != nil {
+			return watch(c.Context(), c.OutOrStdout(), pl, args[0], false)
+		},
+	}
+}
+
+// Prints the session's events until it rests. decided: an approval was just decided, so a session still awaiting
+// approval with none left open is carrying the action out, and is watched on.
+func watch(ctx context.Context, w io.Writer, pl *client.Client, id string, decided bool) error {
+	seen := 0
+	for {
+		s, err := client.Read[workspace.Session](pl.SessionShow(ctx, id))
+		if err != nil {
+			return err
+		}
+		for _, ev := range s.Events[min(seen, len(s.Events)):] {
+			print(w, ev)
+		}
+		seen = len(s.Events)
+		switch s.State {
+		case "awaiting_approval":
+			open, err := asking(ctx, pl, s.ID)
+			if err != nil {
 				return err
 			}
-			fmt.Println()
-			for _, ev := range s.Events {
-				print(ev)
+			if decided && !open {
+				break
 			}
+			fmt.Fprintf(w, "session %s: %s %s\n", s.ID, s.State, s.Error)
 			return nil
-		},
-	}, {
-		Use:   "stop <id>",
-		Short: "Stop the running turn",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return call("POST", sessionPath(args[0])+"/stop", nil, nil)
-		},
-	}, {
-		Use:   "rm <id>",
-		Short: "Remove the session and its sandbox; refused while it runs",
-		Args:  cobra.ExactArgs(1),
-		RunE:  func(_ *cobra.Command, args []string) error { return call("DELETE", sessionPath(args[0]), nil, nil) },
-	}, changes(), logs(), queue()}
-}
-
-func clip(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
+		case "idle", "failed":
+			fmt.Fprintf(w, "session %s: %s %s\n", s.ID, s.State, s.Error)
+			return nil
+		}
+		time.Sleep(2 * time.Second)
 	}
-	return string(r[:n]) + "…"
 }
 
-func changes() *cobra.Command {
-	var full bool
-	cmd := &cobra.Command{
-		Use:   "changes <id>",
-		Short: "What the session changed against its environment's branch",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			var c workspace.Changes
-			if err := call("GET", sessionPath(args[0])+"/changes", nil, &c); err != nil {
+// Whether the session has approvals still waiting for a decision.
+func asking(_ context.Context, _ *client.Client, sid string) (bool, error) {
+	var as []workspace.Approval
+	if err := call("GET", "/approvals", nil, &as); err != nil {
+		return false, err
+	}
+	for _, a := range as {
+		if a.Session == sid {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func print(w io.Writer, ev llm.Event) {
+	c := strings.TrimSpace(ev.Content)
+	if len(c) > 300 {
+		c = c[:300] + "…"
+	}
+	switch ev.Kind {
+	case "tool_use":
+		fmt.Fprintf(w, "  → %s %s\n", ev.Tool, c)
+	case "tool_result":
+		fmt.Fprintf(w, "  ← %s\n", strings.ReplaceAll(c, "\n", " "))
+	case "message", "result", "prompt", "error":
+		fmt.Fprintf(w, "%s: %s\n", ev.Kind, c)
+	case "notice":
+		fmt.Fprintf(w, "  %s\n", c)
+	}
+}
+
+func queueRm() *cobra.Command {
+	return &cobra.Command{
+		Use:   "rm <id> <n>",
+		Short: "Withdraw message n, as queue ls numbers it from 1",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(c *cobra.Command, args []string) error {
+			pl, err := api()
+			if err != nil {
 				return err
 			}
-			if full {
-				fmt.Print(c.Patch)
-				if c.Truncated {
-					return fmt.Errorf("the patch is truncated")
-				}
-				return nil
+			q, err := client.Read[[]string](pl.SessionQueueLs(c.Context(), args[0]))
+			if err != nil {
+				return err
 			}
-			w := table(os.Stdout)
-			for _, f := range c.Files {
-				path := f.Path
-				if f.OldPath != "" {
-					path = f.OldPath + " → " + f.Path
-				}
-				fmt.Fprintf(w, "%s\t+%d\t-%d\t%s\n", f.Status, f.Added, f.Removed, path)
+			n, err := strconv.Atoi(args[1])
+			if err != nil || n < 1 || n > len(q) {
+				return fmt.Errorf("session %s has no queued message %s", args[0], args[1])
 			}
-			fmt.Fprintf(w, "against %s\t+%d\t-%d\t%d files\n", c.Base, c.Added, c.Removed, len(c.Files))
-			return w.Flush()
+			body, err := jsonBody(workspace.Withdrawal{Text: q[n-1]})
+			if err != nil {
+				return err
+			}
+			return client.Done(pl.SessionQueueRmWithBody(c.Context(), args[0], int64(n-1), "application/json", body))
 		},
 	}
-	cmd.Flags().BoolVar(&full, "patch", false, "print the patch")
-	return cmd
 }
 
-func logs() *cobra.Command {
+func logShow() *cobra.Command {
 	var follow bool
 	cmd := &cobra.Command{
-		Use:   "logs <id> [name]",
-		Short: "The session's logs: without a name, which there are",
-		Args:  cobra.RangeArgs(1, 2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if len(args) == 1 {
-				var ls []workspace.Log
-				if err := call("GET", sessionPath(args[0])+"/logs", nil, &ls); err != nil {
-					return err
-				}
-				for _, l := range ls {
-					fmt.Printf("%s  %s\n", l.Name, l.Kind)
-				}
-				return nil
+		Use:   "show <id> <name>",
+		Short: "A log of the session: setup, or a service's",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(c *cobra.Command, args []string) error {
+			pl, err := api()
+			if err != nil {
+				return err
 			}
-			path := sessionPath(args[0]) + "/logs/" + url.PathEscape(args[1])
 			for offset := int64(0); ; time.Sleep(2 * time.Second) {
-				res, err := send("GET", path+"?offset="+strconv.FormatInt(offset, 10), nil)
+				res, err := client.OK(pl.SessionLogShow(c.Context(), args[0], args[1], &client.SessionLogShowParams{Offset: &offset}))
 				if err != nil {
 					return err
 				}
-				_, err = io.Copy(os.Stdout, res.Body)
+				_, err = io.Copy(c.OutOrStdout(), res.Body)
 				res.Body.Close()
 				if err != nil {
 					return err
@@ -164,40 +209,5 @@ func logs() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "keep printing what is written")
-	return cmd
-}
-
-func queue() *cobra.Command {
-	cmd := &cobra.Command{Use: "queue", Short: "Messages waiting for the session's turn to end"}
-	cmd.AddCommand(&cobra.Command{
-		Use:   "ls <id>",
-		Short: "The queued messages, numbered",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			var q []string
-			if err := call("GET", sessionPath(args[0])+"/queue", nil, &q); err != nil {
-				return err
-			}
-			for i, m := range q {
-				fmt.Printf("%d  %s\n", i+1, m)
-			}
-			return nil
-		},
-	}, &cobra.Command{
-		Use:   "rm <id> <n>",
-		Short: "Withdraw message n, as queue ls numbers it",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			var q []string
-			if err := call("GET", sessionPath(args[0])+"/queue", nil, &q); err != nil {
-				return err
-			}
-			n, err := strconv.Atoi(args[1])
-			if err != nil || n < 1 || n > len(q) {
-				return fmt.Errorf("session %s has no queued message %s", args[0], args[1])
-			}
-			return call("DELETE", sessionPath(args[0])+"/queue/"+strconv.Itoa(n-1), map[string]string{"text": q[n-1]}, nil)
-		},
-	})
 	return cmd
 }

@@ -1,0 +1,3 @@
+> GET /sessions/a1b2c3d4/logs
+NAME   KIND
+setup  setup

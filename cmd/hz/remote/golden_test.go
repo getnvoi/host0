@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/getnvoi/host0/cmd/hz/state"
+	"github.com/getnvoi/host0/internal/box"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/workspace"
 )
@@ -108,6 +109,20 @@ var goldens = []golden{
 	{"env-status", []string{"env", "status", "shop"}, "GET /environments/shop/seed", workspace.Seed{Env: "shop", State: "building",
 		Step: "setup: npm ci", Actor: "shop-1a2b3c4d5e", At: archived}},
 	{"env-suspend", []string{"env", "suspend", "shop"}, "POST /seeds/shop/suspend", map[string]string{"actor": "shop-1a2b3c4d5e"}},
+	{"session-ls", []string{"session", "ls", "--env", "shop"}, "GET /sessions", []workspace.Summary{{ID: "a1b2c3d4", Env: "shop",
+		State: "idle", Queued: 1, By: "ben", Last: archived, Title: "Fix the cart"}}},
+	{"session-show", []string{"session", "show", "a1b2c3d4"}, "GET /sessions/a1b2c3d4", workspace.Session{ID: "a1b2c3d4",
+		Env: "shop", State: "idle", Branch: "hz/a1b2c3d4", Turns: 2, By: "ben", At: archived, Title: "Fix the cart"}},
+	{"session-rm", []string{"session", "rm", "a1b2c3d4"}, "DELETE /sessions/a1b2c3d4", nil},
+	{"session-stop", []string{"session", "stop", "a1b2c3d4"}, "POST /sessions/a1b2c3d4/stop", nil},
+	{"session-suspend", []string{"session", "suspend", "a1b2c3d4"}, "POST /sessions/a1b2c3d4/suspend", nil},
+	{"session-queue-ls", []string{"session", "queue", "ls", "a1b2c3d4"}, "GET /sessions/a1b2c3d4/queue", []string{"next", "then"}},
+	{"session-preview", []string{"session", "preview", "a1b2c3d4"}, "GET /sessions/a1b2c3d4/preview", workspace.PreviewStatus{Up: true, Status: 200}},
+	{"session-changes", []string{"session", "changes", "a1b2c3d4"}, "GET /sessions/a1b2c3d4/changes", workspace.Changes{Base: "origin/main",
+		Files: []workspace.FileChange{{Path: "app/cart.rb", Status: "modified", Added: 3, Removed: 1}}}},
+	{"session-log-ls", []string{"session", "log", "ls", "a1b2c3d4"}, "GET /sessions/a1b2c3d4/logs", []workspace.Log{{Name: "setup", Kind: "setup"}}},
+	{"session-terminal-ls", []string{"session", "terminal", "ls", "a1b2c3d4"}, "GET /sessions/a1b2c3d4/terminals", []box.Terminal{{ID: "t1", Command: "bash", Clients: 1}}},
+	{"session-terminal-rm", []string{"session", "terminal", "rm", "a1b2c3d4", "t1"}, "DELETE /sessions/a1b2c3d4/terminals/t1", nil},
 	{"llm-use", []string{"llm", "use", "OpenAI"}, "POST /llm/configs/OpenAI/main", nil},
 }
 

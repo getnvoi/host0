@@ -4,8 +4,10 @@ package remote
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/getnvoi/host0/internal/api/client"
 )
@@ -221,6 +223,191 @@ var operations = []operation{
 		HZ:     hz{Output: "fields"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.Me(ctx, edit)
+		},
+	},
+	{
+		ID:     "session.changes",
+		Short:  "What the session changed against its environment's branch",
+		Method: "GET",
+		Route:  "/sessions/{id}/changes",
+		HZ:     hz{Output: "table", Columns: []string{"status", "added", "removed", "path", "old_path"}, Field: "files"},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionChanges(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "session.log.ls",
+		Short:  "The session's logs: its setup and each service",
+		Method: "GET",
+		Route:  "/sessions/{id}/logs",
+		HZ:     hz{Output: "table", Columns: []string{"name", "kind"}},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionLogLs(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "session.log.show",
+		Short:  "A log's bytes from offset; X-Offset is where the next read starts",
+		Method: "GET",
+		Route:  "/sessions/{id}/logs/{name}",
+		HZ:     hz{By: []string{"session log show"}},
+		Args:   []string{"id", "name"},
+		Query:  []param{{Name: "offset", Kind: "int", Help: "Bytes already read"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionLogShow(ctx, args[0], args[1], &client.SessionLogShowParams{}, edit)
+		},
+	},
+	{
+		ID:     "session.ls",
+		Short:  "Sessions, the most recently active first",
+		Method: "GET",
+		Route:  "/sessions",
+		HZ:     hz{Output: "table", Columns: []string{"id", "env", "state", "queued", "by", "last", "title"}},
+		Query:  []param{{Name: "env", Kind: "string", Help: "Only this environment's"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionLs(ctx, &client.SessionLsParams{}, edit)
+		},
+	},
+	{
+		ID:     "session.preview",
+		Short:  "Whether the session's app answers, waking it first",
+		Method: "GET",
+		Route:  "/sessions/{id}/preview",
+		HZ:     hz{Output: "fields"},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionPreview(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "session.queue.ls",
+		Short:  "Messages waiting for the session's turn to end",
+		Method: "GET",
+		Route:  "/sessions/{id}/queue",
+		HZ:     hz{Output: "table", By: []string{"session queue rm"}},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionQueueLs(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:          "session.queue.rm",
+		Short:       "Withdraw queued message i, counted from 0",
+		Method:      "DELETE",
+		Route:       "/sessions/{id}/queue/{i}",
+		HZ:          hz{By: []string{"session queue rm"}},
+		Args:        []string{"id", "i"},
+		ContentType: "application/json",
+		Body:        []param{{Name: "text", Kind: "string", Help: ""}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			a1, err := strconv.ParseInt(args[1], 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("i %q: not a number", args[1])
+			}
+			return c.SessionQueueRmWithBody(ctx, args[0], int64(a1), "application/json", body, edit)
+		},
+	},
+	{
+		ID:     "session.rm",
+		Short:  "Remove the session and its sandbox; refused while it runs",
+		Method: "DELETE",
+		Route:  "/sessions/{id}",
+		HZ:     hz{Output: "none"},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionRm(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:          "session.say",
+		Short:       "Send the session a message",
+		Method:      "POST",
+		Route:       "/sessions/{id}/turns",
+		HZ:          hz{By: []string{"session say"}},
+		Args:        []string{"id"},
+		ContentType: "application/json",
+		Body:        []param{{Name: "prompt", Kind: "string", Help: ""}, {Name: "to", Kind: "string", Help: "The sub-agent's tool call it is for; the main agent passes it on"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionSayWithBody(ctx, args[0], "application/json", body, edit)
+		},
+	},
+	{
+		ID:     "session.show",
+		Short:  "The session and everything it printed",
+		Method: "GET",
+		Route:  "/sessions/{id}",
+		HZ:     hz{Output: "fields", Columns: []string{"id", "env", "state", "branch", "preview", "turns", "by", "at", "title", "error"}, By: []string{"session follow", "session start", "session say"}},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionShow(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:          "session.start",
+		Short:       "Fork the environment's seed and run the prompt in it",
+		Method:      "POST",
+		Route:       "/sessions",
+		HZ:          hz{By: []string{"session start"}},
+		ContentType: "application/json",
+		Body:        []param{{Name: "env", Kind: "string", Help: "The environment whose seed it forks"}, {Name: "prompt", Kind: "string", Help: "Its first message"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionStartWithBody(ctx, "application/json", body, edit)
+		},
+	},
+	{
+		ID:     "session.stop",
+		Short:  "Stop the running turn",
+		Method: "POST",
+		Route:  "/sessions/{id}/stop",
+		HZ:     hz{Output: "none"},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionStop(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "session.suspend",
+		Short:  "Snapshot the session and free its worker; a preview request or a turn resumes it",
+		Method: "POST",
+		Route:  "/sessions/{id}/suspend",
+		HZ:     hz{Output: "none"},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionSuspend(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "session.terminal.ls",
+		Short:  "The session's terminals",
+		Method: "GET",
+		Route:  "/sessions/{id}/terminals",
+		HZ:     hz{Output: "table", Columns: []string{"id", "command", "started", "clients"}},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionTerminalLs(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "session.terminal.rm",
+		Short:  "End a terminal",
+		Method: "DELETE",
+		Route:  "/sessions/{id}/terminals/{tid}",
+		HZ:     hz{Output: "none"},
+		Args:   []string{"id", "tid"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionTerminalRm(ctx, args[0], args[1], edit)
+		},
+	},
+	{
+		ID:     "stream",
+		Short:  "What happens, as server-sent events; Last-Event-ID resumes after it",
+		Method: "GET",
+		Route:  "/stream",
+		HZ:     hz{By: []string{"env seed"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Stream(ctx, &client.StreamParams{}, edit)
 		},
 	},
 }

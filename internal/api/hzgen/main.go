@@ -63,6 +63,7 @@ type parameter struct {
 type schema struct {
 	Ref                  string            `yaml:"$ref"`
 	Type                 string            `yaml:"type"`
+	Format               string            `yaml:"format"`
 	Description          string            `yaml:"description"`
 	Properties           map[string]schema `yaml:"properties"`
 	Items                *schema           `yaml:"items"`
@@ -168,12 +169,15 @@ func Generate(raw []byte) ([]byte, error) {
 		}
 		fmt.Fprintf(&b, "HZ: hz{%s},\n", strings.Join(x, ", "))
 		var args, query []parameter
+		headers := false
 		for _, p := range op.Parameters {
 			switch p.In {
 			case "path":
 				args = append(args, p)
 			case "query":
 				query = append(query, p)
+			case "header":
+				headers = true
 			}
 		}
 		// Path parameters in the order the path names them.
@@ -235,13 +239,15 @@ func Generate(raw []byte) ([]byte, error) {
 			v := fmt.Sprintf("args[%d]", i)
 			if p.Schema.Type == "integer" {
 				numbers = true
-				fmt.Fprintf(&b, "a%d, err := strconv.Atoi(args[%d])\nif err != nil {\nreturn nil, fmt.Errorf(\"%s %%q: not a number\", args[%d])\n}\n", i, i, p.Name, i)
-				v = fmt.Sprintf("a%d", i)
+				bits := map[string]string{"int64": "64", "int32": "32"}[p.Schema.Format]
+				fmt.Fprintf(&b, "a%d, err := strconv.ParseInt(args[%d], 10, %s)\nif err != nil {\nreturn nil, fmt.Errorf(\"%s %%q: not a number\", args[%d])\n}\n",
+					i, i, map[bool]string{true: bits, false: "0"}[bits != ""], p.Name, i)
+				v = fmt.Sprintf("int%s(a%d)", bits, i)
 			}
 			call = append(call, v)
 		}
 		method := camel(op.ID)
-		if len(query) > 0 {
+		if len(query) > 0 || headers {
 			call = append(call, "&client."+method+"Params{}")
 		}
 		if contentType != "" {

@@ -1,0 +1,3 @@
+> GET /sessions/a1b2c3d4/preview
+status  200
+up      true

@@ -25,27 +25,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	mux := http.NewServeMux()
 	p.API(mux)
 	api := p.outside("api", mux)
-	api.Handle("GET /stream", p.bus)
-	api.HandleFunc("GET /sessions", func(w http.ResponseWriter, r *http.Request) {
-		out, err := ws.Sessions()
-		reply(w, &out, err)
-	})
-	api.HandleFunc("GET /sessions/{id}/queue", func(w http.ResponseWriter, r *http.Request) {
-		q := ws.Queue(r.PathValue("id"))
-		reply(w, &q, nil)
-	})
-	api.HandleFunc("DELETE /sessions/{id}/queue/{i}", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Text string }
-		i, err := strconv.Atoi(r.PathValue("i"))
-		if err != nil {
-			reply(w, nil, badRequest{err})
-			return
-		}
-		reply(w, nil, read(r, &in, func() error { return ws.Unqueue(r.PathValue("id"), i, in.Text) }))
-	})
-	api.HandleFunc("POST /sessions/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.Stop(r.Context(), r.PathValue("id")))
-	})
 	api.HandleFunc("PUT /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
 		var s sandbox.Shape
 		reply(w, nil, read(r, &s, func() error { return p.sc.SetShape(s) }))
@@ -78,29 +57,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		c, err := p.Status(r.Context())
 		reply(w, &c, err)
 	})
-	api.HandleFunc("POST /sessions", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Env, Prompt string }
-		var s workspace.Session
-		reply(w, &s, read(r, &in, func() (err error) { s, err = ws.Start(in.Env, in.Prompt, auth.Who(r.Context())); return }))
-	})
-	api.HandleFunc("GET /sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
-		var s workspace.Session
-		reply(w, &s, p.Store.Get("sessions", r.PathValue("id"), &s))
-	})
-	api.HandleFunc("DELETE /sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.DeleteSession(r.Context(), r.PathValue("id")))
-	})
-	api.HandleFunc("POST /sessions/{id}/turns", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Prompt, To string }
-		reply(w, nil, read(r, &in, func() error { return ws.Say(r.PathValue("id"), in.Prompt, in.To) }))
-	})
-	api.HandleFunc("POST /sessions/{id}/suspend", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.Suspend(r.Context(), r.PathValue("id")))
-	})
-	api.HandleFunc("GET /sessions/{id}/preview", func(w http.ResponseWriter, r *http.Request) {
-		st, err := ws.PreviewStatus(r.Context(), r.PathValue("id"))
-		reply(w, &st, err)
-	})
 	api.HandleFunc("POST /previews", func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Host string }
 		var out struct {
@@ -120,33 +76,7 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 			return nil
 		}))
 	})
-	api.HandleFunc("GET /sessions/{id}/changes", func(w http.ResponseWriter, r *http.Request) {
-		c, err := ws.Changes(r.Context(), r.PathValue("id"))
-		reply(w, &c, err)
-	})
-	api.HandleFunc("GET /sessions/{id}/logs", func(w http.ResponseWriter, r *http.Request) {
-		out, err := ws.Logs(r.PathValue("id"))
-		reply(w, &out, err)
-	})
-	api.HandleFunc("GET /sessions/{id}/logs/{name}", func(w http.ResponseWriter, r *http.Request) {
-		offset, _ := strconv.ParseInt(r.URL.Query().Get("offset"), 10, 64)
-		b, next, err := ws.Log(r.Context(), r.PathValue("id"), r.PathValue("name"), offset)
-		if err != nil {
-			reply(w, nil, err)
-			return
-		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("X-Offset", strconv.FormatInt(next, 10))
-		w.Write(b)
-	})
-	api.HandleFunc("GET /sessions/{id}/terminals", func(w http.ResponseWriter, r *http.Request) {
-		out, err := ws.Terminals(r.Context(), r.PathValue("id"))
-		reply(w, &out, err)
-	})
 	api.HandleFunc("GET /sessions/{id}/terminals/{tid}", p.terminal(appHost))
-	api.HandleFunc("DELETE /sessions/{id}/terminals/{tid}", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.Kill(r.Context(), r.PathValue("id"), r.PathValue("tid")))
-	})
 	api.HandleFunc("GET /approvals", func(w http.ResponseWriter, r *http.Request) {
 		out := []workspace.Approval{}
 		session := r.URL.Query().Get("session")

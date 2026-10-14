@@ -8,12 +8,13 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"gorm.io/gorm"
 
 	"github.com/getnvoi/host0/internal/box"
 	"github.com/getnvoi/host0/internal/db"
@@ -115,14 +116,10 @@ func (ws *Workspace) Recover() {
 		log.Printf("recover approval %s (%s)", a.ID, a.Tool)
 		go ws.decide(a, a.Allow)
 	}
-	var sessions []Session
-	ws.Store.List("sessions", func(d func(any) error) error {
-		var s Session
-		if d(&s) == nil {
-			sessions = append(sessions, s)
-		}
-		return nil
-	})
+	sessions, err := ws.sessions(false, true)
+	if err != nil {
+		log.Printf("recover sessions: %v", err)
+	}
 	ctx := context.Background()
 	for _, s := range sessions {
 		s := s
@@ -161,16 +158,14 @@ func (ws *Workspace) rejoin(ctx context.Context, s *Session) {
 		ws.fail(s, err)
 		return
 	}
-	s.Events = s.Events[:min(s.Mark+1, len(s.Events))]
-	// A turn stopped before boxd started it has no log: it is started again from its prompt.
+	// A turn stopped before boxd started it has no log: it is started again from its prompt, already stored.
 	if _, _, err := ws.box(s.Actor).Tail(ctx, fmt.Sprintf("%s/turn-%d/log", Runs, s.Turns), 0); errors.Is(err, box.ErrMissing) &&
 		s.Mark < len(s.Events) && s.Events[s.Mark].Kind == "prompt" {
-		prompt := s.Events[s.Mark].Content
-		s.Events, s.Turns = s.Events[:s.Mark], s.Turns-1
-		ws.run(ctx, s, prompt)
+		ws.run(ctx, s, ws.take(ctx, s, s.Events[s.Mark].Content, true))
 		return
 	}
-	ws.run(ctx, s, ws.follow(ctx, s, box.Run{}))
+	// Events are append-only: those stored after the prompt come out of the log again, and only what follows is new.
+	ws.run(ctx, s, ws.follow(ctx, s, box.Run{}, max(len(s.Events)-(s.Mark+1), 0)))
 }
 
 func (ws *Workspace) fork(ctx context.Context, s *Session, seed Seed) error {
@@ -227,6 +222,11 @@ func stopKey(sid string, turn int) string { return sid + "/" + strconv.Itoa(turn
 
 // Runs one turn. Returns the prompt to run next, empty when the session came to rest.
 func (ws *Workspace) turn(ctx context.Context, s *Session, prompt string) string {
+	return ws.take(ctx, s, prompt, false)
+}
+
+// Runs the turn of prompt: a new one, or again the current one whose prompt is stored and whose run never started.
+func (ws *Workspace) take(ctx context.Context, s *Session, prompt string, again bool) string {
 	// Saved before anything that can fail or take long: a plane that restarts from here runs the prompt again.
 	ws.put(s, func() { s.State, s.Pending, s.Error = "running", prompt, "" })
 	env, _, err := ws.env(s.Env)
@@ -243,23 +243,27 @@ func (ws *Workspace) turn(ctx context.Context, s *Session, prompt string) string
 		ws.fail(s, err)
 		return ""
 	}
-	if s.Turns > 0 {
+	if s.Turns > 0 && !again {
 		// The last turn's agent, if a failure left it running, would work beside this one on the same checkout.
 		ws.end(s.Actor, fmt.Sprintf("turn-%d", s.Turns))
 	}
 	tools, _ := json.Marshal(ws.Tools.Spec())
 	argv := runner.Argv(llm.Turn{Prompt: prompt, Session: s.Transcript, Model: values["model"],
 		Instructions: fmt.Sprintf(instructions, origin(s.Preview)), MCP: Boxd})
-	stops.Delete(stopKey(s.ID, s.Turns+1))
+	if !again {
+		stops.Delete(stopKey(s.ID, s.Turns+1))
+	}
 	ws.put(s, func() {
-		s.Turns++
-		s.Mark = len(s.Events)
 		s.Pending = ""
-		add(s, llm.Event{Kind: "prompt", Content: prompt})
+		if !again {
+			s.Turns++
+			s.Mark = len(s.Events)
+			add(s, llm.Event{Kind: "prompt", Content: prompt})
+		}
 	})
 	run := box.Run{Argv: argv, Dir: App, Env: runner.Env(values)}
 	run.Env["HZ_TOOLS"] = string(tools)
-	return ws.follow(ctx, s, run)
+	return ws.follow(ctx, s, run, 0)
 }
 
 // Stops a run if it is still going; one that ended, or a boxd out of reach, leaves nothing to do.
@@ -272,9 +276,9 @@ func (ws *Workspace) end(actor, run string) {
 // How long the agent may stay up after its answer, for its background shells, before the turn ends it.
 var linger = 10 * time.Second
 
-// Runs or follows the current turn, then settles its tools: auto at once, approval parked until decided.
-// Returns the prompt to run next.
-func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run) string {
+// Runs or follows the current turn, then settles its tools: auto at once, approval parked until decided. The first
+// seen events its output yields are stored already. Returns the prompt to run next.
+func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen int) string {
 	env, creds, err := ws.env(s.Env)
 	if err != nil {
 		ws.fail(s, err)
@@ -291,12 +295,16 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run) string
 		return ""
 	}
 	defer release()
-	start := len(s.Events)
+	start := len(s.Events) - seen
 	rid := fmt.Sprintf("turn-%d", s.Turns)
 	var answered sync.Once
 	var ended atomic.Bool
 	code, err := ws.box(s.Actor).Exec(ctx, rid, run, 0, func(line string) {
 		evs := runner.Events(line)
+		if seen > 0 {
+			drop := min(seen, len(evs))
+			evs, seen = evs[drop:], seen-drop
+		}
 		id := runner.Transcript(line)
 		if len(evs) == 0 && (id == "" || id == s.Transcript) {
 			return
@@ -454,8 +462,8 @@ func (ws *Workspace) advance(s *Session) string {
 // Runs the next queued message of a session at rest.
 func (ws *Workspace) kick(sid string) {
 	unlock := lock(sid)
-	var s Session
-	if ws.Store.Get("sessions", sid, &s) != nil || s.State != "idle" || ws.queued(sid) == 0 {
+	s, err := ws.load(sid)
+	if err != nil || s.State != "idle" || ws.queued(sid) == 0 {
 		unlock()
 		return
 	}
@@ -476,8 +484,8 @@ func add(s *Session, evs ...llm.Event) {
 // Stops the running turn: its process group is signalled, and the turn ends as stopped rather than failed. A tool
 // being carried out for the session is cut short too.
 func (ws *Workspace) Stop(ctx context.Context, sid string) error {
-	var s Session
-	if err := ws.Store.Get("sessions", sid, &s); err != nil {
+	s, err := ws.load(sid)
+	if err != nil {
 		return err
 	}
 	halted := ws.halt(ctx, sid)
@@ -539,8 +547,8 @@ func (ws *Workspace) answers(ctx context.Context, actor string, port int) error 
 
 // Whether the session's app answers its preview, waking the sandbox first. Up is any status below 500.
 func (ws *Workspace) PreviewStatus(ctx context.Context, sid string) (PreviewStatus, error) {
-	var s Session
-	if err := ws.Store.Get("sessions", sid, &s); err != nil {
+	s, err := ws.load(sid)
+	if err != nil {
 		return PreviewStatus{}, err
 	}
 	var rt sandbox.Route
@@ -559,8 +567,8 @@ func (ws *Workspace) PreviewStatus(ctx context.Context, sid string) (PreviewStat
 
 // Frees the session's worker; the next preview request or turn resumes it where it was.
 func (ws *Workspace) Suspend(ctx context.Context, sid string) error {
-	var s Session
-	if err := ws.Store.Get("sessions", sid, &s); err != nil {
+	s, err := ws.load(sid)
+	if err != nil {
 		return err
 	}
 	return ws.Sandboxes.Suspend(ctx, s.Actor)
@@ -571,8 +579,8 @@ func (ws *Workspace) Suspend(ctx context.Context, sid string) error {
 func (ws *Workspace) DeleteSession(ctx context.Context, sid string) error {
 	unlock := lock(sid)
 	defer unlock()
-	var s Session
-	if err := ws.Store.Get("sessions", sid, &s); err != nil {
+	s, err := ws.load(sid)
+	if err != nil {
 		return err
 	}
 	if s.State == "forking" || s.State == "running" {
@@ -580,7 +588,7 @@ func (ws *Workspace) DeleteSession(ctx context.Context, sid string) error {
 	}
 	var pending []Approval
 	deciding := ""
-	err := ws.Store.List("approvals", func(d func(any) error) error {
+	err = ws.Store.List("approvals", func(d func(any) error) error {
 		var a Approval
 		if err := d(&a); err != nil {
 			return err
@@ -609,10 +617,22 @@ func (ws *Workspace) DeleteSession(ctx context.Context, sid string) error {
 			return err
 		}
 	}
-	for _, row := range [][2]string{{"routes", s.Preview}, {"queue", sid}, {"sessions", sid}} {
-		if err := ws.Store.Delete(row[0], row[1]); err != nil {
+	if err := ws.Store.Delete("routes", s.Preview); err != nil {
+		return err
+	}
+	// Its row is kept, removed, with its events: its history is the workspace's.
+	err = ws.DB.Transaction(func(tx *gorm.DB) error {
+		r, err := rowOf(tx, sid)
+		if err != nil {
 			return err
 		}
+		if err := tx.Where("session_id = ?", r.ID).Delete(&db.QueuedMessage{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&r).Error
+	})
+	if err != nil {
+		return err
 	}
 	// A write left to the flush timer finds nothing due, so the row is not written back.
 	writes.Store(sid, write{at: time.Now()})
@@ -623,19 +643,23 @@ func (ws *Workspace) DeleteSession(ctx context.Context, sid string) error {
 	return nil
 }
 
-// Every session without its events, the last active first.
-func (ws *Workspace) Sessions() ([]Summary, error) {
+// Every session without its events, the last active first; only env's when it is given.
+func (ws *Workspace) Sessions(env string) ([]Summary, error) {
+	all, err := ws.sessions(false, false)
+	if err != nil {
+		return nil, err
+	}
 	out := []Summary{}
-	err := ws.Store.List("sessions", func(d func(any) error) error {
-		var s Session
-		if err := d(&s); err != nil {
-			return err
+	for _, s := range all {
+		if env != "" && s.Env != env {
+			continue
 		}
 		sum := s.Summary()
+		if sum.Prompt, err = ws.firstPrompt(s.ID); err != nil {
+			return nil, err
+		}
 		sum.Queued = ws.queued(s.ID)
 		out = append(out, sum)
-		return nil
-	})
-	sort.Slice(out, func(i, j int) bool { return out[i].Last.After(out[j].Last) })
-	return out, err
+	}
+	return out, nil
 }
