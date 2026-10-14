@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	gossh "golang.org/x/crypto/ssh"
@@ -54,7 +55,8 @@ func (c *Client) Run(ctx context.Context, cmd string, stdin io.Reader, out io.Wr
 		return err
 	}
 	defer s.Close()
-	s.Stdin, s.Stdout, s.Stderr = stdin, out, out
+	w := &serial{w: out}
+	s.Stdin, s.Stdout, s.Stderr = stdin, w, w
 	done := make(chan error, 1)
 	go func() { done <- s.Run(cmd) }()
 	select {
@@ -93,6 +95,18 @@ func (c *Client) Forward(ctx context.Context, local, remote string) (func(), err
 		}
 	}()
 	return func() { l.Close() }, nil
+}
+
+// The session copies stdout and stderr at once; one writer, such as a bytes.Buffer, takes them one at a time.
+type serial struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (s *serial) Write(b []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.w.Write(b)
 }
 
 func (c *Client) Close() error { return c.conn.Close() }
