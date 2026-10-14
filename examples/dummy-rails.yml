@@ -14,7 +14,9 @@ env:
 secrets: [RAILS_MASTER_KEY]
 setup:
   - bundle install
-  - for i in $(seq 30); do bin/rails db:prepare && break; sleep 2; done
+  # The build fails after 10s with no output: the wait for postgres says so each second, and --trace names each task.
+  - for i in $(seq 60); do ruby -rsocket -e 'Socket.tcp(ENV["POSTGRES_HOST"], 5432, connect_timeout:1).close' 2>/dev/null && break; echo "waiting for postgres on $POSTGRES_HOST:5432 ($i/60)"; sleep 1; done
+  - bin/rails db:prepare --trace
   - bin/rails tailwindcss:build
 services:
   - name: postgres
