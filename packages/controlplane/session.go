@@ -131,7 +131,9 @@ func (p *Plane) Recover() {
 	for _, s := range seeds {
 		log.Printf("recover seed %s: interrupted", s.Env)
 		s.State, s.Error = "failed", "interrupted by a restart of the plane"
-		p.Store.Put("seeds", s.Env, s)
+		if err := p.saveSeed(s); err != nil {
+			log.Printf("recover seed %s: %v", s.Env, err)
+		}
 	}
 	// A decision cut short is carried out again: whether its action ran is unknown, and every action is safe to repeat.
 	var deciding []contract.Approval
