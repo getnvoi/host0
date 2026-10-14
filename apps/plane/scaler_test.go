@@ -18,6 +18,12 @@ type fakeSandboxes struct {
 	workers []Worker
 	full    int // resumes answering ErrNoWorker before one succeeds
 	states  map[string]string
+	deleted []string
+}
+
+func (f *fakeSandboxes) Delete(_ context.Context, a string) error {
+	f.deleted = append(f.deleted, a)
+	return nil
 }
 
 func (f *fakeSandboxes) State(_ context.Context, a string) (string, error) { return f.states[a], nil }
@@ -151,7 +157,7 @@ func (f *fakePools) Cost(_ context.Context, pod string, c int) error { f.costs[p
 func TestShrink(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{workers: []Worker{
-		{Pool: "hz-medium", Pod: "busy", Assigned: true},
+		{Pool: "hz-medium", Pod: "busy", Held: []Held{{Name: "a", State: "running"}}},
 		{Pool: "hz-medium", Pod: "idle"},
 	}}
 	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
@@ -273,7 +279,7 @@ func TestShrinkUnmarksTaken(t *testing.T) {
 		t.Fatalf("replicas %d costs %v", pools.replicas["hz-medium"], pools.costs)
 	}
 	// "b" was resumed onto before the ReplicaSet removed it.
-	sb.workers = []Worker{{Pool: "hz-medium", Pod: "b", Assigned: true}}
+	sb.workers = []Worker{{Pool: "hz-medium", Pod: "b", Held: []Held{{Name: "a", State: "running"}}}}
 	pools.replicas["hz-medium"] = 1
 	p.shrink(ctx)
 	if pools.costs["b"] != 0 {
@@ -300,4 +306,31 @@ func TestResumeForgetsKeyed(t *testing.T) {
 		t.Fatal("a running actor lost its check")
 	}
 	keyedAt.Delete("b")
+}
+
+// A worker held by an actor no row names has it deleted; one assigned an actor Substrate does not know is free.
+func TestReap(t *testing.T) {
+	sc = newScaler()
+	sb := &fakeSandboxes{workers: []Worker{
+		{Pool: "hz-medium", Pod: "routed", Held: []Held{{Name: "shop-b30f1ae1ab", State: "suspending"}}},
+		{Pool: "hz-medium", Pod: "forking", Held: []Held{{Name: "wt-s1", State: "resuming"}}},
+		{Pool: "hz-medium", Pod: "building", Held: []Held{{Name: "web-1111111111", State: "running"}}},
+		{Pool: "hz-medium", Pod: "golden", Held: []Held{{Space: "ate-golden", Name: "97ce8213", State: "running"}}},
+		{Pool: "hz-medium", Pod: "failed", Held: []Held{{Name: "shop-853d8ecc03", State: "running"}}},
+		{Pool: "hz-medium", Pod: "stale", Held: []Held{{Name: "gone", State: ""}}},
+	}}
+	st := newStore(Route{Actor: "shop-b30f1ae1ab", Tier: "medium"})
+	st.Put("sessions", "s1", contract.Session{ID: "s1", Actor: "wt-s1", State: "forking"})
+	st.Put("seeds", "web", contract.Seed{Env: "web", State: "building", Actor: "web-1111111111"})
+	st.Put("seeds", "shop", contract.Seed{Env: "shop", State: "failed", Actor: "shop-853d8ecc03"})
+	p := &Plane{Sandboxes: sb, Pools: &fakePools{replicas: map[string]int{}}, Store: st}
+	if err := p.reap(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(sb.deleted, []string{"shop-853d8ecc03"}) {
+		t.Fatalf("deleted %v", sb.deleted)
+	}
+	if sb.workers[5].Assigned() || !sb.workers[3].Assigned() {
+		t.Fatal("a stale assignment holds its worker, or a golden actor does not")
+	}
 }

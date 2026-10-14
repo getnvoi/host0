@@ -231,3 +231,81 @@ func TestApprovalShow(t *testing.T) {
 		t.Fatalf("unknown approval: %d %s", res.Code, res.Body.String())
 	}
 }
+
+// Names each template from the containers, as Substrate's client does, and records what is done to actors.
+type named struct {
+	*sandbox
+	suspended, deleted []string
+}
+
+func (n *named) Template(_ context.Context, env string, _ tiers.Tier, cs []Container) (string, error) {
+	return env + "-" + spec(cs)[:10], nil
+}
+func (n *named) Suspend(_ context.Context, a string) error {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.suspended = append(n.suspended, a)
+	return nil
+}
+func (n *named) Delete(_ context.Context, a string) error {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.deleted = append(n.deleted, a)
+	return nil
+}
+func (*named) Tag(context.Context, string, string) error { return nil }
+
+// A restart over a ready seed, with a boxd built since, builds nothing; env suspend takes the routed actor; a
+// rebuild then deletes the actor it replaces.
+func TestRestartAfterSeedBuildsNothing(t *testing.T) {
+	var script string
+	srv := httptest.NewServer(seedBoxd(&script))
+	t.Cleanup(srv.Close)
+	sb := &named{sandbox: &sandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}}
+	p := &Plane{Store: newStore(), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{}, Sandboxes: sb,
+		BoxImage: "boxd@1", Pin: func(_ context.Context, image string) (string, error) { return image, nil }}
+	p.Store.Put("environments", "shop", contract.Environment{Name: "shop", Repo: "acme/shop", Branch: "main", Preview: 3000})
+	p.Store.Put("credentials", "default", contract.Credentials{})
+	c := tap(t)
+	if err := p.Reseed("shop"); err != nil {
+		t.Fatal(err)
+	}
+	if _, last := seedUpdates(t, c, "shop"); last.State != "ready" {
+		t.Fatalf("rested on %+v", last)
+	}
+	first := sb.created
+	until(t, "the build to end", func() bool { _, busy := seeding.Load("shop"); return !busy })
+
+	restarted := &Plane{Store: p.Store, Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{}, Sandboxes: sb,
+		BoxImage: "boxd@2", Pin: p.Pin}
+	restarted.Recover()
+	restarted.Stale()
+	if _, busy := seeding.Load("shop"); busy {
+		t.Fatal("a restart started a build")
+	}
+	if len(sb.created) != len(first) {
+		t.Fatalf("a restart made actors %v", sb.created[len(first):])
+	}
+	var row contract.Seed
+	if restarted.Store.Get("seeds", "shop", &row); row.State != "ready" || row.Actor != first[0] {
+		t.Fatalf("the seed after a restart: %+v", row)
+	}
+	actor, err := restarted.SuspendSeed(context.Background(), "shop")
+	if err != nil || actor != first[0] || sb.suspended[len(sb.suspended)-1] != first[0] {
+		t.Fatalf("env suspend took %q (%v), suspended %v; the preview routes to %s", actor, err, sb.suspended, first[0])
+	}
+
+	if err := restarted.Reseed("shop"); err != nil {
+		t.Fatal(err)
+	}
+	if _, last := seedUpdates(t, c, "shop"); last.State != "ready" || last.Actor == first[0] {
+		t.Fatalf("the rebuild rested on %+v", last)
+	}
+	until(t, "the rebuild to end", func() bool { _, busy := seeding.Load("shop"); return !busy })
+	if actor, _ := restarted.SuspendSeed(context.Background(), "shop"); actor != sb.created[len(sb.created)-1] {
+		t.Fatalf("env suspend took %s, not the rebuilt %s", actor, sb.created[len(sb.created)-1])
+	}
+	if len(sb.deleted) != 1 || sb.deleted[0] != first[0] {
+		t.Fatalf("deleted %v; the replaced seed's actor is %s", sb.deleted, first[0])
+	}
+}

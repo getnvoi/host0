@@ -95,7 +95,7 @@ func main() {
 		go route(p.Edge, h)
 	}
 	p.Recover()
-	go p.Refresh()
+	go p.Stale()
 	go p.Scale(context.Background())
 	go p.Sample(context.Background())
 	log.Printf("plane on :8080, api at %s, app at %s", plane.Origin(api), plane.Origin(app))

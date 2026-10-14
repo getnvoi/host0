@@ -227,18 +227,25 @@ func (c *Client) Workers(ctx context.Context) ([]plane.Worker, error) {
 		if err != nil {
 			return nil, err
 		}
-		var actors []string
+		var held []plane.Held
 		for _, a := range as.GetActorAssignments() {
-			name := a.GetActor().GetName()
-			state := "unknown"
-			if got, err := c.api.GetActor(ctx, &pb.GetActorRequest{Actor: c.ref(name)}); err != nil {
-				state = err.Error()
-			} else {
-				state = strings.TrimPrefix(got.GetStatus().GetState().String(), "ACTOR_STATE_")
+			// Asked in the assignment's own atespace: a template's golden actor is in Substrate's.
+			ref := a.GetActor()
+			h := plane.Held{Name: ref.GetName()}
+			if ref.GetAtespace() != c.cfg.Atespace {
+				h.Space = ref.GetAtespace()
 			}
-			actors = append(actors, name+" "+state)
+			got, err := c.api.GetActor(ctx, &pb.GetActorRequest{Actor: ref})
+			switch {
+			case status.Code(err) == codes.NotFound:
+			case err != nil:
+				return nil, fmt.Errorf("actor %s on worker %s: %w", h, w.GetMetadata().GetName(), err)
+			default:
+				h.State = strings.ToLower(strings.TrimPrefix(got.GetStatus().GetState().String(), "ACTOR_STATE_"))
+			}
+			held = append(held, h)
 		}
-		out = append(out, plane.Worker{Pool: w.GetWorkerPool(), Pod: w.GetWorkerPod(), Assigned: len(actors) > 0, Actors: actors})
+		out = append(out, plane.Worker{Pool: w.GetWorkerPool(), Pod: w.GetWorkerPod(), Held: held})
 	}
 	return out, nil
 }

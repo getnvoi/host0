@@ -218,12 +218,12 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		reply(w, nil, p.Suspend(r.Context(), r.PathValue("id")))
 	})
 	api.HandleFunc("POST /seeds/{name}/suspend", func(w http.ResponseWriter, r *http.Request) {
-		var s contract.Seed
-		err := p.Store.Get("seeds", r.PathValue("name"), &s)
-		if err == nil {
-			err = p.Sandboxes.Suspend(r.Context(), s.Actor)
+		var out struct {
+			Actor string `json:"actor"`
 		}
-		reply(w, nil, err)
+		var err error
+		out.Actor, err = p.SuspendSeed(r.Context(), r.PathValue("name"))
+		reply(w, &out, err)
 	})
 	api.HandleFunc("GET /sessions/{id}/preview", func(w http.ResponseWriter, r *http.Request) {
 		st, err := p.PreviewStatus(r.Context(), r.PathValue("id"))

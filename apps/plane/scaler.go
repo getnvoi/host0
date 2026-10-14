@@ -2,6 +2,7 @@ package plane
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -34,9 +35,36 @@ type Pods interface {
 
 type Worker struct {
 	Pool, Pod string
-	Assigned  bool
-	// The actors assigned to it, by name.
-	Actors []string
+	Held      []Held
+}
+
+// An actor Substrate has assigned to a worker, with its state asked at the same time.
+type Held struct {
+	// Space is empty for the plane's own atespace; a template's golden actor is in Substrate's.
+	Space, Name string
+	// Empty when Substrate has no such actor: the assignment is stale and holds nothing.
+	State string
+}
+
+func (h Held) String() string {
+	name := h.Name
+	if h.Space != "" {
+		name = h.Space + "/" + name
+	}
+	if h.State == "" {
+		return name + " (not found)"
+	}
+	return name + " " + h.State
+}
+
+// Held by an actor Substrate knows.
+func (w Worker) Assigned() bool {
+	for _, h := range w.Held {
+		if h.State != "" {
+			return true
+		}
+	}
+	return false
 }
 
 const (
@@ -178,7 +206,7 @@ func (p *Plane) free(ctx context.Context, pool string, pods []string) ([]string,
 		if w.Pool != pool {
 			continue
 		}
-		if w.Assigned {
+		if w.Assigned() {
 			busy++
 		} else if want[w.Pod] {
 			free = append(free, w.Pod)
@@ -226,6 +254,9 @@ func (p *Plane) Scale(ctx context.Context) {
 		if err := p.rest(ctx); err != nil {
 			log.Printf("scaler: %v", err)
 		}
+		if err := p.reap(ctx); err != nil {
+			log.Printf("scaler: %v", err)
+		}
 		if err := p.shrink(ctx); err != nil {
 			log.Printf("scaler: %v", err)
 		}
@@ -246,6 +277,62 @@ func (p *Plane) actors() map[string]string {
 		return nil
 	})
 	return out
+}
+
+// Every actor of ours a row names: routed, a session's, a seed's, or the one a build is making.
+func (p *Plane) named() map[string]bool {
+	out := map[string]bool{}
+	for actor := range p.actors() {
+		out[actor] = true
+	}
+	p.Store.List("sessions", func(d func(any) error) error {
+		var s contract.Session
+		if d(&s) == nil {
+			out[s.Actor] = true
+		}
+		return nil
+	})
+	p.Store.List("ready", func(d func(any) error) error {
+		var s contract.Seed
+		if d(&s) == nil {
+			out[s.Actor] = true
+		}
+		return nil
+	})
+	p.Store.List("seeds", func(d func(any) error) error {
+		var s contract.Seed
+		if d(&s) == nil && s.State == "building" {
+			out[s.Actor] = true
+		}
+		return nil
+	})
+	return out
+}
+
+// Deletes each actor of ours holding a worker that no row names: a build that failed or a restart cut short.
+// A stale assignment is only logged; Worker.Assigned counts its worker free.
+func (p *Plane) reap(ctx context.Context) error {
+	workers, err := p.Sandboxes.Workers(ctx)
+	if err != nil {
+		return fmt.Errorf("workers: %w", err)
+	}
+	// Read after the workers: a row is written before its actor is made, so no actor listed is newer than its row.
+	named := p.named()
+	for _, w := range workers {
+		for _, h := range w.Held {
+			switch {
+			case h.State == "":
+				log.Printf("workers: %s is assigned %s, which Substrate does not know: the worker counts as free", w.Pod, h)
+			case h.Space != "" || named[h.Name]:
+			default:
+				log.Printf("workers: %s is held by %s, which no row names: deleting it", w.Pod, h)
+				if err := p.Sandboxes.Delete(ctx, h.Name); err != nil {
+					return fmt.Errorf("deleting %s: %w", h.Name, err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // Pauses actors idle PauseAfter, suspends those idle SuspendAfter. An actor being woken is skipped.
@@ -362,7 +449,7 @@ func (p *Plane) shrink(ctx context.Context) error {
 		}
 		pl := plan{pool: pool}
 		for _, w := range byPool[pool] {
-			if w.Assigned {
+			if w.Assigned() {
 				pl.busy++
 				delete(sc.free, w.Pod)
 				continue

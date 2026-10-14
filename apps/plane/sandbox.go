@@ -217,9 +217,9 @@ func (p *Plane) env(name string) (contract.Environment, contract.Credentials, er
 	return env, creds, err
 }
 
-// Rebuilds, in the background, the seeds built from other containers (another boxd, another command): a fork keeps
-// its seed's containers, running.
-func (p *Plane) Refresh() {
+// Logs each ready seed built from other containers (a boxd, an image) than a build would use now. Nothing is
+// rebuilt: hz env seed does that.
+func (p *Plane) Stale() {
 	var envs []contract.Environment
 	p.Store.List("environments", func(d func(any) error) error {
 		var env contract.Environment
@@ -237,12 +237,12 @@ func (p *Plane) Refresh() {
 		cs, err := p.containers(ctx, env)
 		cancel()
 		if err != nil {
-			log.Printf("reseed %s: %v", env.Name, err)
+			log.Printf("seed %s: %v", env.Name, err)
 			continue
 		}
 		if seed.Spec != spec(cs) {
-			log.Printf("reseed %s: built from other containers", env.Name)
-			p.Reseed(env.Name)
+			log.Printf("seed %s: %s was built from other containers than a build would use now: hz env seed %s rebuilds it",
+				env.Name, seed.Actor, env.Name)
 		}
 	}
 }
@@ -549,11 +549,38 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	if err := p.route(ctx, seed.Preview, Route{seed.Actor, env.Preview, tier.Name}); err != nil {
 		return fail(err)
 	}
+	var last contract.Seed
+	if err := p.Store.Get("ready", name, &last); err != nil && !errors.Is(err, ErrNotFound) {
+		return fail(err)
+	}
 	seed.State, seed.Step = "ready", ""
 	if err := p.Store.Put("ready", name, seed); err != nil {
 		return fail(err)
 	}
-	return p.saveSeed(seed)
+	if err := p.saveSeed(seed); err != nil {
+		return err
+	}
+	// The last seed's actor is reached by nothing now: forks start from its tag.
+	if last.Actor != "" && last.Actor != seed.Actor {
+		log.Printf("seed %s: deleting %s, the actor of the seed it replaces", name, last.Actor)
+		if err := p.Sandboxes.Delete(ctx, last.Actor); err != nil {
+			log.Printf("seed %s: deleting %s: %v", name, last.Actor, err)
+			return err
+		}
+	}
+	return nil
+}
+
+// Suspends the actor the environment's preview routes to, and names it.
+func (p *Plane) SuspendSeed(ctx context.Context, name string) (string, error) {
+	var rt Route
+	if err := p.Store.Get("routes", p.Preview(name), &rt); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return "", fmt.Errorf("environment %s has no routed seed: hz env seed %s builds one", name, name)
+		}
+		return "", err
+	}
+	return rt.Actor, p.Sandboxes.Suspend(ctx, rt.Actor)
 }
 
 type Route struct {

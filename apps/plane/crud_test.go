@@ -170,7 +170,7 @@ func (c checking) Check(_ context.Context, host string) error { return c[host] }
 func TestClusterStatus(t *testing.T) {
 	p, h := handler(t)
 	p.Pools = &fakePools{replicas: map[string]int{"hz-medium": 2}, ready: map[string]int{"hz-medium": 1}, nodes: []contract.Node{{Name: "w1", Ready: true}}}
-	p.Sandboxes = &fakeSandboxes{workers: []Worker{{Pool: "hz-medium", Pod: "p1", Assigned: true}}}
+	p.Sandboxes = &fakeSandboxes{workers: []Worker{{Pool: "hz-medium", Pod: "p1", Held: []Held{{Name: "a", State: "running"}}}}}
 	p.Edge = checking{"app-dev.nvoi.to": errors.New("app-dev.nvoi.to has no record")}
 	res := call(h, "GET", "api-dev.nvoi.to", "/cluster", "", bearer)
 	var c contract.Cluster

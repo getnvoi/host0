@@ -32,7 +32,11 @@ func (p *Plane) Status(ctx context.Context) (contract.Cluster, error) {
 		return out, fmt.Errorf("workers: %w", err)
 	}
 	for _, w := range ws {
-		out.Workers = append(out.Workers, contract.Worker{Pool: w.Pool, Pod: w.Pod, Assigned: w.Assigned, Actors: w.Actors})
+		var actors []string
+		for _, h := range w.Held {
+			actors = append(actors, h.String())
+		}
+		out.Workers = append(out.Workers, contract.Worker{Pool: w.Pool, Pod: w.Pod, Assigned: w.Assigned(), Actors: actors})
 	}
 	for _, h := range []string{p.Host("api"), p.Host("app")} {
 		host := contract.Host{Name: h}

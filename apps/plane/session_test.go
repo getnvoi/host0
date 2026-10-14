@@ -499,35 +499,6 @@ func TestSeedServesLastReady(t *testing.T) {
 	}
 }
 
-func TestRefreshReseedsOtherContainers(t *testing.T) {
-	p, _ := withBoxd(t)
-	p.BoxImage = "boxd@new"
-	var env contract.Environment
-	p.Store.Get("environments", "web", &env)
-	cs, err := p.containers(context.Background(), env)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p.Store.Put("ready", "web", contract.Seed{Env: "web", State: "ready", Spec: spec(cs)})
-	p.Refresh()
-	time.Sleep(100 * time.Millisecond)
-	var seed contract.Seed
-	if p.Store.Get("seeds", "web", &seed) == nil {
-		t.Fatalf("rebuilt a current seed: %+v", seed)
-	}
-	p.Store.Put("ready", "web", contract.Seed{Env: "web", State: "ready", Spec: "old"})
-	p.Refresh()
-	for i := 0; ; i++ {
-		if p.Store.Get("seeds", "web", &seed) == nil && seed.Spec == spec(cs) {
-			break
-		}
-		if i == 50 {
-			t.Fatalf("no rebuild from the new containers: %+v", seed)
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-}
-
 // A turn whose claude answered but stays up for a background shell is ended, and counts as a clean exit.
 func TestAnsweredTurnEnds(t *testing.T) {
 	p, fb := withBoxd(t)

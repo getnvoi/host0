@@ -108,10 +108,15 @@ func env() *cobra.Command {
 		RunE:  func(_ *cobra.Command, args []string) error { return call("DELETE", envPath(args[0]), nil, nil) },
 	}, envCreate(), envSet(), &cobra.Command{
 		Use:   "suspend <env>",
-		Short: "Snapshot the environment's seed and free its worker",
+		Short: "Suspend the actor the environment's preview routes to, freeing its worker",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return call("POST", "/seeds/"+url.PathEscape(args[0])+"/suspend", nil, nil)
+			var out struct{ Actor string }
+			if err := call("POST", "/seeds/"+url.PathEscape(args[0])+"/suspend", nil, &out); err != nil {
+				return err
+			}
+			fmt.Printf("suspended %s\n", out.Actor)
+			return nil
 		},
 	}, seed(), vars(), secrets(), setup(), services(), tools())
 	return cmd
