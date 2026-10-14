@@ -24,7 +24,7 @@ var Encrypt string
 
 type params struct {
 	Role, Token, Subnet, ControlIP, Registry, LocalRegistry string
-	Labels                                                    []string
+	Labels                                                  []string
 	// Shell that sets provider_id and external_ips.
 	Identity string
 }
