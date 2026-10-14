@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/contexts/api/client";
+import { transport } from "@/contexts/api/transport";
 import type { Approval, Changes, Environment, LogSource, Me, PreviewStatus, Session, Summary, Terminal, Usage } from "@/contexts/api/types";
 
 export const sessionsKey = ["sessions"] as const;
@@ -130,8 +131,8 @@ export async function previewLink(host: string) {
 }
 
 export async function signOut() {
-  await api.post("/logout", undefined, { baseURL: "/api" }).catch(() => {});
-  location.assign("/login");
+  await api.post("/logout").catch(() => {});
+  transport().signedOut();
 }
 
 export function useUsage(days: number, by?: string) {
