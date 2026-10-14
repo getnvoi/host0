@@ -97,8 +97,9 @@ export function Sidebar({ active, counts, workspace, account, choose = () => {} 
             handle="button:Account"
             width={sidebarWidth - 24}
             entries={[
-              menu.item("Profile", { glyph: "at", action: () => choose("Profile") }),
-              menu.item("Security", { glyph: "lock", action: () => choose("Security") }),
+              ...(["Profile", "Security"] as const)
+                .filter((title) => !hidden.includes(title))
+                .map((title) => menu.item(title, { glyph: title === "Profile" ? "at" : "lock", action: () => choose(title) })),
               menu.item("Theme", { glyph: "theme", action: () => choose("Theme") }),
               menu.divider,
               menu.item("Sign out", { glyph: "signOut", action: () => choose("Sign out") }),

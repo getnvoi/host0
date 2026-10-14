@@ -21,7 +21,7 @@ export const settingsPages = [
 ] as const;
 
 // The pages merged under "Agent settings": one sidebar entry, shown as tabs in the page head.
-export const agentSettings = ["agents", "skills", "workflows", "tasks", "credentials"] as const;
+export const agentSettings = ["credentials"] as const;
 export const agentSettingsPlace = { title: "Agent settings", glyph: "bot" };
 
 export type SettingsPage = (typeof settingsPages)[number][0];
