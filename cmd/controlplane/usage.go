@@ -52,8 +52,7 @@ func (p *plane) sample(ctx context.Context, now time.Time) {
 		if t, ok := tierOf[env]; ok {
 			return t
 		}
-		var e workspace.Environment
-		if p.Store.Get("environments", env, &e) == nil {
+		if e, err := p.ws.Environment(env); err == nil {
 			if t, err := p.sc.Tier(e.Tier); err == nil {
 				tierOf[env] = t.Name
 			}
@@ -61,23 +60,21 @@ func (p *plane) sample(ctx context.Context, now time.Time) {
 		return tierOf[env]
 	}
 	actors := map[string]usage{}
-	if err := p.Store.List("sessions", func(d func(any) error) error {
-		var s struct{ ID, Env, Actor, By string }
-		if d(&s) == nil && s.Actor != "" {
-			actors[s.Actor] = usage{Session: s.ID, Env: s.Env, By: s.By}
-		}
-		return nil
-	}); err != nil {
+	live, err := p.ws.Sessions("")
+	if err != nil {
 		log.Printf("usage: sessions: %v", err)
 	}
-	if err := p.Store.List("seeds", func(d func(any) error) error {
-		var s workspace.Seed
-		if d(&s) == nil && s.Actor != "" {
+	for _, s := range live {
+		actors["wt-"+s.ID] = usage{Session: s.ID, Env: s.Env, By: s.By}
+	}
+	seeds, err := p.ws.Seeds()
+	if err != nil {
+		log.Printf("usage: seeds: %v", err)
+	}
+	for _, s := range seeds {
+		if s.Actor != "" {
 			actors[s.Actor] = usage{Session: "seed:" + s.Env, Env: s.Env}
 		}
-		return nil
-	}); err != nil {
-		log.Printf("usage: seeds: %v", err)
 	}
 	for actor, base := range actors {
 		state, err := p.Sandboxes.State(ctx, actor)
@@ -159,16 +156,16 @@ func (p *plane) Usage(now time.Time, days int, by string) (workspace.Usage, erro
 	people := map[string]bool{}
 
 	scope := map[string]bool{}
-	err := p.Store.List("sessions", func(d func(any) error) error {
-		var s workspace.Session
-		if err := d(&s); err != nil {
-			return err
-		}
+	history, err := p.ws.History()
+	if err != nil {
+		return out, err
+	}
+	for _, s := range history {
 		if s.By != "" {
 			people[s.By] = true
 		}
 		if by != "" && s.By != by {
-			return nil
+			continue
 		}
 		scope[s.ID] = true
 		if day := at(s.At); day != nil {
@@ -198,10 +195,6 @@ func (p *plane) Usage(now time.Time, days int, by string) (workspace.Usage, erro
 				}
 			}
 		}
-		return nil
-	})
-	if err != nil {
-		return out, err
 	}
 	labels, err := p.auth.People()
 	if err != nil {
@@ -253,21 +246,18 @@ func (p *plane) Usage(now time.Time, days int, by string) (workspace.Usage, erro
 	}
 
 	var waits []int64
-	if err := p.Store.List("approvals", func(d func(any) error) error {
-		var a workspace.Approval
-		if err := d(&a); err != nil {
-			return err
-		}
+	approvals, err := p.ws.Approvals("")
+	if err != nil {
+		return out, err
+	}
+	for _, a := range approvals {
 		if !scope[a.Session] || a.Decided.IsZero() || at(a.Decided) == nil {
-			return nil
+			continue
 		}
 		out.Totals.Approvals++
 		if !a.At.IsZero() {
 			waits = append(waits, a.Decided.Sub(a.At).Milliseconds())
 		}
-		return nil
-	}); err != nil {
-		return out, err
 	}
 	out.Totals.ApprovalWaitMS = median(waits)
 

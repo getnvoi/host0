@@ -17,7 +17,7 @@ const module = "github.com/getnvoi/host0/"
 var (
 	features  = []string{"workspace", "auth", "tools", "workers", "preview", "stream", "infra"}
 	contracts = []string{"sandbox", "llm", "scm", "store", "edge", "cloud", "db"}
-	clients   = []string{"box", "kube"}
+	clients   = []string{"box", "kube", "api"}
 )
 
 // Imports the rules refuse, kept for the reason given. A test-only entry holds for the importer's tests alone.

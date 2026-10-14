@@ -13,9 +13,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/getnvoi/host0/internal/auth"
 	"github.com/getnvoi/host0/internal/cloud"
 	"github.com/getnvoi/host0/internal/cloud/clouds"
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/edge/cloudflare"
 	"github.com/getnvoi/host0/internal/edge/dns"
@@ -55,6 +58,12 @@ func duration(name string, def time.Duration) time.Duration {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "openapi" {
+		if err := writeSpec(os.Args[2:]); err != nil {
+			log.Fatalf("openapi: %v", err)
+		}
+		return
+	}
 	sb, err := substrate.New(substrate.Config{
 		API:       "api.ate-system.svc.cluster.local:443",
 		Authority: "api.ate-system.svc",
@@ -80,12 +89,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("store: %v", err)
 	}
+	gdb, err := db.Open("/var/lib/hz/hz.db", key)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := db.Migrate(gdb); err != nil {
+		log.Fatal(err)
+	}
 	cluster, zone := must("HZ_CLUSTER"), must("HZ_ZONE")
 	cl, init, err := workerCloud("/etc/hz/cloud")
 	if err != nil {
 		log.Fatalf("cloud: %v", err)
 	}
-	p := wire(st, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("HZ_PREVIEW_SUFFIX"), must("HZ_BOX_TOKEN"))
+	p := wire(gdb, st, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("HZ_PREVIEW_SUFFIX"), must("HZ_BOX_TOKEN"))
 	p.Pods = pools
 	p.sc.Cloud, p.sc.WorkerInit = cl, init
 	p.sc.PauseAfter, p.sc.SuspendAfter = duration("HZ_PAUSE_AFTER", 10*time.Minute), duration("HZ_SUSPEND_AFTER", 60*time.Minute)
@@ -104,8 +120,22 @@ func main() {
 	log.Fatal(srv.ListenAndServe())
 }
 
+// Writes the API's spec to the file named, or to stdout.
+func writeSpec(args []string) error {
+	b, err := spec()
+	if err != nil {
+		return err
+	}
+	if len(args) == 0 {
+		_, err = os.Stdout.Write(b)
+		return err
+	}
+	return os.WriteFile(args[0], b, 0o644)
+}
+
 // The plane: one workspace and the scaler under it, sign-in, the preview gate and the stream.
 type plane struct {
+	DB        *gorm.DB
 	Store     store.Store
 	Sandboxes sandbox.Sandboxes
 	Pools     workers.Pools
@@ -122,6 +152,8 @@ type plane struct {
 	auth *auth.Auth
 	gate preview.Gate
 	bus  *stream.Broker
+	// The routes served outside Huma, as "<mux> <pattern>".
+	raw []string
 }
 
 type Pods interface {
@@ -133,13 +165,13 @@ type Pods interface {
 var runners = []llm.Runner{claude.Runner{}, codex.Runner{}}
 
 // Each part on the store and the sandboxes, and each told of the others.
-func wire(st store.Store, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router, cluster, zone, suffix, boxToken string) *plane {
+func wire(gdb *gorm.DB, st store.Store, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router, cluster, zone, suffix, boxToken string) *plane {
 	bus := stream.New(workspace.Update{Kind: "reset"})
 	sc := &workers.Scaler{Sandboxes: sb, Pools: pools, Store: st, Cluster: cluster}
-	ws := &workspace.Workspace{Sandboxes: sb, Store: st, Edge: e, Workers: sc, Tools: toolbox{github.Forge{}}, Bus: bus,
+	ws := &workspace.Workspace{Sandboxes: sb, DB: gdb, Store: st, Edge: e, Workers: sc, Tools: toolbox{github.Forge{}}, Bus: bus,
 		Runners: runners, BoxToken: boxToken, Cluster: cluster, Zone: zone, Suffix: suffix}
 	sc.Named, sc.Woken = ws.Named, ws.Unkeyed
-	return &plane{Store: st, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
+	return &plane{DB: gdb, Store: st, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
 		ws: ws, sc: sc, auth: &auth.Auth{Store: st}, gate: preview.Gate{Secret: boxToken}, bus: bus}
 }
 

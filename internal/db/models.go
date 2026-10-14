@@ -47,6 +47,14 @@ type LLMConfig struct {
 	Values     map[string]string `gorm:"type:text;serializer:sealed"`
 	Main       bool              `gorm:"not null;default:false"`
 	ArchivedAt *time.Time
+	CreatedAt  time.Time
+}
+
+// A credential of the workspace's own, by name: github.
+type Credential struct {
+	ID    uint
+	Name  string `gorm:"not null;uniqueIndex"`
+	Value string `gorm:"type:text;serializer:sealed"`
 }
 
 type Environment struct {
@@ -58,12 +66,14 @@ type Environment struct {
 	Preview    int // the app's port
 	Tier       string
 	ArchivedAt *time.Time
-	EnvVars    []EnvVar    `gorm:"constraint:OnDelete:CASCADE"`
-	Secrets    []Secret    `gorm:"constraint:OnDelete:CASCADE"`
-	SetupSteps []SetupStep `gorm:"constraint:OnDelete:CASCADE"`
-	Services   []Service   `gorm:"constraint:OnDelete:CASCADE"`
-	Seeds      []Seed      `gorm:"constraint:OnDelete:CASCADE"`
-	Sessions   []Session   `gorm:"constraint:OnDelete:RESTRICT"`
+	// Tool name to policy: auto, approval or deny.
+	Tools      map[string]string `gorm:"type:text;serializer:json"`
+	EnvVars    []EnvVar          `gorm:"constraint:OnDelete:CASCADE"`
+	Secrets    []Secret          `gorm:"constraint:OnDelete:CASCADE"`
+	SetupSteps []SetupStep       `gorm:"constraint:OnDelete:CASCADE"`
+	Services   []Service         `gorm:"constraint:OnDelete:CASCADE"`
+	Seeds      []Seed            `gorm:"constraint:OnDelete:CASCADE"`
+	Sessions   []Session         `gorm:"constraint:OnDelete:RESTRICT"`
 }
 
 type EnvVar struct {
@@ -110,29 +120,36 @@ type Seed struct {
 	Error         string
 	Preview       string
 	BuiltAt       *time.Time
+	Run           string // the boxd run of its setup script
+	StartedAt     time.Time
 }
 
 // DeletedAt hides a session; its events stay, and the foreign key refuses a hard delete while they do.
 type Session struct {
-	ID             uint
-	PublicID       string   `gorm:"not null;uniqueIndex;size:8"` // 8 hex, the id in names
-	AgentID        uint     `gorm:"not null;index"`
-	EnvironmentID  uint     `gorm:"not null;index"`
-	MemberID       *uint    `gorm:"index"` // who started it; nil when no member did
-	Member         *Member  `gorm:"constraint:OnDelete:RESTRICT"`
-	ParentID       *uint    `gorm:"index"` // the session that spawned this sub-agent
-	Parent         *Session `gorm:"constraint:OnDelete:SET NULL"`
-	Branch         string
-	Preview        string
-	Transcript     string // the runner's session id
-	Turns          int    `gorm:"not null;default:0"`
-	State          string `gorm:"not null"`
-	Title          string
-	Error          string
-	Cursor         int64 `gorm:"not null;default:0"` // bytes of the runner's log already read
-	Mark           int   `gorm:"not null;default:0"` // position of the running turn's prompt in events
-	Pending        string
-	DeletedAt      gorm.DeletedAt  `gorm:"index"`
+	ID            uint
+	PublicID      string   `gorm:"not null;uniqueIndex;size:8"` // 8 hex, the id in names
+	AgentID       uint     `gorm:"not null;index"`
+	EnvironmentID uint     `gorm:"not null;index"`
+	MemberID      *uint    `gorm:"index"` // who started it; nil when no member did
+	Member        *Member  `gorm:"constraint:OnDelete:RESTRICT"`
+	ParentID      *uint    `gorm:"index"` // the session that spawned this sub-agent
+	Parent        *Session `gorm:"constraint:OnDelete:SET NULL"`
+	Branch        string
+	Preview       string
+	Transcript    string // the runner's session id
+	Turns         int    `gorm:"not null;default:0"`
+	State         string `gorm:"not null"`
+	Title         string
+	Error         string
+	Cursor        int64 `gorm:"not null;default:0"` // bytes of the runner's log already read
+	Mark          int   `gorm:"not null;default:0"` // position of the running turn's prompt in events
+	Pending       string
+	DeletedAt     gorm.DeletedAt `gorm:"index"`
+	Forked        bool           `gorm:"not null;default:false"` // its sandbox was made and the branch checked out
+	// What the auto tools of a turn did, kept until its approvals are decided.
+	Outcomes       []string `gorm:"type:text;serializer:json"`
+	StartedAt      time.Time
+	LastAt         time.Time
 	Events         []Event         `gorm:"constraint:OnDelete:RESTRICT"`
 	QueuedMessages []QueuedMessage `gorm:"constraint:OnDelete:CASCADE"`
 	Approvals      []Approval      `gorm:"constraint:OnDelete:CASCADE"`
@@ -182,6 +199,8 @@ type Approval struct {
 	DecidedByID *uint           `gorm:"index"`
 	DecidedBy   *Member         `gorm:"constraint:OnDelete:RESTRICT"`
 	DecidedAt   *time.Time
+	AskedAt     time.Time
+	Allow       bool `gorm:"not null;default:false"` // the decision, kept while it is carried out
 }
 
 type Artifact struct {

@@ -18,10 +18,10 @@ func byName(t *testing.T, p *Workspace) map[string]LLMConfig {
 }
 
 func TestConfigMain(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	oauth := map[string]string{"kind": "oauth", "token": "t"}
 	for _, name := range []string{"a", "b", "c"} {
-		if _, err := p.AddConfig(LLMConfig{Name: name, Provider: "claude_code", Values: oauth}); err != nil {
+		if _, err := p.AddConfig(LLMConfigInput{Name: name, Provider: "claude_code", Values: oauth}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -45,7 +45,7 @@ func TestConfigMain(t *testing.T) {
 	if err := p.RestoreConfig("c"); err != nil || !byName(t, p)["c"].Main {
 		t.Fatalf("restored into an empty set becomes main: %v", err)
 	}
-	if _, err := p.AddConfig(LLMConfig{Name: "c", Provider: "claude_code", Values: oauth}); err == nil {
+	if _, err := p.AddConfig(LLMConfigInput{Name: "c", Provider: "claude_code", Values: oauth}); err == nil {
 		t.Fatal("a taken label is refused")
 	}
 }

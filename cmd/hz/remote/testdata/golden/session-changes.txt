@@ -1,0 +1,3 @@
+> GET /sessions/a1b2c3d4/changes
+STATUS    ADDED  REMOVED  PATH         OLD_PATH
+modified  3      1        app/cart.rb  

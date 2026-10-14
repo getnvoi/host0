@@ -44,7 +44,8 @@ func Open(path string, key []byte) (*gorm.DB, error) {
 		"PRAGMA journal_mode=wal",
 		"PRAGMA synchronous=normal",
 	}
-	conn, err := driver.Open("file:"+(&url.URL{Path: path}).EscapedPath()+"?vfs=xts", func(c *sqlite3.Conn) error {
+	// Immediate: a transaction that reads before it writes waits its turn instead of failing busy.
+	conn, err := driver.Open("file:"+(&url.URL{Path: path}).EscapedPath()+"?vfs=xts&_txlock=immediate", func(c *sqlite3.Conn) error {
 		for _, p := range pragmas {
 			if err := c.Exec(p); err != nil {
 				if errors.Is(err, sqlite3.NOTADB) {

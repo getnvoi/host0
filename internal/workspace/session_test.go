@@ -140,16 +140,16 @@ func withBoxd(t *testing.T) (*Workspace, *fakeBoxd) {
 	fb := newBoxd()
 	srv := httptest.NewServer(fb.handler())
 	t.Cleanup(srv.Close)
-	p := newWorkspace(&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}})
-	p.Store.Put("environments", "web", Environment{Name: "web", Branch: "main"})
-	p.Store.Put("credentials", "default", Credentials{})
-	p.Store.Put("llm", testLLM.Name, testLLM)
+	p := newWorkspace(t, &fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}})
+	env(t, p, Environment{Name: "web", Branch: "main"})
+	if _, err := p.AddConfig(testLLM); err != nil {
+		t.Fatal(err)
+	}
 	return p, fb
 }
 
 func session(p *Workspace, sid string) Session {
-	var s Session
-	p.Store.Get("sessions", sid, &s)
+	s, _ := p.load(sid)
 	return s
 }
 
@@ -191,9 +191,9 @@ func rest(t *testing.T, p *Workspace, sid string, turns int) Session {
 }
 
 func TestSayWhileRunningLeavesTheSession(t *testing.T) {
-	p := newWorkspace(nil)
+	p := newWorkspace(t, nil)
 	stored := Session{ID: "w1", State: "running", Events: []llm.Event{{Kind: "prompt", Content: "a"}}}
-	p.Store.Put("sessions", "w1", stored)
+	sessionRow(t, p, stored)
 	before := session(p, "w1")
 	if err := p.Say("w1", "next", ""); err != nil {
 		t.Fatal(err)
@@ -204,7 +204,7 @@ func TestSayWhileRunningLeavesTheSession(t *testing.T) {
 	if string(a) != string(b) {
 		t.Fatalf("Say rewrote the session:\n%s\n%s", a, b)
 	}
-	if q := p.Queue("w1"); len(q) != 1 || q[0] != "next" {
+	if q, _ := p.Queue("w1"); len(q) != 1 || q[0] != "next" {
 		t.Fatalf("queue %v", q)
 	}
 }
@@ -212,7 +212,7 @@ func TestSayWhileRunningLeavesTheSession(t *testing.T) {
 // Two messages to a session at rest: one runs, the other waits for it, and each turn is started once.
 func TestSayRunsOneTurnAtATime(t *testing.T) {
 	p, fb := withBoxd(t)
-	p.Store.Put("sessions", "r1", Session{ID: "r1", Env: "web", Actor: "wt-r1", State: "idle", Forked: true})
+	sessionRow(t, p, Session{ID: "r1", Env: "web", Actor: "wt-r1", State: "idle", Forked: true})
 	var wg sync.WaitGroup
 	for _, m := range []string{"one", "two"} {
 		wg.Add(1)
@@ -231,7 +231,7 @@ func TestSayRunsOneTurnAtATime(t *testing.T) {
 	if fb.count("turn-1") != 1 || fb.count("turn-2") != 1 || fb.count("turn-3") != 0 {
 		t.Fatalf("runs %v", fb.puts)
 	}
-	if q := p.Queue("r1"); len(q) != 0 {
+	if q, _ := p.Queue("r1"); len(q) != 0 {
 		t.Fatalf("left queued %v", q)
 	}
 }
@@ -240,9 +240,9 @@ func TestSayRunsOneTurnAtATime(t *testing.T) {
 func TestStopDrainsTheQueue(t *testing.T) {
 	p, fb := withBoxd(t)
 	fb.hold["turn-1"], fb.logs["turn-1"] = make(chan int, 1), true
-	p.Store.Put("sessions", "st1", Session{ID: "st1", Env: "web", Actor: "wt-st1", State: "running",
+	sessionRow(t, p, Session{ID: "st1", Env: "web", Actor: "wt-st1", State: "running",
 		Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt", Content: "long"}}})
-	p.Store.Put("queue", "st1", []string{"after"})
+	queueRows(t, p, "st1", "after")
 	p.Recover()
 	<-fb.waiting
 	if err := p.Stop(context.Background(), "st1"); err != nil {
@@ -259,7 +259,7 @@ func TestStopDrainsTheQueue(t *testing.T) {
 
 func TestStopKeptOnlyWhenCancelled(t *testing.T) {
 	p, _ := withBoxd(t)
-	p.Store.Put("sessions", "st2", Session{ID: "st2", Env: "web", Actor: "wt-st2", State: "running", Turns: 5})
+	sessionRow(t, p, Session{ID: "st2", Env: "web", Actor: "wt-st2", State: "running", Turns: 5})
 	if err := p.Stop(context.Background(), "st2"); err == nil {
 		t.Fatal("stopping an ended run succeeded")
 	}
@@ -271,7 +271,7 @@ func TestStopKeptOnlyWhenCancelled(t *testing.T) {
 // A stop left from an earlier turn does not end the next one.
 func TestStaleStop(t *testing.T) {
 	p, _ := withBoxd(t)
-	p.Store.Put("sessions", "st3", Session{ID: "st3", Env: "web", Actor: "wt-st3", State: "idle", Forked: true, Turns: 1})
+	sessionRow(t, p, Session{ID: "st3", Env: "web", Actor: "wt-st3", State: "idle", Forked: true, Turns: 1})
 	stops.Store(stopKey("st3", 2), true)
 	if err := p.Say("st3", "go", ""); err != nil {
 		t.Fatal(err)
@@ -283,7 +283,7 @@ func TestStaleStop(t *testing.T) {
 
 func TestRecoverRunsPendingPrompt(t *testing.T) {
 	p, fb := withBoxd(t)
-	p.Store.Put("sessions", "rc1", Session{ID: "rc1", Env: "web", Actor: "wt-rc1", State: "running", Forked: true,
+	sessionRow(t, p, Session{ID: "rc1", Env: "web", Actor: "wt-rc1", State: "running", Forked: true,
 		Turns: 1, Pending: "dequeued", Events: []llm.Event{{Kind: "prompt", Content: "first"}}})
 	p.Recover()
 	rest(t, p, "rc1", 2)
@@ -295,20 +295,20 @@ func TestRecoverRunsPendingPrompt(t *testing.T) {
 func TestRecoverFollowsRunningTurn(t *testing.T) {
 	p, fb := withBoxd(t)
 	fb.logs["turn-1"] = true
-	p.Store.Put("sessions", "rc2", Session{ID: "rc2", Env: "web", Actor: "wt-rc2", State: "running", Forked: true,
+	sessionRow(t, p, Session{ID: "rc2", Env: "web", Actor: "wt-rc2", State: "running", Forked: true,
 		Turns: 1, Events: []llm.Event{{Kind: "prompt", Content: "first"}, {Kind: "message", Content: "old"}}})
 	p.Recover()
 	s := rest(t, p, "rc2", 1)
-	if fb.count("turn-1") != 0 || kinds(s) != "prompt" {
+	if fb.count("turn-1") != 0 || kinds(s) != "prompt,message" {
 		t.Fatalf("runs %v, events %s", fb.puts, kinds(s))
 	}
 }
 
 func TestRecoverSettlesDecidedApprovals(t *testing.T) {
 	p, fb := withBoxd(t)
-	p.Store.Put("sessions", "rc3", Session{ID: "rc3", Env: "web", Actor: "wt-rc3", State: "awaiting_approval",
+	sessionRow(t, p, Session{ID: "rc3", Env: "web", Actor: "wt-rc3", State: "awaiting_approval",
 		Forked: true, Turns: 1, Outcomes: []string{"set_title: done"}, Events: []llm.Event{{Kind: "prompt"}}})
-	p.Store.Put("approvals", "x1", Approval{ID: "x1", Session: "rc3", Turn: 1, Tool: "push_branch", State: "denied",
+	approvalRow(t, p, Approval{ID: "x1", Session: "rc3", Turn: 1, Tool: "push_branch", State: "denied",
 		Outcome: "push_branch: denied by the user"})
 	p.Recover()
 	rest(t, p, "rc3", 2)
@@ -320,9 +320,9 @@ func TestRecoverSettlesDecidedApprovals(t *testing.T) {
 
 func TestRecoverKeepsWaitingOnApprovals(t *testing.T) {
 	p, fb := withBoxd(t)
-	p.Store.Put("sessions", "rc4", Session{ID: "rc4", Env: "web", Actor: "wt-rc4", State: "awaiting_approval",
+	sessionRow(t, p, Session{ID: "rc4", Env: "web", Actor: "wt-rc4", State: "awaiting_approval",
 		Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt"}}})
-	p.Store.Put("approvals", "x2", Approval{ID: "x2", Session: "rc4", Turn: 1, Tool: "push_branch", State: "pending"})
+	approvalRow(t, p, Approval{ID: "x2", Session: "rc4", Turn: 1, Tool: "push_branch", State: "pending"})
 	p.Recover()
 	time.Sleep(100 * time.Millisecond)
 	if s := session(p, "rc4"); s.State != "awaiting_approval" || fb.total() != 0 {
@@ -332,13 +332,12 @@ func TestRecoverKeepsWaitingOnApprovals(t *testing.T) {
 
 func TestRecoverFinishesDecision(t *testing.T) {
 	p, fb := withBoxd(t)
-	p.Store.Put("sessions", "rc6", Session{ID: "rc6", Env: "web", Actor: "wt-rc6", State: "awaiting_approval",
+	sessionRow(t, p, Session{ID: "rc6", Env: "web", Actor: "wt-rc6", State: "awaiting_approval",
 		Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt"}}})
-	p.Store.Put("approvals", "x3", Approval{ID: "x3", Session: "rc6", Turn: 1, Tool: "push_branch", State: "deciding"})
+	approvalRow(t, p, Approval{ID: "x3", Session: "rc6", Turn: 1, Tool: "push_branch", State: "deciding"})
 	p.Recover()
 	rest(t, p, "rc6", 2)
-	var a Approval
-	p.Store.Get("approvals", "x3", &a)
+	a, _ := p.Approval("x3")
 	if a.State != "denied" || fb.prompt("turn-2") != Outcome+"\npush_branch: denied by the user" {
 		t.Fatalf("approval %s, outcome turn %q", a.State, fb.prompt("turn-2"))
 	}
@@ -346,8 +345,8 @@ func TestRecoverFinishesDecision(t *testing.T) {
 
 func TestRecoverRunsQueueOfIdleSession(t *testing.T) {
 	p, fb := withBoxd(t)
-	p.Store.Put("sessions", "rc5", Session{ID: "rc5", Env: "web", Actor: "wt-rc5", State: "idle", Forked: true, Turns: 1})
-	p.Store.Put("queue", "rc5", []string{"later"})
+	sessionRow(t, p, Session{ID: "rc5", Env: "web", Actor: "wt-rc5", State: "idle", Forked: true, Turns: 1})
+	queueRows(t, p, "rc5", "later")
 	p.Recover()
 	rest(t, p, "rc5", 2)
 	if fb.prompt("turn-2") != "later" {
@@ -358,8 +357,8 @@ func TestRecoverRunsQueueOfIdleSession(t *testing.T) {
 // A session whose fork failed is forked again by the next message, and runs its first prompt before it.
 func TestSayForksAgain(t *testing.T) {
 	p, fb := withBoxd(t)
-	p.Store.Put("ready", "web", Seed{Env: "web", Template: "t", Tag: "t", State: "ready"})
-	p.Store.Put("sessions", "f1", Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "hz/f1", State: "failed",
+	seedRow(t, p, Seed{Env: "web", Template: "t", Tag: "t", State: "ready"})
+	sessionRow(t, p, Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "hz/f1", State: "failed",
 		Error: "boom", Pending: "first"})
 	if err := p.Say("f1", "second", ""); err != nil {
 		t.Fatal(err)
@@ -376,14 +375,14 @@ func TestSayForksAgain(t *testing.T) {
 func TestDecide(t *testing.T) {
 	p, fb := withBoxd(t)
 	now := time.Now()
-	p.Store.Put("sessions", "d1", Session{ID: "d1", Env: "web", Actor: "wt-d1", State: "awaiting_approval",
+	sessionRow(t, p, Session{ID: "d1", Env: "web", Actor: "wt-d1", State: "awaiting_approval",
 		Forked: true, Turns: 1, Outcomes: []string{"set_title: done"},
 		Events: []llm.Event{{Kind: "prompt", At: now.Add(-time.Minute)}}})
-	p.Store.Put("approvals", "a1", Approval{ID: "a1", Session: "d1", Turn: 1, Tool: "push_branch", State: "pending", At: now})
-	p.Store.Put("approvals", "a2", Approval{ID: "a2", Session: "d1", Turn: 1, Tool: "create_pull_request",
+	approvalRow(t, p, Approval{ID: "a1", Session: "d1", Turn: 1, Tool: "push_branch", State: "pending", At: now})
+	approvalRow(t, p, Approval{ID: "a2", Session: "d1", Turn: 1, Tool: "create_pull_request",
 		State: "pending", At: now.Add(time.Millisecond)})
 	// An approval from an earlier turn is neither waited on nor reported again.
-	p.Store.Put("approvals", "a0", Approval{ID: "a0", Session: "d1", Turn: 0, Tool: "push_branch", State: "done",
+	approvalRow(t, p, Approval{ID: "a0", Session: "d1", Turn: 0, Tool: "push_branch", State: "done",
 		Outcome: "push_branch: pushed", At: now.Add(-time.Hour)})
 
 	if _, err := p.Decide("a1", false, "ben"); err != nil {
@@ -410,9 +409,9 @@ func TestDecide(t *testing.T) {
 }
 
 func TestDecideOnce(t *testing.T) {
-	p := newWorkspace(nil)
-	p.Store.Put("sessions", "d2", Session{ID: "d2", State: "idle"})
-	p.Store.Put("approvals", "b1", Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
+	p := newWorkspace(t, nil)
+	sessionRow(t, p, Session{ID: "d2", State: "idle"})
+	approvalRow(t, p, Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	won, lost := 0, 0
@@ -455,8 +454,8 @@ func TestSeedOneAtATime(t *testing.T) {
 	}
 	close(held)
 	until(t, "the build to fail", func() bool {
-		var s Seed
-		return p.Store.Get("seeds", "web", &s) == nil && s.State == "failed"
+		s, err := p.SeedOf("web")
+		return err == nil && s.State == "failed"
 	})
 	until(t, "the build to be released", func() bool {
 		_, busy := seeding.Load("web")
@@ -467,8 +466,8 @@ func TestSeedOneAtATime(t *testing.T) {
 // A seed being built again leaves the last ready one in service.
 func TestSeedServesLastReady(t *testing.T) {
 	p, _ := withBoxd(t)
-	p.Store.Put("ready", "web", Seed{Env: "web", Template: "old", Tag: "old", State: "ready"})
-	p.Store.Put("seeds", "web", Seed{Env: "web", State: "building"})
+	seedRow(t, p, Seed{Env: "web", Template: "old", Tag: "old", State: "ready"})
+	seedRow(t, p, Seed{Env: "web", State: "building"})
 	if es, err := p.Environments(); err != nil || len(es) != 1 || !es[0].Ready {
 		t.Fatalf("environments %+v %v", es, err)
 	}
@@ -477,8 +476,7 @@ func TestSeedServesLastReady(t *testing.T) {
 		t.Fatalf("served %+v %v", seed, err)
 	}
 	p.Recover()
-	var s Seed
-	if p.Store.Get("seeds", "web", &s); s.State != "failed" {
+	if s, _ := p.SeedOf("web"); s.State != "failed" {
 		t.Fatalf("an interrupted build is %s", s.State)
 	}
 	if _, err := p.served("web"); err != nil {
@@ -493,7 +491,7 @@ func TestAnsweredTurnEnds(t *testing.T) {
 	t.Cleanup(func() { linger = 10 * time.Second })
 	fb.hold["turn-1"], fb.logs["turn-1"] = make(chan int, 1), true
 	fb.lines["turn-1"] = `{"type":"result","result":"done"}` + "\n"
-	p.Store.Put("sessions", "an1", Session{ID: "an1", Env: "web", Actor: "wt-an1", State: "running",
+	sessionRow(t, p, Session{ID: "an1", Env: "web", Actor: "wt-an1", State: "running",
 		Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt", Content: "serve"}}})
 	p.Recover()
 	s := rest(t, p, "an1", 1)
@@ -511,7 +509,7 @@ func TestTransientTurnRetried(t *testing.T) {
 		fb.hold["turn-1"], fb.logs["turn-1"] = make(chan int, 1), true
 		fb.hold["turn-1"] <- 1
 		fb.lines["turn-1"] = `{"type":"result","is_error":true,"result":"` + text + `"}` + "\n"
-		p.Store.Put("sessions", sid, Session{ID: sid, Env: "web", Actor: "wt-" + sid, State: "running",
+		sessionRow(t, p, Session{ID: sid, Env: "web", Actor: "wt-" + sid, State: "running",
 			Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt", Content: "go"}}})
 		p.Recover()
 		if sid == "tr1" {
@@ -530,4 +528,4 @@ func TestTransientTurnRetried(t *testing.T) {
 	}
 }
 
-var testLLM = LLMConfig{Name: "Claude Code", Provider: "claude_code", Main: true, Values: map[string]string{"kind": "oauth", "token": "t"}}
+var testLLM = LLMConfigInput{Name: "Claude Code", Provider: "claude_code", Main: true, Values: map[string]string{"kind": "oauth", "token": "t"}}

@@ -137,6 +137,7 @@ internal/edge/        contract: the install's Edge, the plane's Router; cloudfla
 internal/cloud/       contract: Cloud; conformance/, hetzner/, scaleway/, clouds/
 internal/box/         client: boxd, and the terminal relay
 internal/kube/        client: the cluster's own API
+internal/api/         client: the plane's OpenAPI spec and its generated client; hzgen/ writes hz's commands
 internal/shared/      naming, seal
 apps/ui/              the web UI, built into cmd/controlplane/web/dist
 ```
@@ -152,7 +153,7 @@ or several binaries use.
 3. A contract (`sandbox`, `llm`, `scm`, `store`, `edge`, `cloud`, `db`) imports only `shared`.
 4. An implementation (any subfolder of a contract) imports only its own contract, `shared` and its own
    subpackages; a provider's tests may import `cloud/conformance`.
-5. A client (`box`, `kube`) imports only `shared` and contracts.
+5. A client (`box`, `kube`, `api`) imports only `shared` and contracts.
 6. `shared` imports nothing of ours.
 7. `internal/infra` is imported by `cmd/hz/local` alone.
 
@@ -197,20 +198,24 @@ a shared team UI is a different phase and needs real accounts.
 
 ## The database is durability. Live state is fetched.
 
+The plane's records are rows of `internal/db`: environments with their variables, secrets, setup steps and
+services; one seed row per build; sessions, their events and their queue; approvals; agent credentials and the
+workspace's own; members. Migrations are numbered and frozen: a model that changes gets the next one.
+
 A row holds what somebody asked for and what only we can know: identity, sealed
-credentials, the transcript, a byte cursor, a decision. **It never holds an
-observation about the world.** Whether a server exists, whether a pod is
-running, whether a checkout landed — those are asked, every time, at the moment
-of use.
+credentials, the transcript, a decision. **It never holds an observation about the
+world.** Whether a server exists, whether a pod is running, whether a checkout
+landed — those are asked, every time, at the moment of use.
 
 A stored observation is a cache nobody invalidates, and it lies confidently. A
 workspace row said `ready` with no server; a worktree row said `ready` over an
-empty checkout. Both times the row won and the turn broke, and the second
-mistake was writing a drift report — a whole feature to reconcile a cache that
-should not exist.
+empty checkout. Both times the row won and the turn broke.
 
-So there is no `State` column, no `SandboxID`. The namespace is `wt-<slug>` and
-the pod is named from it: nothing is stored, so nothing can disagree.
+So there is no `SandboxID`: a session's actor is `wt-<id>`, computed. **Events are
+append-only**: a plane that follows a turn again reads its log from the start and
+appends only what is past the stored events. A removed session is soft-deleted and
+keeps its events; its environment, removed after, is archived, and declaring the
+name again brings it back.
 
 **The corollary is the naming rule below.** You can only refuse to store an id
 if you can compute the name.
@@ -269,8 +274,8 @@ managing infrastructure we did not create — and that is a different product.
 
 ## Where things live
 
-The plane's store is one JSON file per record under `/var/lib/hz` on the control
-node. Its settings are the environment its Deployment sets at install
+The plane's records are `/var/lib/hz/hz.db` on the control node: SQLite, the whole file encrypted (AES-256-XTS
+under a key derived from the sealing key), secrets sealed again in their columns. Its settings are the environment its Deployment sets at install
 (`HZ_CLUSTER`, `HZ_ZONE`, `HZ_EDGE`, …) and the secrets mounted beside them;
 nobody edits them by hand, `hz cluster install` writes them again.
 
@@ -284,9 +289,9 @@ The laptop keeps three things:
 
 `cluster.yml` is optional: every field is also a flag.
 
-Every record the plane stores is sealed whole: AES-256-GCM, a fresh 12-byte nonce
-per seal, `hz-sealed:1:` then base64(nonce|ciphertext). A record that does not
-open is an error naming it. The key is minted by the first install and kept in
+A sealed column is AES-256-GCM, a fresh 12-byte nonce per seal, `hz-sealed:1:` then
+base64(nonce|ciphertext); one that does not open is an error naming its table and
+column. The key is minted by the first install and kept in
 two places: the `plane` secret's `seal`, which the plane mounts at `/etc/hz/seal`,
 and `~/.hz/key`. An install restores whichever is missing and refuses when they
 differ; `hz cluster destroy` leaves `~/.hz/key` in place. k3s encrypts secrets at
@@ -299,8 +304,8 @@ rest in its datastore.
 **A turn is not a job.** It is a session running in a Pod, and the Pod holds it.
 The agent CLI runs under `sandbox_client`; the control plane is merely the process
 ATTACHED — reading the stream, writing rows, answering what it asks. Kill the
-control plane and the turn continues; the next reader reattaches at
-`Session.Cursor`.
+control plane and the turn continues; the next reader reads the turn's log from
+its start and appends only the events past those stored.
 
 Delivery is at-least-once across two systems with no transaction between them,
 so the turn id travels _inside the prompt_ and the Pod's own log is the dedupe

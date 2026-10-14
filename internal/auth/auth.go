@@ -161,11 +161,29 @@ func (a *Auth) SignedIn(next http.Handler) http.Handler {
 			http.Error(w, "missing X-Requested-With", http.StatusForbidden)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), whoKey{}, b.Label)))
+		next.ServeHTTP(w, r.WithContext(through(r.Context(), ByCookie, b.Label)))
 	})
 }
 
 type whoKey struct{}
+
+type doorKey struct{}
+
+// How a request came in: the CLI's bearer token, or a signed-in browser's cookie.
+const (
+	ByToken  = "bearer"
+	ByCookie = "cookie"
+)
+
+func through(ctx context.Context, door, who string) context.Context {
+	return context.WithValue(context.WithValue(ctx, doorKey{}, door), whoKey{}, who)
+}
+
+// The door the request came in by; empty when it came by neither.
+func Door(ctx context.Context) string {
+	s, _ := ctx.Value(doorKey{}).(string)
+	return s
+}
 
 // Requests whose bearer token hashes to tokenSHA256 (hex), as cli; any other is refused. No hash refuses all.
 func Bearer(tokenSHA256 string, next http.Handler) http.Handler {
@@ -176,7 +194,7 @@ func Bearer(tokenSHA256 string, next http.Handler) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), whoKey{}, "cli")))
+		next.ServeHTTP(w, r.WithContext(through(r.Context(), ByToken, "cli")))
 	})
 }
 

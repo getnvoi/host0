@@ -4,13 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
+
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/llm"
-	"github.com/getnvoi/host0/internal/store"
 )
 
 // Guards the llm rows: which one is main is decided across all of them.
@@ -37,22 +38,16 @@ func (ws *Workspace) Configs() ([]LLMConfig, error) {
 }
 
 func (ws *Workspace) configs() ([]LLMConfig, error) {
-	var all []LLMConfig
-	err := ws.Store.List("llm", func(d func(any) error) error {
-		var c LLMConfig
-		if err := d(&c); err != nil {
-			return err
-		}
-		all = append(all, c)
-		return nil
-	})
-	sort.SliceStable(all, func(i, j int) bool {
-		if (all[i].Archived == nil) != (all[j].Archived == nil) {
-			return all[i].Archived == nil
-		}
-		return all[i].At.Before(all[j].At)
-	})
-	return all, err
+	var rows []db.LLMConfig
+	if err := ws.DB.Order("archived_at IS NOT NULL, created_at, id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	all := make([]LLMConfig, len(rows))
+	for i, r := range rows {
+		all[i] = LLMConfig{Name: r.Name, Provider: r.Provider, Values: r.Values, Main: r.Main, Archived: r.ArchivedAt,
+			At: r.CreatedAt}
+	}
+	return all, nil
 }
 
 func (ws *Workspace) redact(c LLMConfig) LLMConfig {
@@ -77,40 +72,54 @@ func (ws *Workspace) redact(c LLMConfig) LLMConfig {
 }
 
 func (ws *Workspace) config(name string) (LLMConfig, error) {
-	var c LLMConfig
-	return c, ws.Store.Get("llm", name, &c)
+	var r db.LLMConfig
+	err := ws.DB.Where("name = ?", name).First(&r).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return LLMConfig{}, NotFound{fmt.Errorf("no agent credential %s", name)}
+	}
+	return LLMConfig{Name: r.Name, Provider: r.Provider, Values: r.Values, Main: r.Main, Archived: r.ArchivedAt, At: r.CreatedAt}, err
+}
+
+// Writes c over the row of its name, or as a new one.
+func (ws *Workspace) saveConfig(c LLMConfig) error {
+	var r db.LLMConfig
+	if err := ws.DB.Where("name = ?", c.Name).First(&r).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	r.Name, r.Provider, r.Kind, r.Values, r.Main, r.ArchivedAt = c.Name, c.Provider, c.Values["kind"], c.Values, c.Main, c.Archived
+	return ws.DB.Save(&r).Error
 }
 
 // Adds a credential; the first live one is main.
-func (ws *Workspace) AddConfig(in LLMConfig) (LLMConfig, error) {
+func (ws *Workspace) AddConfig(in LLMConfigInput) (LLMConfig, error) {
 	configs.Lock()
 	defer configs.Unlock()
 	name := strings.TrimSpace(in.Name)
 	switch {
 	case name == "":
-		return in, Invalid{errors.New("Give it a label, like Anthropic work.")}
+		return LLMConfig{}, Invalid{errors.New("Give it a label, like Anthropic work.")}
 	case strings.ContainsAny(name, "/?#"):
-		return in, Invalid{errors.New("A label cannot hold / ? or #.")}
+		return LLMConfig{}, Invalid{errors.New("A label cannot hold / ? or #.")}
 	}
 	if _, err := ws.config(name); err == nil {
-		return in, Conflict{fmt.Errorf("Another credential is called %s. Pick another label.", name)}
-	} else if err != store.ErrNotFound {
-		return in, err
+		return LLMConfig{}, Conflict{fmt.Errorf("Another credential is called %s. Pick another label.", name)}
+	} else if !errors.As(err, new(NotFound)) {
+		return LLMConfig{}, err
 	}
 	_, values, err := llm.Check(ws.Runners, in.Provider, in.Values)
 	if err != nil {
-		return in, Invalid{err}
+		return LLMConfig{}, Invalid{err}
 	}
-	c := LLMConfig{Name: name, Provider: in.Provider, Values: values, At: time.Now()}
+	c := LLMConfig{Name: name, Provider: in.Provider, Values: values}
 	main, err := ws.main()
 	if err != nil {
-		return in, err
+		return LLMConfig{}, err
 	}
 	if in.Main || main == nil {
 		c.Main = true
 		return ws.redact(c), ws.promote(c)
 	}
-	return ws.redact(c), ws.Store.Put("llm", name, c)
+	return ws.redact(c), ws.saveConfig(c)
 }
 
 // Changes a credential's values; the provider stays, and a secret left empty keeps the stored one.
@@ -137,7 +146,7 @@ func (ws *Workspace) UpdateConfig(name string, values map[string]string) (LLMCon
 	if _, c.Values, err = llm.Check(ws.Runners, c.Provider, merged); err != nil {
 		return c, Invalid{err}
 	}
-	return ws.redact(c), ws.Store.Put("llm", name, c)
+	return ws.redact(c), ws.saveConfig(c)
 }
 
 // Makes a live credential the one turns run on.
@@ -164,7 +173,7 @@ func (ws *Workspace) ArchiveConfig(name string) error {
 	}
 	now := time.Now()
 	c.Archived, c.Main = &now, false
-	if err := ws.Store.Put("llm", name, c); err != nil {
+	if err := ws.saveConfig(c); err != nil {
 		return err
 	}
 	return ws.handOver()
@@ -178,7 +187,7 @@ func (ws *Workspace) RestoreConfig(name string) error {
 		return err
 	}
 	c.Archived = nil
-	if err := ws.Store.Put("llm", name, c); err != nil {
+	if err := ws.saveConfig(c); err != nil {
 		return err
 	}
 	return ws.handOver()
@@ -190,7 +199,7 @@ func (ws *Workspace) RemoveConfig(name string) error {
 	if _, err := ws.config(name); err != nil {
 		return err
 	}
-	if err := ws.Store.Delete("llm", name); err != nil {
+	if err := ws.DB.Where("name = ?", name).Delete(&db.LLMConfig{}).Error; err != nil {
 		return err
 	}
 	return ws.handOver()
@@ -218,13 +227,13 @@ func (ws *Workspace) promote(c LLMConfig) error {
 	for _, o := range all {
 		if o.Main && o.Name != c.Name {
 			o.Main = false
-			if err := ws.Store.Put("llm", o.Name, o); err != nil {
+			if err := ws.saveConfig(o); err != nil {
 				return err
 			}
 		}
 	}
 	c.Main = true
-	return ws.Store.Put("llm", c.Name, c)
+	return ws.saveConfig(c)
 }
 
 // With no live main, the oldest live credential becomes it.

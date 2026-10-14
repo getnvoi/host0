@@ -9,23 +9,18 @@ description: Use when a change to the install, the plane, boxd, the preview gate
 
 The only proof that counts is the real path: Hetzner, k3s, Substrate, the Cloudflare tunnel, dummy-rails. Each stage below has a command and a pass condition; a stage passes only on its measured result, never on "it rolled out".
 
+Every command is `./bin/hz`. No curl, no ssh, no kubectl: a stage that needs something hz does not do is a missing command, written first and then used.
+
 ## Prerequisites
 
 - `~/Desktop/ncx/.env` (0600, gitignored): `HCLOUD_TOKEN`, `CLOUDFLARE_API_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, `RAILS_MASTER_KEY`.
 - `~/.ssh/nvoi_ed25519`, and `go`, `ko`, `git` on the laptop.
-- Every shell starts with these helpers:
+- Every shell starts with:
 
 ```sh
 cd ~/Desktop/ncx && set -a && . ./.env && set +a
-IP=$(curl -s -H "Authorization: Bearer $HCLOUD_TOKEN" "https://api.hetzner.cloud/v1/servers?name=hz-dev-control" \
-  | python3 -c 'import sys,json;print(json.load(sys.stdin)["servers"][0]["public_net"]["ipv4"]["ip"])')
-node() { ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -i ~/.ssh/nvoi_ed25519 root@$IP "$@"; }
-TOKEN=$(python3 -c 'import json,os;print(json.load(open(os.path.expanduser("~/.hz/state.json")))["token"])')
-api() { curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" "https://api-dev.nvoi.to$@"; }
-open_preview() { curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" -m 300 -L -H "Accept: text/html" \
-  -c /tmp/jar -b /tmp/jar "$(./bin/hz preview "$1")"; }   # $1: <session>-dev-preview.nvoi.to
 install() { ./bin/hz cluster install dev --zone nvoi.to --ssh-key ~/.ssh/nvoi_ed25519 "$@"; }
-plane_up() { for i in $(seq 90); do [ "$(curl -s -o /dev/null -w "%{http_code}" https://api-dev.nvoi.to/approvals)" = 401 ] && return; sleep 2; done; return 1; }
+plane_up() { for i in $(seq 90); do ./bin/hz me >/dev/null 2>&1 && return; sleep 2; done; return 1; }
 ```
 
 - Long commands run in the background with a Monitor on their log; report each step as it lands.
@@ -38,45 +33,52 @@ plane_up() { for i in $(seq 90); do [ "$(curl -s -o /dev/null -w "%{http_code}" 
 | 2 | `install` | ends with `api at https://api-dev.nvoi.to` |
 | 3 | `./bin/hz credentials && ./bin/hz env apply examples/dummy-rails.yml` | no output, exit 0 |
 | 4 | `./bin/hz env seed dummy` | `seed ready:` link in about 2 min |
-| 5 | Gate: `curl -s -o /dev/null -w "%{http_code}" https://dummy-dev-preview.nvoi.to/`, then `open_preview dummy-dev-preview.nvoi.to`, then `curl -H "x-hz-token: <token of another host>"` | 401; 200 through the 302; 401 |
-| 6 | Fork: `api /sessions -d '{"env":"dummy","prompt":"Reply ok."}'`, poll `api /sessions/<id>` until `state` is not `forking` | `running` in under 10 s |
-| 7 | `./bin/hz session start dummy "<task that ends in a pull request>"` | calls `mcp__hz__set_title`, commits, stops at `awaiting_approval` |
-| 8 | Preview of the session while it runs | the agent's change is live with no restart |
-| 9 | `./bin/hz approval list`, **ask the user**, then on their yes `./bin/hz approval approve <id>` (`deny` otherwise) | PR URL printed, session back to `idle` |
-| 10 | Idle cycle, below | pause, hold, shrink, suspend, release, resume |
-| 11 | Web UI in Chrome: `./bin/hz open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.nvoi.to`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
+| 5 | Gate: `./bin/hz preview dummy-dev-preview.nvoi.to --check` | `no token 401`, the link sets the cookie, `cookie 200` |
+| 6 | Fork: `./bin/hz session start dummy "Reply ok."` | `session <id> on hz/<id>`; `forked in` under 10 s; ends `idle` |
+| 7 | `./bin/hz session start dummy "<task that ends in a pull request>"` | calls `set_title`, commits, stops at `awaiting_approval` |
+| 8 | `./bin/hz session preview <id>`, then `./bin/hz preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
+| 9 | `./bin/hz approval ls`, `./bin/hz approval show <id>`, **ask the user**, then on their yes `./bin/hz approval approve <id>` (`deny` otherwise) | PR URL printed, session back to `idle` |
+| 10 | Every read the spec has, as JSON (below) | each exits 0 and prints JSON |
+| 11 | Idle cycle, below | pause, hold, shrink, suspend, release, resume |
+| 12 | Web UI in Chrome: `./bin/hz open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.nvoi.to`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
 
-Redeploy one step: `install --only "control plane" && plane_up`. `plane_up` gives up after 3 minutes; then read `node 'k3s kubectl -n hz-system logs deploy/plane --tail=30'`.
+Redeploy one step: `install --only "control plane" && plane_up`. `plane_up` gives up after 3 minutes; then read the plane's log: `./bin/hz pods --node <control node>` names its pod, `./bin/hz logs hz-system <pod> --tail 30` prints it.
 
-## Idle cycle with short thresholds
+## Every read, as JSON
 
-After deploying the scaler change (`install --only "control plane" && plane_up`):
-
-```sh
-node 'k3s kubectl -n hz-system set env deploy/plane HZ_PAUSE_AFTER=1m HZ_SUSPEND_AFTER=3m' && plane_up
-open_preview <session>-dev-preview.nvoi.to          # the activity the timers count from
-node 'k3s kubectl -n hz get workerpools; \
-  k3s kubectl get nodes -o custom-columns=NODE:.metadata.name,HELD:".metadata.annotations.cluster-autoscaler\.kubernetes\.io/scale-down-disabled"; \
-  k3s kubectl -n hz-system logs deploy/plane --since=35s | grep -E "pause|suspend|shrink|grow"'   # every 30 s, in a Monitor
-```
-
-Expected, in order: `pause <actor> on <node>` with the node held; `shrink hz-<tier>` to 0; `suspend <actor>` with the hold lifted; opening the preview again grows the pool and answers 200 (about 6 s from paused, 13 s from suspended).
-
-Always restore the defaults afterwards:
+Each generated read command takes `-o json` and prints the plane's answer as it is. With a session `$S` and an approval `$A` from the stages above:
 
 ```sh
-node 'k3s kubectl -n hz-system set env deploy/plane HZ_PAUSE_AFTER- HZ_SUSPEND_AFTER-' && plane_up
+for c in "me" "ls" "env ls" "env status dummy" "llm ls" "llm providers" "session ls" "session show $S" \
+  "session queue ls $S" "session preview $S" "session changes $S" "session log ls $S" "session terminal ls $S" \
+  "approval ls" "cluster shape" "pods" "browsers"; do
+  echo "== hz $c"; ./bin/hz $c -o json >/dev/null || echo "FAILED: hz $c"
+done
 ```
+
+Passes when no line says `FAILED`. A read this list misses is one `hz --help` shows and the spec names under `x-hz` with an output.
+
+## Idle cycle
+
+The pause and suspend thresholds are the plane's `HZ_PAUSE_AFTER` and `HZ_SUSPEND_AFTER` (10 and 60 minutes); hz has no command that shortens them yet, so this stage runs at their length or waits for that command.
+
+```sh
+./bin/hz preview <session>-dev-preview.nvoi.to --check   # the activity the timers count from
+./bin/hz ls                                              # every 30 s, in a Monitor: pools, workers, the actors they hold
+```
+
+Expected, in order: the session's actor paused on its worker with the worker held; its pool shrinks to 0; the actor suspended and the worker released; `--check` again grows the pool and answers 200 (about 6 s from paused, 13 s from suspended).
 
 ## Common mistakes
 
 | Symptom | Cause |
 |---|---|
-| 502 or `unauthorized` right after a redeploy | the plane is restarting; wait for the 401 probe |
+| 502 or `unauthorized` right after a redeploy | the plane is restarting; wait for `plane_up` |
 | a fork waits for ever | the tier's pool is full and the node cannot grow; Hetzner's dedicated-core limit (8 on a new project) |
 | 401 from Cloudflare on `*-preview` hosts | a zone Worker route catches the suffix; the install claims `*<suffix>.<zone>/*` with no Worker |
 | seed rerun repeats an old failure | boxd run ids are idempotent; every attempt needs its own id |
 | sessions from before a template change cannot resume | their pool or template is gone; reseed, start new sessions |
+| an empty plane after a redeploy over an older one | the plane's records are `/var/lib/hz/hz.db`; one from before it starts empty: `hz credentials`, `hz env apply`, `hz env seed` again |
 
 ## Cleanup
 

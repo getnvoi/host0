@@ -1,0 +1,3 @@
+> GET /llm/providers
+KEY          LABEL
+claude_code  Claude Code

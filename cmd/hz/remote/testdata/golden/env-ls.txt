@@ -1,0 +1,4 @@
+> GET /environments
+NAME  REPO       BRANCH  TIER    READY
+shop  acme/shop  main    medium  true
+api   acme/api   dev             false

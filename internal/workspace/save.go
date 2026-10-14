@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -37,7 +38,7 @@ func (ws *Workspace) keep(s *Session, now bool) error {
 	w, _ := writes.Load(s.ID)
 	last, _ := w.(write)
 	if now || time.Since(last.at) >= flush {
-		if err := ws.Store.Put("sessions", s.ID, s); err != nil {
+		if err := ws.write(s); err != nil {
 			return err
 		}
 		writes.Store(s.ID, write{at: time.Now()})
@@ -47,7 +48,9 @@ func (ws *Workspace) keep(s *Session, now bool) error {
 			unlock := lock(s.ID)
 			defer unlock()
 			if w, _ := writes.Load(s.ID); w.(write).due {
-				ws.Store.Put("sessions", s.ID, s)
+				if err := ws.write(s); err != nil {
+					log.Printf("session %s: %v", s.ID, err)
+				}
 				writes.Store(s.ID, write{at: time.Now()})
 			}
 		})
@@ -76,17 +79,18 @@ func (ws *Workspace) announce(s *Session) {
 }
 
 func (ws *Workspace) saveApproval(a Approval) error {
-	if err := ws.Store.Put("approvals", a.ID, a); err != nil {
+	if err := ws.putApproval(a); err != nil {
 		return err
 	}
 	ws.Bus.Publish(Update{Kind: "approval", Approval: &a})
 	return nil
 }
 
-func (ws *Workspace) saveSeed(s Seed) error {
-	if err := ws.Store.Put("seeds", s.Env, s); err != nil {
+func (ws *Workspace) saveSeed(s *Seed) error {
+	if err := ws.putSeed(s); err != nil {
 		return err
 	}
-	ws.Bus.Publish(Update{Kind: "seed", Seed: &s})
+	c := *s
+	ws.Bus.Publish(Update{Kind: "seed", Seed: &c})
 	return nil
 }

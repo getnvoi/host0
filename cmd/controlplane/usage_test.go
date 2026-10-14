@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/store"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -25,17 +26,17 @@ func (b brokenState) State(ctx context.Context, a string) (string, error) {
 
 func TestSample(t *testing.T) {
 	st := newStore(t)
-	st.Put("environments", "web", workspace.Environment{Name: "web", Tier: "large"})
-	st.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", Actor: "wt-s1", By: "ben"})
-	st.Put("sessions", "s2", workspace.Session{ID: "s2", Env: "web", Actor: "wt-s2", By: "cli"})
-	st.Put("sessions", "s3", workspace.Session{ID: "s3", Env: "web", Actor: "wt-broken"})
-	st.Put("sessions", "s4", workspace.Session{ID: "s4", Env: "web", Actor: "wt-s4"})
-	st.Put("seeds", "web", workspace.Seed{Env: "web", Actor: "seed-web"})
 	sb := &fakeSandboxes{
 		states:  map[string]string{"wt-s1": "running", "wt-s2": "paused", "seed-web": "suspended", "wt-s4": "resuming"},
 		workers: []sandbox.Worker{{Pool: "hz-large", Pod: "a"}, {Pool: "hz-large", Pod: "b"}, {Pod: "c"}},
 	}
 	p, _ := serve(st, brokenState{sb}, nil, nil)
+	putEnv(t, p, workspace.Environment{Name: "web", Tier: "large"})
+	seedRow(t, p, "web", db.Seed{Actor: "seed-web", State: "ready"})
+	for _, s := range []workspace.Session{{ID: "s1", Env: "web", By: "ben"}, {ID: "s2", Env: "web", By: "cli"},
+		{ID: "broken", Env: "web"}, {ID: "s4", Env: "web"}} {
+		usageSession(t, p, s)
+	}
 	now := time.Date(2026, 9, 25, 23, 59, 0, 0, time.UTC)
 	p.sample(context.Background(), now)
 	p.sample(context.Background(), now)
@@ -51,7 +52,7 @@ func TestSample(t *testing.T) {
 	if st.Get("usage", "2026-09-25/seed:web", &u); u.Suspended != 2 || u.By != "" || u.Session != "seed:web" {
 		t.Fatalf("seed: %+v", u)
 	}
-	for _, s := range []string{"s3", "s4"} {
+	for _, s := range []string{"broken", "s4"} {
 		if st.Get("usage", "2026-09-25/"+s, &u) == nil {
 			t.Fatalf("%s recorded: %+v", s, u)
 		}
@@ -63,19 +64,39 @@ func TestSample(t *testing.T) {
 	}
 }
 
-func usageStore(t *testing.T) store.Store {
+// Writes s as a session's rows: who started it, and its events.
+func usageSession(t *testing.T, p *plane, s workspace.Session) {
+	t.Helper()
+	r := db.Session{PublicID: s.ID, State: "idle", StartedAt: s.At}
+	if s.By != "" {
+		m := db.Member{AccountID: "local:" + s.By, Login: s.By, Role: "operator"}
+		if err := p.DB.Where(db.Member{AccountID: m.AccountID}).FirstOrCreate(&m).Error; err != nil {
+			t.Fatal(err)
+		}
+		r.MemberID = &m.ID
+	}
+	r = sessionRow(t, p, s.Env, r)
+	for i, e := range s.Events {
+		if err := p.DB.Create(&db.Event{SessionID: r.ID, Position: i, Kind: e.Kind, Content: e.Content, Meta: e.Meta, At: e.At}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func usagePlane(t *testing.T) (*plane, http.Handler) {
 	st := newStore(t)
+	p, h := serve(st, nil, nil, nil)
 	day := func(d string, h int) time.Time {
 		t, _ := time.Parse("2006-01-02", d)
 		return t.Add(time.Duration(h) * time.Hour)
 	}
-	st.Put("sessions", "a", workspace.Session{ID: "a", Env: "web", By: "ben", At: day("2026-09-24", 9), Events: []llm.Event{
+	usageSession(t, p, workspace.Session{ID: "a", Env: "web", By: "ben", At: day("2026-09-24", 9), Events: []llm.Event{
 		{Kind: "result", At: day("2026-09-24", 10), Meta: json.RawMessage(`{"tokens":100}`)},
 		{Kind: "prompt", At: day("2026-09-25", 1), Content: workspace.Outcome + "\nset_title: done\ncreate_pull_request: opened https://x/1"},
 		{Kind: "prompt", At: day("2026-09-25", 2), Content: "create_pull_request: opened by hand"},
 		{Kind: "error", At: day("2026-09-20", 1), Meta: json.RawMessage(`{"tokens":50}`)},
 	}})
-	st.Put("sessions", "b", workspace.Session{ID: "b", Env: "api", By: "ann", At: day("2026-09-25", 3), Events: []llm.Event{
+	usageSession(t, p, workspace.Session{ID: "b", Env: "api", By: "ann", At: day("2026-09-25", 3), Events: []llm.Event{
 		{Kind: "result", At: day("2026-09-25", 4), Meta: json.RawMessage(`{"tokens":7}`)},
 	}})
 	st.Put("usage", "2026-09-24/a", usage{Day: "2026-09-24", Session: "a", Env: "web", By: "ben", Running: 30})
@@ -84,15 +105,15 @@ func usageStore(t *testing.T) store.Store {
 	st.Put("usage", "2026-09-01/a", usage{Day: "2026-09-01", Session: "a", Env: "web", By: "ben", Running: 999})
 	st.Put("nodes", "2026-09-25", nodes{Day: "2026-09-25", Minutes: map[string]float64{"hz-medium": 20, "worker": 1}})
 	at := day("2026-09-24", 10)
-	st.Put("approvals", "x", workspace.Approval{ID: "x", Session: "a", State: "done", At: at, Decided: at.Add(4 * time.Second)})
-	st.Put("approvals", "y", workspace.Approval{ID: "y", Session: "b", State: "denied", At: at, Decided: at.Add(2 * time.Second)})
-	st.Put("approvals", "z", workspace.Approval{ID: "z", Session: "a", State: "pending", At: at})
+	approvalRow(t, p, workspace.Approval{ID: "x", Session: "a", State: "done", At: at, Decided: at.Add(4 * time.Second)})
+	approvalRow(t, p, workspace.Approval{ID: "y", Session: "b", State: "denied", At: at, Decided: at.Add(2 * time.Second)})
+	approvalRow(t, p, workspace.Approval{ID: "z", Session: "a", State: "pending", At: at})
 	st.Put("browsers", "h", map[string]string{"label": "carol"})
-	return st
+	return p, h
 }
 
 func TestUsage(t *testing.T) {
-	p, _ := serve(usageStore(t), nil, nil, nil)
+	p, _ := usagePlane(t)
 	now := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
 
 	all, err := p.Usage(now, 3, "")
@@ -135,7 +156,7 @@ func TestUsage(t *testing.T) {
 }
 
 func TestUsageRoute(t *testing.T) {
-	_, h := serve(usageStore(t), nil, nil, nil)
+	_, h := usagePlane(t)
 	res := call(h, "GET", "api-dev.nvoi.to", "/usage?days=1000", "", map[string]string{"Authorization": "Bearer cli-token"})
 	var u workspace.Usage
 	if json.NewDecoder(res.Body).Decode(&u); res.Code != 200 || len(u.Days) != 365 {

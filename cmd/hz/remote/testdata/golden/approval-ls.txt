@@ -1,0 +1,3 @@
+> GET /approvals?session=a1b2c3d4
+ID   SESSION   TOOL         INPUT
+ap1  a1b2c3d4  push_branch  {"branch":"fix-cart"}

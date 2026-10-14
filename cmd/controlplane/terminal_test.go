@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -24,12 +25,13 @@ func withBox(t *testing.T, boxd http.HandlerFunc) (*plane, http.Handler) {
 	}))
 	t.Cleanup(srv.Close)
 	p, h := serve(newStore(t), boxed{addr: srv.Listener.Addr().String()}, nil, nil)
-	p.Store.Put("environments", "web", workspace.Environment{Name: "web", Branch: "main",
+	putEnv(t, p, workspace.Environment{Name: "web", Branch: "main",
 		Services: []workspace.Service{{Name: "rails"}, {Name: "worker"}}})
-	p.Store.Put("credentials", "default", workspace.Credentials{})
-	p.Store.Put("llm", testLLM.Name, testLLM)
-	p.Store.Put("seeds", "web", workspace.Seed{Env: "web", Run: "seed-1"})
-	p.Store.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", Actor: "wt-s1"})
+	if _, err := p.ws.AddConfig(testLLM); err != nil {
+		t.Fatal(err)
+	}
+	seedRow(t, p, "web", db.Seed{Run: "seed-1", State: "ready"})
+	sessionRow(t, p, "web", db.Session{PublicID: "s1", State: "idle"})
 	return p, h
 }
 

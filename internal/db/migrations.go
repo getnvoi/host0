@@ -20,6 +20,11 @@ func migrator(db *gorm.DB) *gormigrate.Gormigrate {
 
 var migrations = []*gormigrate.Migration{
 	{ID: "0001", Migrate: migrate0001},
+	{ID: "0002", Migrate: migrate0002},
+	{ID: "0003", Migrate: migrate0003},
+	{ID: "0004", Migrate: migrate0004},
+	{ID: "0005", Migrate: migrate0005},
+	{ID: "0006", Migrate: migrate0006},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -44,6 +49,93 @@ func migrate0001(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+// Tool policies on the environment, until agents hold them.
+func migrate0002(tx *gorm.DB) error {
+	return tx.Migrator().AddColumn(&m2Environment{}, "Tools")
+}
+
+type m2Environment struct {
+	Tools string `gorm:"type:text"`
+}
+
+func (m2Environment) TableName() string { return "environments" }
+
+// The workspace's own credentials, and when each agent credential was added.
+func migrate0003(tx *gorm.DB) error {
+	if err := tx.Migrator().AddColumn(&m3LLMConfig{}, "CreatedAt"); err != nil {
+		return err
+	}
+	return tx.Migrator().CreateTable(&m3Credential{})
+}
+
+type m3LLMConfig struct {
+	CreatedAt time.Time
+}
+
+func (m3LLMConfig) TableName() string { return "llm_configs" }
+
+type m3Credential struct {
+	ID    uint
+	Name  string `gorm:"not null;uniqueIndex"`
+	Value string `gorm:"type:text"`
+}
+
+func (m3Credential) TableName() string { return "credentials" }
+
+// A seed's setup run, whose log a session reads, and when its build started.
+func migrate0004(tx *gorm.DB) error {
+	for _, c := range []string{"Run", "StartedAt"} {
+		if err := tx.Migrator().AddColumn(&m4Seed{}, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type m4Seed struct {
+	Run       string
+	StartedAt time.Time
+}
+
+func (m4Seed) TableName() string { return "seeds" }
+
+// What a session's turns need of their own: whether its fork was made, the auto tools' outcomes waiting on its
+// approvals, when it started and when it last changed.
+func migrate0005(tx *gorm.DB) error {
+	for _, c := range []string{"Forked", "Outcomes", "StartedAt", "LastAt"} {
+		if err := tx.Migrator().AddColumn(&m5Session{}, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type m5Session struct {
+	Forked    bool   `gorm:"not null;default:false"`
+	Outcomes  string `gorm:"type:text"`
+	StartedAt time.Time
+	LastAt    time.Time
+}
+
+func (m5Session) TableName() string { return "sessions" }
+
+// When an approval was asked for, and the decision while it is carried out.
+func migrate0006(tx *gorm.DB) error {
+	for _, c := range []string{"AskedAt", "Allow"} {
+		if err := tx.Migrator().AddColumn(&m6Approval{}, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type m6Approval struct {
+	AskedAt time.Time
+	Allow   bool `gorm:"not null;default:false"`
+}
+
+func (m6Approval) TableName() string { return "approvals" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {

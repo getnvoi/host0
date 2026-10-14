@@ -81,14 +81,17 @@ type Conflict struct{ error }
 // A request that cannot be carried out as it is: answered 400.
 type Invalid struct{ error }
 
+// What a request names does not exist: answered 404.
+type NotFound struct{ error }
+
 // Makes pending -> deciding one step, so a second click cannot decide twice.
 var decisions sync.Mutex
 
 // Takes the decision and returns at once; the action and the outcome turn follow in the background.
 func (ws *Workspace) Decide(aid string, approve bool, by string) (Approval, error) {
 	decisions.Lock()
-	var a Approval
-	if err := ws.Store.Get("approvals", aid, &a); err != nil {
+	a, err := ws.Approval(aid)
+	if err != nil {
 		decisions.Unlock()
 		return a, err
 	}
@@ -97,7 +100,7 @@ func (ws *Workspace) Decide(aid string, approve bool, by string) (Approval, erro
 		return a, Conflict{fmt.Errorf("approval %s is %s", aid, a.State)}
 	}
 	a.State, a.By, a.Allow = "deciding", by, approve
-	err := ws.saveApproval(a)
+	err = ws.saveApproval(a)
 	decisions.Unlock()
 	if err != nil {
 		return a, err
@@ -107,8 +110,7 @@ func (ws *Workspace) Decide(aid string, approve bool, by string) (Approval, erro
 }
 
 func (ws *Workspace) decide(a Approval, approve bool) {
-	var s Session
-	err := ws.Store.Get("sessions", a.Session, &s)
+	s, err := ws.load(a.Session)
 	switch {
 	case !approve:
 		a.Outcome, a.State = a.Tool+": denied by the user", "denied"
@@ -143,8 +145,8 @@ func (ws *Workspace) decide(a Approval, approve bool) {
 func (ws *Workspace) retitle(sid, title string) {
 	unlock := lock(sid)
 	defer unlock()
-	var s Session
-	if ws.Store.Get("sessions", sid, &s) != nil || s.State != "awaiting_approval" {
+	s, err := ws.load(sid)
+	if err != nil || s.State != "awaiting_approval" {
 		return
 	}
 	s.Title = title
@@ -166,25 +168,29 @@ func asked(s Session, a Approval) bool {
 // the auto tools that ran alongside.
 func (ws *Workspace) settle(sid string) {
 	unlock := lock(sid)
-	var s Session
-	if ws.Store.Get("sessions", sid, &s) != nil || s.State != "awaiting_approval" {
+	s, err := ws.load(sid)
+	if err != nil || s.State != "awaiting_approval" {
 		unlock()
+		return
+	}
+	all, err := ws.Approvals(sid)
+	if err != nil {
+		unlock()
+		ws.fail(&s, err)
 		return
 	}
 	var done []Approval
 	open := false
-	ws.Store.List("approvals", func(d func(any) error) error {
-		var a Approval
-		if d(&a) != nil || !asked(s, a) {
-			return nil
+	for _, a := range all {
+		if !asked(s, a) {
+			continue
 		}
 		if a.State == "pending" || a.State == "deciding" {
 			open = true
 		} else {
 			done = append(done, a)
 		}
-		return nil
-	})
+	}
 	if open {
 		unlock()
 		return

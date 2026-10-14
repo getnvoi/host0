@@ -18,7 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/getnvoi/host0/internal/box"
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
@@ -36,6 +39,7 @@ const (
 
 type Workspace struct {
 	Sandboxes sandbox.Sandboxes
+	DB        *gorm.DB
 	Store     store.Store
 	Edge      edge.Router
 	Workers   Workers
@@ -132,20 +136,18 @@ func (ws *Workspace) envOf(actor string) string {
 	}
 	var env string
 	if sid, ok := strings.CutPrefix(actor, "wt-"); ok {
-		var s Session
-		if ws.Store.Get("sessions", sid, &s) == nil {
+		if s, err := ws.load(sid); err == nil {
 			env = s.Env
 		}
 	} else {
-		for _, kind := range []string{"seeds", "ready"} {
-			ws.Store.List(kind, func(d func(any) error) error {
-				var seed Seed
-				if d(&seed) == nil && seed.Actor == actor {
-					env = seed.Env
-				}
-				return nil
-			})
+		var name string
+		err := ws.DB.Table("seeds").Select("environments.name").
+			Joins("JOIN environments ON environments.id = seeds.environment_id").
+			Where("seeds.actor = ?", actor).Limit(1).Scan(&name).Error
+		if err != nil {
+			log.Printf("the environment of %s: %v", actor, err)
 		}
+		env = name
 	}
 	if env != "" {
 		envs.Store(actor, env)
@@ -241,27 +243,28 @@ func announce(step string) string {
 }
 
 func (ws *Workspace) env(name string) (Environment, Credentials, error) {
-	var env Environment
-	var creds Credentials
-	if err := ws.Store.Get("environments", name, &env); err != nil {
-		return env, creds, fmt.Errorf("environment %s: %w", name, err)
+	env, err := ws.environment(ws.DB, name)
+	if err != nil {
+		return env, Credentials{}, err
 	}
-	err := ws.Store.Get("credentials", "default", &creds)
+	creds, err := ws.credentials()
 	return env, creds, err
 }
 
 // Logs each ready seed built from other containers (a boxd, an image) than a build would use now. Nothing is
 // rebuilt: hz env seed does that.
 func (ws *Workspace) Stale() {
-	var envs []Environment
-	ws.Store.List("environments", func(d func(any) error) error {
-		var env Environment
-		if d(&env) == nil {
-			envs = append(envs, env)
+	var names []string
+	if err := ws.DB.Model(&db.Environment{}).Where("archived_at IS NULL").Pluck("name", &names).Error; err != nil {
+		log.Printf("stale seeds: %v", err)
+		return
+	}
+	for _, name := range names {
+		env, err := ws.environment(ws.DB, name)
+		if err != nil {
+			log.Printf("seed %s: %v", name, err)
+			continue
 		}
-		return nil
-	})
-	for _, env := range envs {
 		seed, err := ws.served(env.Name)
 		if err != nil {
 			continue
@@ -296,7 +299,7 @@ func (ws *Workspace) Reseed(name string) error {
 		return Conflict{fmt.Errorf("the seed of %s is already being built", name)}
 	}
 	// Building before this returns, so a reader asking right after never sees the last build's outcome.
-	if err := ws.saveSeed(Seed{Env: name, State: "building", Step: "starting", At: time.Now()}); err != nil {
+	if err := ws.saveSeed(&Seed{Env: name, State: "building", Step: "starting", At: time.Now()}); err != nil {
 		seeding.Delete(name)
 		return err
 	}
@@ -362,8 +365,8 @@ func (ws *Workspace) heartbeat(name string, every time.Duration, done <-chan str
 			return
 		case <-t.C:
 		}
-		var s Seed
-		if err := ws.Store.Get("seeds", name, &s); err != nil {
+		s, err := ws.SeedOf(name)
+		if err != nil {
 			s = Seed{Env: name, State: "building", Step: "reading the seed row: " + err.Error()}
 		}
 		if s.State != "building" {
@@ -381,19 +384,19 @@ func (ws *Workspace) heartbeat(name string, every time.Duration, done <-chan str
 
 // The seed sessions fork from: the last one built ready, which a build in progress leaves in place.
 func (ws *Workspace) served(name string) (Seed, error) {
-	var seed Seed
-	if ws.Store.Get("ready", name, &seed) == nil {
-		return seed, nil
+	seed, err := ws.latestSeed(name, "state = ?", "ready")
+	if errors.As(err, new(NotFound)) {
+		return seed, fmt.Errorf("environment %s has no ready seed", name)
 	}
-	if ws.Store.Get("seeds", name, &seed) == nil && seed.State == "ready" {
-		return seed, nil
-	}
-	return seed, fmt.Errorf("environment %s has no ready seed", name)
+	return seed, err
 }
 
-// Builds the seed. "seeds" holds the build as it goes; "ready" the last one that finished, for sessions to fork.
+// Builds the seed, on the row Reseed made or a new one; the last ready seed stays in service until this one is.
 func (ws *Workspace) Seed(ctx context.Context, name string) error {
-	seed := Seed{Env: name, State: "building", At: time.Now()}
+	seed, err := ws.latestSeed(name, "state = ?", "building")
+	if err != nil {
+		seed = Seed{Env: name, State: "building", At: time.Now()}
+	}
 	g := &progress{moved: time.Now(), silence: silence}
 	tails.Store(name, g)
 	defer tails.Delete(name)
@@ -419,7 +422,7 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 			err = context.Cause(ctx)
 		}
 		seed.State, seed.Error = "failed", err.Error()
-		if perr := ws.saveSeed(seed); perr != nil {
+		if perr := ws.saveSeed(&seed); perr != nil {
 			log.Printf("seed %s: %v", name, perr)
 			ws.Bus.Publish(Update{Kind: "seed", Seed: &seed})
 		}
@@ -429,7 +432,7 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 	step := func(what string) error {
 		seed.Step = what
 		g.to(what)
-		return ws.saveSeed(seed)
+		return ws.saveSeed(&seed)
 	}
 	// A wait on the substrate prints nothing; its output is the actor's state, asked every fifth of the silence.
 	observe := func() (stop func()) {
@@ -582,15 +585,15 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 	if err := ws.route(ctx, seed.Preview, sandbox.Route{Actor: seed.Actor, Port: env.Preview, Tier: tier.Name}); err != nil {
 		return fail(err)
 	}
-	var last Seed
-	if err := ws.Store.Get("ready", name, &last); err != nil && !errors.Is(err, store.ErrNotFound) {
+	last, err := ws.latestSeed(name, "state = ?", "ready")
+	if err != nil && !errors.As(err, new(NotFound)) {
 		return fail(err)
 	}
 	seed.State, seed.Step = "ready", ""
-	if err := ws.Store.Put("ready", name, seed); err != nil {
-		return fail(err)
+	if err := ws.saveSeed(&seed); err != nil {
+		return err
 	}
-	if err := ws.saveSeed(seed); err != nil {
+	if err := ws.pruneSeeds(name, seed.ID); err != nil {
 		return err
 	}
 	// The last seed's actor is reached by nothing now: forks start from its tag.

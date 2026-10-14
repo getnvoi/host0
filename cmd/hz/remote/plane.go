@@ -3,13 +3,13 @@ package remote
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/getnvoi/host0/cmd/hz/state"
 	"github.com/getnvoi/host0/internal/auth"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/workers"
@@ -27,7 +27,7 @@ func status() *cobra.Command {
 				return err
 			}
 			fmt.Printf("cluster %s, zone %s\n\n", c.Name, c.Zone)
-			w := table()
+			w := table(os.Stdout)
 			fmt.Fprintln(w, "NODE\tROLES\tREADY\tAGE\tADDRESSES\tPROVIDER ID")
 			for _, n := range c.Nodes {
 				fmt.Fprintf(w, "%s\t%s\t%t\t%s\t%s\t%s\n", n.Name, strings.Join(n.Roles, ","), n.Ready,
@@ -61,26 +61,6 @@ func status() *cobra.Command {
 	}
 }
 
-func whoami() *cobra.Command {
-	return &cobra.Command{
-		Use:   "me",
-		Short: "The plane this CLI talks to",
-		Args:  cobra.NoArgs,
-		RunE: func(*cobra.Command, []string) error {
-			st, err := state.Load()
-			if err != nil {
-				return err
-			}
-			var out struct{ Cluster, Zone string }
-			if err := call("GET", "/me", nil, &out); err != nil {
-				return err
-			}
-			fmt.Printf("plane    %s\ncluster  %s\nzone     %s\n", st.URL, out.Cluster, out.Zone)
-			return nil
-		},
-	}
-}
-
 func usage() *cobra.Command {
 	var days int
 	var by string
@@ -99,7 +79,7 @@ func usage() *cobra.Command {
 			}
 			t := u.Totals
 			fmt.Printf("%s to %s\n\n", u.From, u.To)
-			w := table()
+			w := table(os.Stdout)
 			fmt.Fprintf(w, "sessions\t%d\ncompute\t%.0f min\npull requests\t%d\ntokens\t%d\napprovals\t%d\napproval wait\t%s (median)\n",
 				t.Sessions, t.Compute, t.PullRequests, t.Tokens, t.Approvals, time.Duration(t.ApprovalWaitMS)*time.Millisecond)
 			if len(u.People) > 0 {
@@ -117,72 +97,6 @@ func usage() *cobra.Command {
 	return cmd
 }
 
-// The agent credentials, which turns run on: one in use, the others kept or archived.
-func configs() error {
-	var cs []workspace.LLMConfig
-	if err := call("GET", "/llm/configs", nil, &cs); err != nil {
-		return err
-	}
-	w := table()
-	fmt.Fprintln(w, "LLM\tPROVIDER\tSTATE\tSTORED\tVALUES")
-	for _, c := range cs {
-		st := ""
-		switch {
-		case c.Archived != nil:
-			st = "archived"
-		case c.Main:
-			st = "in use"
-		}
-		var vs []string
-		for _, k := range keys(c.Values) {
-			if c.Values[k] != "" {
-				vs = append(vs, k+"="+c.Values[k])
-			}
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", c.Name, c.Provider, st, strings.Join(c.Stored, ","), strings.Join(vs, " "))
-	}
-	return w.Flush()
-}
-
-func llms() *cobra.Command {
-	cmd := &cobra.Command{Use: "llm", Short: "Agent credentials; hz credentials adds one"}
-	var purge bool
-	rm := &cobra.Command{
-		Use:   "rm <name>",
-		Short: "Archive the credential; --purge removes it",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			path := "/llm/configs/" + url.PathEscape(args[0])
-			if purge {
-				path += "?remove=1"
-			}
-			return call("DELETE", path, nil, nil)
-		},
-	}
-	rm.Flags().BoolVar(&purge, "purge", false, "remove it rather than archive it")
-	cmd.AddCommand(&cobra.Command{
-		Use:   "ls",
-		Short: "The agent credentials: which is in use, which are archived",
-		Args:  cobra.NoArgs,
-		RunE:  func(*cobra.Command, []string) error { return configs() },
-	}, &cobra.Command{
-		Use:   "use <name>",
-		Short: "Run turns on this credential",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return call("POST", "/llm/configs/"+url.PathEscape(args[0])+"/main", nil, nil)
-		},
-	}, rm, &cobra.Command{
-		Use:   "restore <name>",
-		Short: "Bring an archived credential back",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return call("POST", "/llm/configs/"+url.PathEscape(args[0])+"/restore", nil, nil)
-		},
-	})
-	return cmd
-}
-
 func browsers() *cobra.Command {
 	return &cobra.Command{
 		Use:   "browsers",
@@ -193,7 +107,7 @@ func browsers() *cobra.Command {
 			if err := call("GET", "/browsers", nil, &bs); err != nil {
 				return err
 			}
-			w := table()
+			w := table(os.Stdout)
 			fmt.Fprintln(w, "LABEL\tSIGNED IN\tUNTIL")
 			for _, b := range bs {
 				fmt.Fprintf(w, "%s\t%s\t%s\n", b.Label, b.At.Local().Format(time.DateTime), b.Until.Local().Format(time.DateTime))
@@ -241,7 +155,7 @@ func pods() *cobra.Command {
 			if err := call("GET", "/cluster/pods?node="+url.QueryEscape(node), nil, &ps); err != nil {
 				return err
 			}
-			w := table()
+			w := table(os.Stdout)
 			fmt.Fprintln(w, "NAMESPACE\tPOD\tNODE\tPHASE\t")
 			for _, p := range ps {
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", p.Namespace, p.Name, p.Node, p.Phase)

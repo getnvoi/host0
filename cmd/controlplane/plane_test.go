@@ -9,12 +9,16 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/sandbox"
@@ -25,25 +29,51 @@ import (
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
-// The store the plane runs on, in a fresh directory, holding the shape install writes.
-func newStore(t *testing.T) store.Store {
-	st, err := files.Open(t.TempDir(), seal.Mint())
+// What the plane keeps, in fresh files: its store, holding the shape install writes, and its database.
+type data struct {
+	store.Store
+	DB *gorm.DB
+}
+
+func newStore(t *testing.T) data {
+	key := seal.Mint()
+	st, err := files.Open(t.TempDir(), key)
 	if err != nil {
+		t.Fatal(err)
+	}
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if s, err := gdb.DB(); err == nil {
+			s.Close()
+		}
+	})
+	if err := db.Migrate(gdb); err != nil {
 		t.Fatal(err)
 	}
 	st.Put("cluster", "shape", sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 2, Idle: time.Minute},
 		Tiers: sandbox.DefaultTiers})
-	return st
+	return data{st, gdb}
+}
+
+// Declares e, as PUT /environments/{name} does.
+func putEnv(t *testing.T, p *plane, e workspace.Environment) {
+	t.Helper()
+	if err := p.ws.PutEnvironment(workspace.EnvironmentInput(e)); err != nil {
+		t.Fatal(err)
+	}
 }
 
 var bearer = map[string]string{"Authorization": "Bearer cli-token"}
 
 // The plane on st and sb, with its handler for api-dev.nvoi.to and app-dev.nvoi.to; its CLI token is cli-token.
-func serve(st store.Store, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router) (*plane, http.Handler) {
+func serve(d data, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router) (*plane, http.Handler) {
 	if e == nil {
 		e = checking{}
 	}
-	p := wire(st, sb, pools, e, "dev", "nvoi.to", "-preview", "box")
+	p := wire(d.DB, d.Store, sb, pools, e, "dev", "nvoi.to", "-preview", "box")
 	p.ws.Pin = func(_ context.Context, image string) (string, error) { return image, nil }
 	sum := sha256.Sum256([]byte("cli-token"))
 	return p, p.Handler("api-dev.nvoi.to", "app-dev.nvoi.to", hex.EncodeToString(sum[:]))
@@ -73,6 +103,16 @@ func signIn(t *testing.T, h http.Handler, label string) *http.Cookie {
 		t.Fatalf("signed in with %v", cookies)
 	}
 	return cookies[0]
+}
+
+// The sentence of a problem the plane answered, or the whole body when it is not one.
+func detail(res *httptest.ResponseRecorder) string {
+	var p struct{ Detail string }
+	if !strings.HasPrefix(res.Header().Get("Content-Type"), "application/problem+json") ||
+		json.Unmarshal(res.Body.Bytes(), &p) != nil {
+		return res.Body.String()
+	}
+	return p.Detail
 }
 
 type checking map[string]error
@@ -126,7 +166,7 @@ func (f *fakePools) Replicas(_ context.Context, pool string) (int, error) {
 func (f *fakePools) Ready(_ context.Context, pool string) (int, error) { return f.ready[pool], nil }
 func (f *fakePools) Nodes(context.Context) ([]kube.Node, error)        { return f.nodes, nil }
 
-var testLLM = workspace.LLMConfig{Name: "Claude Code", Provider: "claude_code", Main: true, Values: map[string]string{"kind": "oauth", "token": "t"}}
+var testLLM = workspace.LLMConfigInput{Name: "Claude Code", Provider: "claude_code", Main: true, Values: map[string]string{"kind": "oauth", "token": "t"}}
 
 func TestLogin(t *testing.T) {
 	_, h := handler(t)
@@ -210,11 +250,10 @@ func TestEnvironmentCRUD(t *testing.T) {
 	if code, body := api("PATCH", "/environments/web", `{"env":{"A":null}}`); code != 200 {
 		t.Fatalf("patch null: %d %s", code, body)
 	}
-	var stored workspace.Environment
-	p.Store.Get("environments", "web", &stored)
-	if stored.Image != "ruby:3" || !reflect.DeepEqual(stored.Env, map[string]string{"B": "2"}) || stored.Tools["push_branch"] != "deny" ||
-		stored.Secrets["TOKEN"] != "s1" || stored.Preview != 3000 {
-		t.Fatalf("after patches: %+v", stored)
+	stored, err := p.ws.Environment("web")
+	if err != nil || stored.Image != "ruby:3" || !reflect.DeepEqual(stored.Env, map[string]string{"B": "2"}) ||
+		stored.Tools["push_branch"] != "deny" || secret(t, p, "TOKEN") != "s1" || stored.Preview != 3000 {
+		t.Fatalf("after patches: %+v %v", stored, err)
 	}
 	for _, bad := range []string{`{"imagee":"x"}`, `{"Image":"x"}`, `{"services":[{"name":"w","bogus":1}]}`, `{"tier":"huge"}`,
 		`{"tools":{"x":"maybe"}}`, `{"secrets":{"NEW":""}}`, `{"name":"other"}`, `[1]`,
@@ -230,18 +269,17 @@ func TestEnvironmentCRUD(t *testing.T) {
 	if code, body := api("PUT", "/environments/web", body); code != 204 {
 		t.Fatalf("put back: %d %s", code, body)
 	}
-	p.Store.Get("environments", "web", &stored)
-	if stored.Secrets["TOKEN"] != "s1" {
-		t.Fatalf("put back lost the secret: %+v", stored.Secrets)
+	if v := secret(t, p, "TOKEN"); v != "s1" {
+		t.Fatalf("put back lost the secret: %q", v)
 	}
 
-	p.Store.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", State: "idle"})
+	sessionRow(t, p, "web", db.Session{PublicID: "s1", State: "idle"})
 	if code, body := api("DELETE", "/environments/web", ""); code != 409 || !strings.Contains(body, "s1") {
 		t.Fatalf("delete under a session: %d %s", code, body)
 	}
-	p.Store.Delete("sessions", "s1")
-	p.Store.Put("seeds", "web", workspace.Seed{Env: "web", Actor: "tpl-b", State: "building"})
-	p.Store.Put("ready", "web", workspace.Seed{Env: "web", Actor: "tpl-a", State: "ready"})
+	p.DB.Unscoped().Where("public_id = ?", "s1").Delete(&db.Session{})
+	seedRow(t, p, "web", db.Seed{Actor: "tpl-a", State: "ready"})
+	seedRow(t, p, "web", db.Seed{Actor: "tpl-b", State: "building"})
 	p.Store.Put("routes", p.ws.Preview("web"), sandbox.Route{Actor: "tpl-a", Port: 3000, Tier: "medium"})
 	if code, body := api("DELETE", "/environments/web", ""); code != 204 {
 		t.Fatalf("delete: %d %s", code, body)
@@ -250,7 +288,8 @@ func TestEnvironmentCRUD(t *testing.T) {
 		t.Fatalf("actors deleted: %v", sb.gone)
 	}
 	var rt sandbox.Route
-	if p.Store.Get("routes", p.ws.Preview("web"), &rt) != store.ErrNotFound || p.Store.Get("ready", "web", &workspace.Seed{}) != store.ErrNotFound {
+	var seeds int64
+	if p.Store.Get("routes", p.ws.Preview("web"), &rt) != store.ErrNotFound || p.DB.Model(&db.Seed{}).Count(&seeds).Error != nil || seeds != 0 {
 		t.Fatal("route or seed left behind")
 	}
 	if code, _ := api("GET", "/environments/web", ""); code != 404 {
@@ -258,35 +297,111 @@ func TestEnvironmentCRUD(t *testing.T) {
 	}
 }
 
+// Writes s as a seed row of the environment named.
+func seedRow(t *testing.T, p *plane, env string, s db.Seed) {
+	t.Helper()
+	var e db.Environment
+	if err := p.DB.Where("name = ?", env).First(&e).Error; err != nil {
+		t.Fatal(err)
+	}
+	s.EnvironmentID = e.ID
+	if err := p.DB.Create(&s).Error; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Writes s as a session row of the environment named, declared first when it is not.
+func sessionRow(t *testing.T, p *plane, env string, s db.Session) db.Session {
+	t.Helper()
+	var e db.Environment
+	if p.DB.Where("name = ?", env).First(&e).Error != nil {
+		putEnv(t, p, workspace.Environment{Name: env})
+		if err := p.DB.Where("name = ?", env).First(&e).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	a := db.Agent{Slug: "hz"}
+	if err := p.DB.Where(&a).Attrs(db.Agent{Name: "hz"}).FirstOrCreate(&a).Error; err != nil {
+		t.Fatal(err)
+	}
+	s.EnvironmentID, s.AgentID = e.ID, a.ID
+	if err := p.DB.Create(&s).Error; err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// Writes a as an approval's row of its session.
+func approvalRow(t *testing.T, p *plane, a workspace.Approval) {
+	t.Helper()
+	var s db.Session
+	if err := p.DB.Unscoped().Where("public_id = ?", a.Session).First(&s).Error; err != nil {
+		t.Fatal(err)
+	}
+	r := db.Approval{PublicID: a.ID, SessionID: s.ID, Turn: a.Turn, Tool: a.Tool, State: a.State, AskedAt: a.At}
+	if a.Input != "" {
+		r.Input = json.RawMessage(a.Input)
+	}
+	if a.Outcome != "" {
+		r.Outcome, _ = json.Marshal(a.Outcome)
+	}
+	if !a.Decided.IsZero() {
+		r.DecidedAt = &a.Decided
+	}
+	if a.By != "" {
+		m := db.Member{AccountID: "local:" + a.By, Login: a.By, Role: "operator"}
+		if err := p.DB.Where(db.Member{AccountID: m.AccountID}).FirstOrCreate(&m).Error; err != nil {
+			t.Fatal(err)
+		}
+		r.DecidedByID = &m.ID
+	}
+	if err := p.DB.Where("public_id = ?", a.ID).Assign(r).FirstOrCreate(&db.Approval{}).Error; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The value the database holds for the secret named.
+func secret(t *testing.T, p *plane, name string) string {
+	t.Helper()
+	var s db.Secret
+	if err := p.DB.Where("key = ?", name).First(&s).Error; err != nil {
+		t.Fatal(err)
+	}
+	return s.Value
+}
+
 func TestSessionDelete(t *testing.T) {
 	sb := &removing{}
 	p, h := serve(newStore(t), sb, nil, nil)
-	p.Store.Put("sessions", "r1", workspace.Session{ID: "r1", State: "running", Actor: "wt-r1"})
+	sessionRow(t, p, "web", db.Session{PublicID: "r1", State: "running"})
 	if res := call(h, "DELETE", "api-dev.nvoi.to", "/sessions/r1", "", bearer); res.Code != 409 {
 		t.Fatalf("delete while running: %d %s", res.Code, res.Body)
 	}
-	s := workspace.Session{ID: "d1", State: "awaiting_approval", Actor: "wt-d1", Preview: p.ws.Preview("d1")}
-	p.Store.Put("sessions", "d1", s)
+	s := sessionRow(t, p, "web", db.Session{PublicID: "d1", State: "awaiting_approval", Preview: p.ws.Preview("d1")})
 	p.Store.Put("routes", s.Preview, sandbox.Route{Actor: "wt-d1", Port: 3000, Tier: "medium"})
-	p.Store.Put("queue", "d1", []string{"next"})
-	p.Store.Put("approvals", "a1", workspace.Approval{ID: "a1", Session: "d1", State: "pending"})
-	p.Store.Put("approvals", "a2", workspace.Approval{ID: "a2", Session: "d1", State: "deciding"})
+	if err := p.DB.Create(&db.QueuedMessage{SessionID: s.ID, Text: "next"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	approvalRow(t, p, workspace.Approval{ID: "a1", Session: "d1", State: "pending"})
+	approvalRow(t, p, workspace.Approval{ID: "a2", Session: "d1", State: "deciding"})
 	if res := call(h, "DELETE", "api-dev.nvoi.to", "/sessions/d1", "", bearer); res.Code != 409 {
 		t.Fatalf("delete while deciding: %d %s", res.Code, res.Body)
 	}
-	p.Store.Put("approvals", "a2", workspace.Approval{ID: "a2", Session: "d1", State: "done"})
+	approvalRow(t, p, workspace.Approval{ID: "a2", Session: "d1", State: "done"})
 	if res := call(h, "DELETE", "api-dev.nvoi.to", "/sessions/d1", "", bearer); res.Code != 204 {
 		t.Fatalf("delete: %d %s", res.Code, res.Body)
 	}
-	var a workspace.Approval
-	p.Store.Get("approvals", "a1", &a)
+	a, _ := p.ws.Approval("a1")
 	if a.State != "stopped" || !reflect.DeepEqual(sb.gone, []string{"wt-d1"}) {
 		t.Fatalf("approval %s, deleted %v", a.State, sb.gone)
 	}
-	for _, kind := range []string{"sessions", "queue"} {
-		if p.Store.Get(kind, "d1", &[]any{}) != store.ErrNotFound {
-			t.Errorf("%s row left behind", kind)
-		}
+	var queued int64
+	if p.DB.Model(&db.QueuedMessage{}).Count(&queued); queued != 0 {
+		t.Errorf("%d queued messages left behind", queued)
+	}
+	var kept db.Session
+	if err := p.DB.Unscoped().Where("public_id = ?", "d1").First(&kept).Error; err != nil || !kept.DeletedAt.Valid {
+		t.Errorf("the session's row is not kept removed: %+v %v", kept, err)
 	}
 	if res := call(h, "GET", "api-dev.nvoi.to", "/sessions/d1", "", bearer); res.Code != 404 {
 		t.Fatalf("get after delete: %d", res.Code)
@@ -344,7 +459,8 @@ func TestClusterStatus(t *testing.T) {
 func TestApprovalShow(t *testing.T) {
 	p, h := handler(t)
 	at := time.Date(2026, 10, 14, 9, 30, 0, 0, time.UTC)
-	p.Store.Put("approvals", "ap1", workspace.Approval{ID: "ap1", Session: "s1", Tool: "push_branch",
+	sessionRow(t, p, "web", db.Session{PublicID: "s1", State: "idle"})
+	approvalRow(t, p, workspace.Approval{ID: "ap1", Session: "s1", Tool: "push_branch",
 		Input: `{"branch":"fix-cart"}`, State: "done", Outcome: "pushed fix-cart", Decided: at, By: "ben"})
 	res := call(h, "GET", "api-dev.nvoi.to", "/approvals/ap1", "", bearer)
 	var a workspace.Approval
@@ -360,8 +476,8 @@ func TestApprovalShow(t *testing.T) {
 // A second click on an approval, or a second build of a seed, is a conflict.
 func TestConflicts(t *testing.T) {
 	p, h := handler(t)
-	p.Store.Put("sessions", "d2", workspace.Session{ID: "d2", State: "idle"})
-	p.Store.Put("approvals", "b1", workspace.Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
+	sessionRow(t, p, "web", db.Session{PublicID: "d2", State: "idle"})
+	approvalRow(t, p, workspace.Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
 	if res := call(h, "POST", "api-dev.nvoi.to", "/approvals/b1/deny", "", bearer); res.Code != http.StatusAccepted {
 		t.Fatalf("first click %d %s", res.Code, res.Body.String())
 	}
@@ -383,12 +499,12 @@ func TestConfigSecrets(t *testing.T) {
 	if res.Code != 200 || !reflect.DeepEqual(c.Stored, []string{"token"}) || c.Values["model"] != "opus" || c.Values["token"] != "" {
 		t.Fatalf("update: %d %s", res.Code, res.Body)
 	}
-	var stored workspace.LLMConfig
-	if p.Store.Get("llm", "work", &stored); stored.Values["token"] != "sk-1" {
+	var stored db.LLMConfig
+	if p.DB.Where("name = ?", "work").First(&stored); stored.Values["token"] != "sk-1" {
 		t.Fatalf("an empty secret keeps the stored one: %v", stored.Values)
 	}
 	res = call(h, "POST", "api-dev.nvoi.to", "/llm/configs", `{"name":"x","provider":"claude_code","values":{"kind":"oauth"}}`, bearer)
-	if res.Code != 400 || strings.TrimSpace(res.Body.String()) != "Token is needed" {
+	if res.Code != 400 || detail(res) != "Token is needed" {
 		t.Fatalf("missing token: %d %s", res.Code, res.Body)
 	}
 }

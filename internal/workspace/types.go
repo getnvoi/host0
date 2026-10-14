@@ -19,19 +19,36 @@ type Service struct {
 }
 
 type Environment struct {
-	Name   string            `json:"name" yaml:"name"`
-	Repo   string            `json:"repo" yaml:"repo"` // owner/name
-	Branch string            `json:"branch" yaml:"branch"`
-	Image  string            `json:"image" yaml:"image"`
+	Name   string            `json:"name,omitempty" yaml:"name"`
+	Repo   string            `json:"repo,omitempty" yaml:"repo"` // owner/name
+	Branch string            `json:"branch,omitempty" yaml:"branch"`
+	Image  string            `json:"image,omitempty" yaml:"image"`
 	Env    map[string]string `json:"env,omitempty" yaml:"env"`
 	// Name to value; the plane answers with the names and empty values.
 	Secrets  map[string]string `json:"secrets,omitempty" yaml:"-"`
-	Setup    []string          `json:"setup" yaml:"setup"`
-	Services []Service         `json:"services" yaml:"services"`
-	Preview  int               `json:"preview" yaml:"preview"`
+	Setup    []string          `json:"setup,omitempty" yaml:"setup"`
+	Services []Service         `json:"services,omitempty" yaml:"services"`
+	Preview  int               `json:"preview,omitempty" yaml:"preview"`
 	Tier     string            `json:"tier,omitempty" yaml:"tier"` // small, medium (default) or large
 	// Tool name to policy: auto, approval or deny.
-	Tools map[string]string `json:"tools" yaml:"tools"`
+	Tools map[string]string `json:"tools,omitempty" yaml:"tools"`
+}
+
+// An environment as PUT declares it: everything is replaced, but a secret given empty keeps its value.
+type EnvironmentInput Environment
+
+// A merge patch (RFC 7386) of an environment: what is given replaces, null removes, an object merges.
+type EnvironmentPatch struct {
+	Repo     string            `json:"repo,omitempty"`
+	Branch   string            `json:"branch,omitempty"`
+	Image    string            `json:"image,omitempty"`
+	Preview  int               `json:"preview,omitempty"`
+	Tier     string            `json:"tier,omitempty"`
+	Env      map[string]string `json:"env,omitempty"`
+	Secrets  map[string]string `json:"secrets,omitempty" writeOnly:"true"`
+	Setup    []string          `json:"setup,omitempty"`
+	Services []Service         `json:"services,omitempty"`
+	Tools    map[string]string `json:"tools,omitempty"`
 }
 
 type Credentials struct {
@@ -55,7 +72,23 @@ type LLMConfig struct {
 	At       time.Time  `json:"at"`
 }
 
+// A new agent credential; the first live one, or one given main, is the one turns run on.
+type LLMConfigInput struct {
+	Name     string            `json:"name"`
+	Provider string            `json:"provider"`
+	Values   map[string]string `json:"values" writeOnly:"true"`
+	Main     bool              `json:"main,omitempty"`
+}
+
+// A credential's values; a secret left empty keeps the stored one.
+type LLMConfigValues struct {
+	Values map[string]string `json:"values" writeOnly:"true"`
+}
+
+type CredentialsInput Credentials
+
 type Seed struct {
+	ID       uint      `json:"-"` // its row
 	Env      string    `json:"env"`
 	Run      string    `json:"run,omitempty"` // the seed script's boxd run id
 	Actor    string    `json:"actor"`
@@ -95,6 +128,23 @@ type Session struct {
 	By       string    `json:"by,omitempty"` // who started it: a browser's label, or cli
 	At       time.Time `json:"at"`
 	Last     time.Time `json:"last"`
+}
+
+// A new session: a fork of the environment's seed. An empty prompt forks and rests.
+type SessionInput struct {
+	Env    string `json:"env" doc:"The environment whose seed it forks"`
+	Prompt string `json:"prompt,omitempty" doc:"Its first message"`
+}
+
+// A message to a session: run now when it rests, queued otherwise.
+type Message struct {
+	Prompt string `json:"prompt"`
+	To     string `json:"to,omitempty" doc:"The sub-agent's tool call it is for; the main agent passes it on"`
+}
+
+// The text a queued message must still hold, so a stale click does not withdraw its neighbour.
+type Withdrawal struct {
+	Text string `json:"text"`
 }
 
 // A session without its events, for lists.
@@ -148,6 +198,7 @@ type Approval struct {
 	Session string    `json:"session"`
 	Turn    int       `json:"turn,omitempty"` // the session's turn that asked for it
 	Tool    string    `json:"tool"`
+	ToolID  string    `json:"tool_id,omitempty"` // the tool_use that asked for it
 	Input   string    `json:"input"`
 	State   string    `json:"state"` // pending, deciding, denied, done, stopped, failed
 	Outcome string    `json:"outcome,omitempty"`

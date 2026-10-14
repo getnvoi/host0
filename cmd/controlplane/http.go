@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -16,73 +15,14 @@ import (
 	"github.com/getnvoi/host0/internal/box"
 	"github.com/getnvoi/host0/internal/preview"
 	"github.com/getnvoi/host0/internal/sandbox"
-	"github.com/getnvoi/host0/internal/store"
-	"github.com/getnvoi/host0/internal/workers"
-	"github.com/getnvoi/host0/internal/workspace"
 )
 
 // apiHost: the API, for a bearer token (the CLI). appHost: the web UI, its API under /api for a signed-in browser.
 // Every other host is a preview.
 func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
-	ws := p.ws
-	api := http.NewServeMux()
-	api.HandleFunc("GET /me", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, &map[string]string{"cluster": p.Cluster, "zone": p.Zone}, nil)
-	})
-	api.Handle("GET /stream", p.bus)
-	api.HandleFunc("GET /environments", func(w http.ResponseWriter, r *http.Request) {
-		out, err := ws.Environments()
-		reply(w, &out, err)
-	})
-	api.HandleFunc("GET /sessions", func(w http.ResponseWriter, r *http.Request) {
-		out, err := ws.Sessions()
-		reply(w, &out, err)
-	})
-	api.HandleFunc("GET /sessions/{id}/queue", func(w http.ResponseWriter, r *http.Request) {
-		q := ws.Queue(r.PathValue("id"))
-		reply(w, &q, nil)
-	})
-	api.HandleFunc("DELETE /sessions/{id}/queue/{i}", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Text string }
-		i, err := strconv.Atoi(r.PathValue("i"))
-		if err != nil {
-			reply(w, nil, badRequest{err})
-			return
-		}
-		reply(w, nil, read(r, &in, func() error { return ws.Unqueue(r.PathValue("id"), i, in.Text) }))
-	})
-	api.HandleFunc("POST /sessions/{id}/stop", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.Stop(r.Context(), r.PathValue("id")))
-	})
-	api.HandleFunc("PUT /credentials", func(w http.ResponseWriter, r *http.Request) {
-		var c workspace.Credentials
-		reply(w, nil, read(r, &c, func() error { return p.Store.Put("credentials", "default", c) }))
-	})
-	api.HandleFunc("GET /credentials", func(w http.ResponseWriter, r *http.Request) {
-		out := workspace.CredentialsSet{Stored: []string{}}
-		var c workspace.Credentials
-		err := p.Store.Get("credentials", "default", &c)
-		if err == store.ErrNotFound {
-			err = nil
-		}
-		if c.GitHub != "" {
-			out.Stored = append(out.Stored, "github")
-		}
-		reply(w, &out, err)
-	})
-	api.HandleFunc("DELETE /credentials/{name}", func(w http.ResponseWriter, r *http.Request) {
-		if r.PathValue("name") != "github" {
-			reply(w, nil, store.ErrNotFound)
-			return
-		}
-		var c workspace.Credentials
-		err := p.Store.Get("credentials", "default", &c)
-		if err == nil {
-			c.GitHub = ""
-			err = p.Store.Put("credentials", "default", c)
-		}
-		reply(w, nil, err)
-	})
+	mux := http.NewServeMux()
+	p.API(mux)
+	api := p.outside("api", mux)
 	api.HandleFunc("PUT /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
 		var s sandbox.Shape
 		reply(w, nil, read(r, &s, func() error { return p.sc.SetShape(s) }))
@@ -115,97 +55,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		c, err := p.Status(r.Context())
 		reply(w, &c, err)
 	})
-	api.HandleFunc("GET /llm/providers", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, ws.Providers(), nil)
-	})
-	api.HandleFunc("GET /llm/configs", func(w http.ResponseWriter, r *http.Request) {
-		cs, err := ws.Configs()
-		reply(w, cs, err)
-	})
-	api.HandleFunc("POST /llm/configs", func(w http.ResponseWriter, r *http.Request) {
-		var in, out workspace.LLMConfig
-		reply(w, &out, read(r, &in, func() (err error) { out, err = ws.AddConfig(in); return }))
-	})
-	api.HandleFunc("PUT /llm/configs/{name}", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Values map[string]string }
-		var out workspace.LLMConfig
-		reply(w, &out, read(r, &in, func() (err error) { out, err = ws.UpdateConfig(r.PathValue("name"), in.Values); return }))
-	})
-	api.HandleFunc("POST /llm/configs/{name}/main", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.UseConfig(r.PathValue("name")))
-	})
-	api.HandleFunc("POST /llm/configs/{name}/restore", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.RestoreConfig(r.PathValue("name")))
-	})
-	api.HandleFunc("DELETE /llm/configs/{name}", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("remove") != "" {
-			reply(w, nil, ws.RemoveConfig(r.PathValue("name")))
-			return
-		}
-		reply(w, nil, ws.ArchiveConfig(r.PathValue("name")))
-	})
-	api.HandleFunc("PUT /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		var e workspace.Environment
-		reply(w, nil, read(r, &e, func() error { e.Name = r.PathValue("name"); return ws.PutEnvironment(e) }))
-	})
-	api.HandleFunc("GET /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		e, err := ws.Environment(r.PathValue("name"))
-		reply(w, &e, err)
-	})
-	api.HandleFunc("PATCH /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		b, err := io.ReadAll(r.Body)
-		if err != nil {
-			reply(w, nil, badRequest{err})
-			return
-		}
-		e, err := ws.PatchEnvironment(r.PathValue("name"), b)
-		reply(w, &e, err)
-	})
-	api.HandleFunc("DELETE /environments/{name}", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.DeleteEnvironment(r.Context(), r.PathValue("name")))
-	})
-	api.HandleFunc("POST /environments/{name}/seed", func(w http.ResponseWriter, r *http.Request) {
-		if err := ws.Reseed(r.PathValue("name")); err != nil {
-			reply(w, nil, err)
-			return
-		}
-		w.WriteHeader(http.StatusAccepted)
-	})
-	api.HandleFunc("GET /environments/{name}/seed", func(w http.ResponseWriter, r *http.Request) {
-		var s workspace.Seed
-		reply(w, &s, p.Store.Get("seeds", r.PathValue("name"), &s))
-	})
-	api.HandleFunc("POST /sessions", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Env, Prompt string }
-		var s workspace.Session
-		reply(w, &s, read(r, &in, func() (err error) { s, err = ws.Start(in.Env, in.Prompt, auth.Who(r.Context())); return }))
-	})
-	api.HandleFunc("GET /sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
-		var s workspace.Session
-		reply(w, &s, p.Store.Get("sessions", r.PathValue("id"), &s))
-	})
-	api.HandleFunc("DELETE /sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.DeleteSession(r.Context(), r.PathValue("id")))
-	})
-	api.HandleFunc("POST /sessions/{id}/turns", func(w http.ResponseWriter, r *http.Request) {
-		var in struct{ Prompt, To string }
-		reply(w, nil, read(r, &in, func() error { return ws.Say(r.PathValue("id"), in.Prompt, in.To) }))
-	})
-	api.HandleFunc("POST /sessions/{id}/suspend", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.Suspend(r.Context(), r.PathValue("id")))
-	})
-	api.HandleFunc("POST /seeds/{name}/suspend", func(w http.ResponseWriter, r *http.Request) {
-		var out struct {
-			Actor string `json:"actor"`
-		}
-		var err error
-		out.Actor, err = ws.SuspendSeed(r.Context(), r.PathValue("name"))
-		reply(w, &out, err)
-	})
-	api.HandleFunc("GET /sessions/{id}/preview", func(w http.ResponseWriter, r *http.Request) {
-		st, err := ws.PreviewStatus(r.Context(), r.PathValue("id"))
-		reply(w, &st, err)
-	})
 	api.HandleFunc("POST /previews", func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Host string }
 		var out struct {
@@ -215,9 +64,8 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 			var rt sandbox.Route
 			if err := p.Store.Get("routes", in.Host, &rt); err != nil {
 				// A session still forking has no route yet; its host is known all the same.
-				var s workspace.Session
 				sid, _, _ := strings.Cut(in.Host, "-")
-				if p.Store.Get("sessions", sid, &s) != nil || s.Preview != in.Host {
+				if s, serr := p.ws.Session(sid); serr != nil || s.Preview != in.Host {
 					return err
 				}
 			}
@@ -225,71 +73,15 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 			return nil
 		}))
 	})
-	api.HandleFunc("GET /sessions/{id}/changes", func(w http.ResponseWriter, r *http.Request) {
-		c, err := ws.Changes(r.Context(), r.PathValue("id"))
-		reply(w, &c, err)
-	})
-	api.HandleFunc("GET /sessions/{id}/logs", func(w http.ResponseWriter, r *http.Request) {
-		out, err := ws.Logs(r.PathValue("id"))
-		reply(w, &out, err)
-	})
-	api.HandleFunc("GET /sessions/{id}/logs/{name}", func(w http.ResponseWriter, r *http.Request) {
-		offset, _ := strconv.ParseInt(r.URL.Query().Get("offset"), 10, 64)
-		b, next, err := ws.Log(r.Context(), r.PathValue("id"), r.PathValue("name"), offset)
-		if err != nil {
-			reply(w, nil, err)
-			return
-		}
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("X-Offset", strconv.FormatInt(next, 10))
-		w.Write(b)
-	})
-	api.HandleFunc("GET /sessions/{id}/terminals", func(w http.ResponseWriter, r *http.Request) {
-		out, err := ws.Terminals(r.Context(), r.PathValue("id"))
-		reply(w, &out, err)
-	})
 	api.HandleFunc("GET /sessions/{id}/terminals/{tid}", p.terminal(appHost))
-	api.HandleFunc("DELETE /sessions/{id}/terminals/{tid}", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, nil, ws.Kill(r.Context(), r.PathValue("id"), r.PathValue("tid")))
-	})
-	api.HandleFunc("GET /approvals", func(w http.ResponseWriter, r *http.Request) {
-		out := []workspace.Approval{}
-		session := r.URL.Query().Get("session")
-		err := p.Store.List("approvals", func(d func(any) error) error {
-			var a workspace.Approval
-			if err := d(&a); err != nil {
-				return err
-			}
-			if a.State == "pending" && (session == "" || a.Session == session) {
-				out = append(out, a)
-			}
-			return nil
-		})
-		reply(w, &out, err)
-	})
-	api.HandleFunc("GET /approvals/{id}", func(w http.ResponseWriter, r *http.Request) {
-		var a workspace.Approval
-		reply(w, &a, p.Store.Get("approvals", r.PathValue("id"), &a))
-	})
 	api.HandleFunc("GET /usage", func(w http.ResponseWriter, r *http.Request) {
 		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
 		u, err := p.Usage(time.Now(), days, r.URL.Query().Get("by"))
 		reply(w, &u, err)
 	})
-	api.HandleFunc("POST /approvals/{id}/{decision}", func(w http.ResponseWriter, r *http.Request) {
-		// Accepted: the action and the outcome turn follow, and the stream tells how they went.
-		a, err := ws.Decide(r.PathValue("id"), r.PathValue("decision") == "approve", auth.Who(r.Context()))
-		if err != nil {
-			reply(w, nil, err)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(&a)
-	})
 
-	bearer := http.NewServeMux()
-	bearer.Handle("/", api)
+	bearer := p.outside("bearer", http.NewServeMux())
+	bearer.Handle("/", mux)
 	bearer.HandleFunc("POST /login-links", func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Label string }
 		var out struct {
@@ -312,7 +104,7 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	bearer.HandleFunc("DELETE /browsers", signOut)
 	bearer.HandleFunc("DELETE /browsers/{label}", signOut)
 	cli := auth.Bearer(tokenSHA256, bearer)
-	app := http.NewServeMux()
+	app := p.outside("app", http.NewServeMux())
 	app.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Has("code") {
 			p.auth.Login(w, r)
@@ -321,7 +113,7 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		serveUI(w, r)
 	})
 	app.HandleFunc("POST /api/logout", p.auth.Logout)
-	app.Handle("/api/", p.auth.SignedIn(http.StripPrefix("/api", api)))
+	app.Handle("/api/", p.auth.SignedIn(http.StripPrefix("/api", mux)))
 	app.HandleFunc("/", serveUI)
 	previews := p.preview(appHost)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -334,6 +126,24 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 			previews.ServeHTTP(w, r)
 		}
 	})
+}
+
+// A mux whose every pattern is recorded under name: the routes served outside Huma, which TestOutside lists.
+type routes struct {
+	*http.ServeMux
+	name string
+	p    *plane
+}
+
+func (p *plane) outside(name string, m *http.ServeMux) routes { return routes{m, name, p} }
+
+func (r routes) Handle(pattern string, h http.Handler) {
+	r.p.raw = append(r.p.raw, r.name+" "+pattern)
+	r.ServeMux.Handle(pattern, h)
+}
+
+func (r routes) HandleFunc(pattern string, h func(http.ResponseWriter, *http.Request)) {
+	r.Handle(pattern, http.HandlerFunc(h))
 }
 
 type routeKey struct{}
@@ -401,11 +211,11 @@ func (p *plane) terminal(appHost string) http.HandlerFunc {
 		p.ws.ActorToken)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if o := r.Header.Get("Origin"); o != "" && o != "https://"+appHost {
-			http.Error(w, "origin not allowed", http.StatusForbidden)
+			writeProblem(w, refusal(http.StatusForbidden, "origin "+o+" is not the app's"))
 			return
 		}
 		if !box.TerminalID.MatchString(r.PathValue("tid")) {
-			http.Error(w, box.ErrBadTerminal.Error(), http.StatusBadRequest)
+			writeProblem(w, refusal(http.StatusBadRequest, box.ErrBadTerminal.Error()))
 			return
 		}
 		s, env, err := p.ws.Awake(r.Context(), r.PathValue("id"))
@@ -438,17 +248,8 @@ type badRequest struct{ error }
 
 func reply(w http.ResponseWriter, v any, err error) {
 	switch {
-	case err == store.ErrNotFound || err == sandbox.ErrNotFound:
-		http.Error(w, err.Error(), http.StatusNotFound)
 	case err != nil:
-		code := http.StatusUnprocessableEntity
-		switch err.(type) {
-		case badRequest, workspace.Invalid, workers.Invalid:
-			code = http.StatusBadRequest
-		case workspace.Conflict:
-			code = http.StatusConflict
-		}
-		http.Error(w, err.Error(), code)
+		writeProblem(w, refusal(status(err), err.Error()))
 	case v == nil:
 		w.WriteHeader(http.StatusNoContent)
 	default:

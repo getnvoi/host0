@@ -119,13 +119,13 @@ func TestMigrate(t *testing.T) {
 	}
 	var ran []string
 	must(t, db.Raw("SELECT id FROM migrations").Scan(&ran).Error)
-	if !reflect.DeepEqual(ran, []string{"0001"}) {
+	if !reflect.DeepEqual(ran, []string{"0001", "0002", "0003", "0004", "0005", "0006"}) {
 		t.Fatalf("migrations recorded: %v", ran)
 	}
 
 	tables := []string{"members", "agents", "tool_policies", "llm_configs", "environments", "env_vars", "secrets",
 		"setup_steps", "services", "seeds", "sessions", "events", "queued_messages", "approvals", "artifacts",
-		"artifact_versions", "notes", "routes", "sign_ins", "shapes", "usage_hours"}
+		"artifact_versions", "notes", "routes", "sign_ins", "shapes", "usage_hours", "credentials"}
 	if len(before) != len(tables) {
 		t.Errorf("%d tables, want %d", len(before), len(tables))
 	}
@@ -141,7 +141,7 @@ func TestMigrate(t *testing.T) {
 		"setup_steps": "environment_id,position", "services": "environment_id,name", "sessions": "public_id",
 		"events": "session_id,position", "queued_messages": "session_id,position", "approvals": "public_id",
 		"artifacts": "session_id,name", "artifact_versions": "artifact_id,number", "routes": "host",
-		"sign_ins": "digest", "usage_hours": "hour,tier",
+		"sign_ins": "digest", "usage_hours": "hour,tier", "credentials": "name",
 	}
 	for n, cols := range uniques {
 		found := false
@@ -200,7 +200,7 @@ func TestModelsMatchMigration(t *testing.T) {
 	t.Cleanup(func() { closeDB(t, auto) })
 	must(t, auto.AutoMigrate(&Member{}, &LLMConfig{}, &Agent{}, &ToolPolicy{}, &Environment{}, &EnvVar{}, &Secret{},
 		&SetupStep{}, &Service{}, &Seed{}, &Session{}, &Event{}, &QueuedMessage{}, &Approval{}, &Artifact{},
-		&ArtifactVersion{}, &Note{}, &Route{}, &SignIn{}, &Shape{}, &UsageHour{}))
+		&ArtifactVersion{}, &Note{}, &Route{}, &SignIn{}, &Shape{}, &UsageHour{}, &Credential{}))
 	want, got := describe(t, migrated), describe(t, auto)
 	for n := range want {
 		if !reflect.DeepEqual(want[n], got[n]) {

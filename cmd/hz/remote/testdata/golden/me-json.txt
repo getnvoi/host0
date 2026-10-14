@@ -1,0 +1,6 @@
+> GET /me
+{
+  "cluster": "dev",
+  "zone": "nvoi.to"
+}
+
