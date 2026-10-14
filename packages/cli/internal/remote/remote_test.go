@@ -81,7 +81,7 @@ func serve(t *testing.T, p *plane) state.State {
 	return st
 }
 
-func follow(t *testing.T, p *plane) (string, error) {
+func seeding(t *testing.T, p *plane) (string, error) {
 	st := serve(t, p)
 	var out bytes.Buffer
 	err := (&build{st: st, env: "shop", out: &out}).follow()
@@ -103,7 +103,7 @@ func TestSeedPrintsEachStep(t *testing.T) {
 		s.seed(contract.Seed{State: "building", Step: "snapshotting tpl"})
 		s.seed(contract.Seed{State: "ready", Preview: "shop-dev.nvoi.to"})
 	}
-	out, err := run(t, p)
+	out, err := seeding(t, p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestSeedFailsWithThePlanesSentence(t *testing.T) {
 		s.seed(contract.Seed{State: "failed", Step: "setup: bundle install",
 			Error: "seed-1 exited 5: Could not find gem 'rails (~> 9.0)'"})
 	}
-	_, err := run(t, p)
+	_, err := seeding(t, p)
 	if err == nil || err.Error() != "seed failed: seed-1 exited 5: Could not find gem 'rails (~> 9.0)'" {
 		t.Fatalf("error %v", err)
 	}
@@ -150,7 +150,7 @@ func TestSeedSilenceIsAHang(t *testing.T) {
 			}
 		}
 	}
-	_, err := run(t, p)
+	_, err := seeding(t, p)
 	if err == nil || err.Error() != `no progress on the seed of shop for 100ms; last step: setup: npm ci; last line: "added 12 packages"` {
 		t.Fatalf("error %v", err)
 	}
@@ -171,7 +171,7 @@ func TestSeedReconnectsWhereItLeft(t *testing.T) {
 		s.id = 1
 		s.seed(contract.Seed{State: "ready", Preview: "shop-dev.nvoi.to"})
 	}
-	out, err := run(t, p)
+	out, err := seeding(t, p)
 	if err != nil || resumed != "run-1" || p.asks != 1 || !strings.Contains(out, "stream dropped (the plane closed the stream), reconnecting") {
 		t.Fatalf("resumed after %q, asked %d times: %v", resumed, p.asks, err)
 	}
@@ -182,7 +182,7 @@ func TestSeedGivesUpAfterFourDrops(t *testing.T) {
 	t.Cleanup(func() { backoff = time.Second })
 	p := &plane{}
 	p.script = func(*sse, int, string) {}
-	_, err := run(t, p)
+	_, err := seeding(t, p)
 	if err == nil || err.Error() != "the plane's stream dropped 4 times in a row: the plane closed the stream" || p.conns != 4 {
 		t.Fatalf("%d connections: %v", p.conns, err)
 	}
