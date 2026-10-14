@@ -33,6 +33,8 @@ const (
 type Plane struct {
 	Sandboxes Sandboxes
 	Pools     Pools
+	// Reads any pod and its log, for hz pods and hz logs.
+	Pods Pods
 	// The cloud worker servers are made on, in the shape's location; nil when the cluster's own nodes are all it has.
 	Cloud func(location string) (cloud.Cloud, error)
 	// The cloud-init a worker server boots with: it joins the cluster as a worker node.

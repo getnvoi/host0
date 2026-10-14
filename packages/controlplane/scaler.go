@@ -27,6 +27,11 @@ type Pools interface {
 	Forget(ctx context.Context, node string) error
 }
 
+type Pods interface {
+	List(ctx context.Context, node string) ([]contract.Pod, error)
+	Log(ctx context.Context, namespace, pod, container string, tail int) (string, error)
+}
+
 type Worker struct {
 	Pool, Pod string
 	Assigned  bool

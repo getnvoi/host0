@@ -229,7 +229,14 @@ func (c *Client) Workers(ctx context.Context) ([]controlplane.Worker, error) {
 		}
 		var actors []string
 		for _, a := range as.GetActorAssignments() {
-			actors = append(actors, a.GetActor().GetName())
+			name := a.GetActor().GetName()
+			state := "unknown"
+			if got, err := c.api.GetActor(ctx, &pb.GetActorRequest{Actor: c.ref(name)}); err != nil {
+				state = err.Error()
+			} else {
+				state = strings.TrimPrefix(got.GetStatus().GetState().String(), "ACTOR_STATE_")
+			}
+			actors = append(actors, name+" "+state)
 		}
 		out = append(out, controlplane.Worker{Pool: w.GetWorkerPool(), Pod: w.GetWorkerPod(), Assigned: len(actors) > 0, Actors: actors})
 	}

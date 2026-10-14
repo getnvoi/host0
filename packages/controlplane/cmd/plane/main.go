@@ -75,6 +75,7 @@ func main() {
 	p := &controlplane.Plane{
 		Sandboxes:    sb,
 		Pools:        pools,
+		Pods:         pools,
 		Cloud:        cl,
 		WorkerInit:   init,
 		Store:        st,

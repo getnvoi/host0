@@ -226,3 +226,52 @@ func logout() *cobra.Command {
 	cmd.Flags().BoolVar(&all, "all", false, "every browser")
 	return cmd
 }
+
+func pods() *cobra.Command {
+	var node string
+	cmd := &cobra.Command{
+		Use:   "pods",
+		Short: "Every pod in the cluster, or one node's",
+		Args:  cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			var ps []contract.Pod
+			if err := call("GET", "/cluster/pods?node="+url.QueryEscape(node), nil, &ps); err != nil {
+				return err
+			}
+			w := table()
+			fmt.Fprintln(w, "NAMESPACE\tPOD\tNODE\tPHASE\t")
+			for _, p := range ps {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", p.Namespace, p.Name, p.Node, p.Phase)
+			}
+			return w.Flush()
+		},
+	}
+	cmd.Flags().StringVar(&node, "node", "", "only this node's pods")
+	return cmd
+}
+
+func podLogs() *cobra.Command {
+	var container string
+	var tail int
+	cmd := &cobra.Command{
+		Use:   "logs <namespace>/<pod>",
+		Short: "The end of a cluster pod's log",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			ns, pod, ok := strings.Cut(args[0], "/")
+			if !ok {
+				return fmt.Errorf("%s: want <namespace>/<pod>, as hz pods prints them", args[0])
+			}
+			q := url.Values{"tail": {strconv.Itoa(tail)}, "container": {container}}
+			var out struct{ Log string }
+			if err := call("GET", "/cluster/pods/"+url.PathEscape(ns)+"/"+url.PathEscape(pod)+"/log?"+q.Encode(), nil, &out); err != nil {
+				return err
+			}
+			fmt.Print(out.Log)
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&container, "container", "c", "", "the container, when the pod has several")
+	cmd.Flags().IntVar(&tail, "tail", 200, "lines from the end")
+	return cmd
+}

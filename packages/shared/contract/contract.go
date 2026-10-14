@@ -300,6 +300,14 @@ type Pool struct {
 	Ready    int    `json:"ready"`
 }
 
+// A pod in the cluster, any namespace.
+type Pod struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Node      string `json:"node"`
+	Phase     string `json:"phase"`
+}
+
 type Worker struct {
 	Pool     string   `json:"pool"`
 	Pod      string   `json:"pod"`

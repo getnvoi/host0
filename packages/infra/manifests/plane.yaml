@@ -21,6 +21,7 @@ kind: ClusterRole
 metadata: { name: hz-plane }
 rules:
   - { apiGroups: [""], resources: [nodes], verbs: [get, list, patch, delete] }
+  - { apiGroups: [""], resources: [pods, pods/log], verbs: [get, list] }
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

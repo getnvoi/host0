@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -112,6 +113,26 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	api.HandleFunc("GET /cluster/shape", func(w http.ResponseWriter, r *http.Request) {
 		s, err := p.shape()
 		reply(w, &s, err)
+	})
+	api.HandleFunc("GET /cluster/pods", func(w http.ResponseWriter, r *http.Request) {
+		if p.Pods == nil {
+			reply(w, nil, fmt.Errorf("this plane reads no pods"))
+			return
+		}
+		ps, err := p.Pods.List(r.Context(), r.URL.Query().Get("node"))
+		reply(w, &ps, err)
+	})
+	api.HandleFunc("GET /cluster/pods/{namespace}/{pod}/log", func(w http.ResponseWriter, r *http.Request) {
+		if p.Pods == nil {
+			reply(w, nil, fmt.Errorf("this plane reads no pods"))
+			return
+		}
+		tail, err := strconv.Atoi(r.URL.Query().Get("tail"))
+		if err != nil || tail <= 0 {
+			tail = 200
+		}
+		log, err := p.Pods.Log(r.Context(), r.PathValue("namespace"), r.PathValue("pod"), r.URL.Query().Get("container"), tail)
+		reply(w, &map[string]string{"log": log}, err)
 	})
 	api.HandleFunc("GET /cluster", func(w http.ResponseWriter, r *http.Request) {
 		c, err := p.Status(r.Context())

@@ -227,3 +227,55 @@ func (c *Client) Cost(ctx context.Context, pod string, cost int) error {
 		map[string]any{"metadata": map[string]any{"annotations": map[string]string{
 			"controller.kubernetes.io/pod-deletion-cost": strconv.Itoa(cost)}}}, nil)
 }
+
+// Every pod, or the node's when node is set.
+func (c *Client) List(ctx context.Context, node string) ([]contract.Pod, error) {
+	path := "/api/v1/pods"
+	if node != "" {
+		path += "?fieldSelector=" + url.QueryEscape("spec.nodeName="+node)
+	}
+	var list struct {
+		Items []struct {
+			Metadata struct{ Namespace, Name string } `json:"metadata"`
+			Spec     struct {
+				NodeName string `json:"nodeName"`
+			} `json:"spec"`
+			Status struct{ Phase string } `json:"status"`
+		}
+	}
+	if err := c.do(ctx, "GET", path, nil, &list); err != nil {
+		return nil, err
+	}
+	out := []contract.Pod{}
+	for _, p := range list.Items {
+		out = append(out, contract.Pod{Namespace: p.Metadata.Namespace, Name: p.Metadata.Name, Node: p.Spec.NodeName, Phase: p.Status.Phase})
+	}
+	return out, nil
+}
+
+func (c *Client) Log(ctx context.Context, namespace, pod, container string, tail int) (string, error) {
+	q := url.Values{"tailLines": {strconv.Itoa(tail)}}
+	if container != "" {
+		q.Set("container", container)
+	}
+	req, _ := http.NewRequestWithContext(ctx, "GET",
+		fmt.Sprintf("https://kubernetes.default.svc/api/v1/namespaces/%s/pods/%s/log?%s", url.PathEscape(namespace), url.PathEscape(pod), q.Encode()), nil)
+	token, err := os.ReadFile(sa + "token")
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(token)))
+	res, err := c.http.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	raw, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	if res.StatusCode >= 300 {
+		return "", fmt.Errorf("kube log %s/%s: %d %s", namespace, pod, res.StatusCode, raw)
+	}
+	return string(raw), nil
+}

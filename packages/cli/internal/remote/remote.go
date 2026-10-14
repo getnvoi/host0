@@ -90,7 +90,7 @@ func send(method, path string, in any) (*http.Response, error) {
 
 func Commands() []*cobra.Command {
 	return []*cobra.Command{credentials(), env(), session(), approval(), preview(), open(), invite(),
-		status(), whoami(), usage(), llm(), browsers(), logout()}
+		status(), pods(), podLogs(), whoami(), usage(), llm(), browsers(), logout()}
 }
 
 func credentials() *cobra.Command {
