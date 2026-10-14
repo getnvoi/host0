@@ -3,7 +3,6 @@ package dns
 
 import (
 	"fmt"
-	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -160,92 +159,3 @@ func (z *Zone) label(name string) (string, error) {
 	return "", fmt.Errorf("%s is not in zone %s", name, z.Name)
 }
 
-// Makes host's A and AAAA records exactly ips. Refused when another type of record holds the name.
-func (z *Zone) Point(host string, ips []string) ([]string, error) {
-	label, err := z.label(host)
-	if err != nil {
-		return nil, err
-	}
-	var v4, v6 []string
-	for _, ip := range ips {
-		a, err := netip.ParseAddr(ip)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", host, err)
-		}
-		if a.Unmap().Is4() {
-			v4 = append(v4, a.Unmap().String())
-		} else {
-			v6 = append(v6, a.String())
-		}
-	}
-	if len(v4)+len(v6) == 0 {
-		return nil, fmt.Errorf("%s: no address to point it at", host)
-	}
-	return z.apply(func(existing models.Records) ([]edit, error) {
-		for _, r := range existing {
-			if strings.EqualFold(r.GetLabel(), label) && r.Type == "CNAME" {
-				return nil, fmt.Errorf("%s is taken: CNAME %s", host, value(r))
-			}
-		}
-		return []edit{{label: label, typ: "A", add: v4, exact: true}, {label: label, typ: "AAAA", add: v6, exact: true}}, nil
-	})
-}
-
-// Nil when host's A and AAAA records are exactly ips; otherwise what is there instead. Reads only.
-func (z *Zone) Check(host string, ips []string) error {
-	label, err := z.label(host)
-	if err != nil {
-		return err
-	}
-	dc, err := models.NewDomainConfig(z.Name)
-	if err != nil {
-		return err
-	}
-	existing, err := z.driver.GetZoneRecords(dc)
-	if err != nil {
-		return fmt.Errorf("zone %s: %w", z.Name, err)
-	}
-	var want, have []string
-	for _, ip := range ips {
-		a, err := netip.ParseAddr(ip)
-		if err != nil {
-			return fmt.Errorf("%s: %w", host, err)
-		}
-		want = append(want, a.Unmap().String())
-	}
-	for _, r := range existing {
-		if !strings.EqualFold(r.GetLabel(), label) {
-			continue
-		}
-		switch r.Type {
-		case "A", "AAAA":
-			have = append(have, value(r))
-		case "CNAME":
-			return fmt.Errorf("%s is taken: CNAME %s", host, value(r))
-		}
-	}
-	slices.Sort(want)
-	slices.Sort(have)
-	if len(have) == 0 {
-		return fmt.Errorf("%s has no record", host)
-	}
-	if !slices.Equal(want, have) {
-		return fmt.Errorf("%s points at %s, not %s", host, strings.Join(have, " "), strings.Join(want, " "))
-	}
-	return nil
-}
-
-// Removes every A and AAAA record whose name owned accepts.
-func (z *Zone) Sweep(owned func(name string) bool) ([]string, error) {
-	return z.apply(func(existing models.Records) ([]edit, error) {
-		var edits []edit
-		seen := map[string]bool{}
-		for _, r := range existing {
-			if (r.Type == "A" || r.Type == "AAAA") && owned(r.GetLabelFQDN()) && !seen[r.GetLabel()+" "+r.Type] {
-				seen[r.GetLabel()+" "+r.Type] = true
-				edits = append(edits, edit{label: r.GetLabel(), typ: r.Type, exact: true})
-			}
-		}
-		return edits, nil
-	})
-}

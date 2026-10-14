@@ -13,7 +13,9 @@ import (
 type Public struct {
 	Zone *dns.Zone
 	// Whether a host is one this cluster computes; no other name is written.
-	Owns      func(host string) bool
+	Owns func(host string) bool
+	// The mark its records carry, naming.Cluster.Owner.
+	Owner     string
 	Addresses func(ctx context.Context) ([]string, error)
 }
 
@@ -27,7 +29,7 @@ func (p Public) Route(ctx context.Context, host string) error {
 	if err != nil {
 		return err
 	}
-	_, err = p.Zone.Point(host, ips)
+	_, err = p.Zone.Point(host, ips, p.Owner)
 	return err
 }
 
@@ -36,5 +38,5 @@ func (p Public) Check(ctx context.Context, host string) error {
 	if err != nil {
 		return err
 	}
-	return p.Zone.Check(host, ips)
+	return p.Zone.Check(host, ips, p.Owner)
 }

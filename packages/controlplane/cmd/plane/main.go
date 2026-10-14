@@ -114,7 +114,7 @@ func selectEdge(k *kube.Client, cluster, zone string) controlplane.Edge {
 			log.Fatal(err)
 		}
 		suffix, node := must("HZ_PREVIEW_SUFFIX"), must("HZ_NODE")
-		return edge.Public{Zone: z,
+		return edge.Public{Zone: z, Owner: c.Owner(),
 			Owns:      func(host string) bool { return naming.Owns(c, suffix, zone, host) },
 			Addresses: func(ctx context.Context) ([]string, error) { return k.Addresses(ctx, node) }}
 	default:

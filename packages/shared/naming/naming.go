@@ -32,6 +32,9 @@ func New(name string) (Cluster, error) {
 func (c Cluster) Prefix() string  { return "hz-" + c.Name }
 func (c Cluster) Control() string { return c.Prefix() + "-control" }
 
+// The TXT value that marks a DNS record as this cluster's, as hz/owner marks its other objects.
+func (c Cluster) Owner() string { return "hz/owner=" + c.Prefix() }
+
 // The Cloudflare tunnel: a name no other tool picks, since tunnels carry no labels and one found by name is ours.
 func (c Cluster) Tunnel() string   { return "hz-cluster-" + c.Name }
 func (c Cluster) Selector() string { return Label + "=" + c.Name }
