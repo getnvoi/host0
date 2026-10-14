@@ -237,15 +237,22 @@ downloaded into a cache, no bucket. A self-hoster installs one binary and needs
 nothing else. If a converging engine is ever needed, it is because we are
 managing infrastructure we did not create — and that is a different product.
 
-## Zero configuration files
+## Where things live
 
-The control plane reads no environment variables. Two things live outside the database
-because they cannot live inside it:
+The plane's store is one JSON file per record under `/var/lib/hz` on the control
+node. Its settings are the environment its Deployment sets at install
+(`HZ_CLUSTER`, `HZ_ZONE`, `HZ_EDGE`, …) and the secrets mounted beside them;
+nobody edits them by hand, `hz cluster install` writes them again.
+
+The laptop keeps three things:
 
 ```
-~/.hz/key      32 bytes, 0600 — the sealing key, the one thing to back up
-~/.hz/hz.db  SQLite
+~/.hz/key           32 bytes, 0600 — the sealing key, the one thing to back up
+~/.hz/state.json    where the plane is and the token it takes
+~/.hz/certs/<zone>  development only: a kept certificate, sealed with ~/.hz/key
 ```
+
+`cluster.yml` is optional: every field is also a flag.
 
 Every record the plane stores is sealed whole: AES-256-GCM, a fresh 12-byte nonce
 per seal, `hz-sealed:1:` then base64(nonce|ciphertext). A record that does not

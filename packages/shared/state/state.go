@@ -1,4 +1,4 @@
-// ~/.hz/state.json: where the plane is and the token it takes. The only thing the laptop keeps.
+// ~/.hz/state.json: where the plane is and the token it takes.
 package state
 
 import (
