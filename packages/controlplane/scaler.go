@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/getnvoi/host0/shared/contract"
 	"github.com/getnvoi/host0/shared/tiers"
 )
 
@@ -19,6 +20,7 @@ type Pools interface {
 	Cost(ctx context.Context, pod string, cost int) error
 	// Keeps the node from the cluster autoscaler while it holds a paused actor's snapshot.
 	Hold(ctx context.Context, node string, on bool) error
+	Nodes(ctx context.Context) ([]contract.Node, error)
 }
 
 type Worker struct {

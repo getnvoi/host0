@@ -11,11 +11,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/getnvoi/host0/controlplane"
+	"github.com/getnvoi/host0/shared/contract"
 )
 
 const sa = "/var/run/secrets/kubernetes.io/serviceaccount/"
@@ -97,7 +99,44 @@ func (c *Client) Hold(ctx context.Context, node string, on bool) error {
 		v = "true"
 	}
 	return c.do(ctx, "PATCH", "/api/v1/nodes/"+node, map[string]any{"metadata": map[string]any{"annotations": map[string]any{
-		"cluster-autoscaler.kubernetes.io/scale-down-disabled": v}}}, nil)
+		held: v}}}, nil)
+}
+
+const held = "cluster-autoscaler.kubernetes.io/scale-down-disabled"
+
+func (c *Client) Nodes(ctx context.Context) ([]contract.Node, error) {
+	var list struct {
+		Items []struct {
+			Metadata struct {
+				Name        string            `json:"name"`
+				Labels      map[string]string `json:"labels"`
+				Annotations map[string]string `json:"annotations"`
+			} `json:"metadata"`
+			Status struct {
+				Conditions []struct{ Type, Status string } `json:"conditions"`
+			} `json:"status"`
+		} `json:"items"`
+	}
+	if err := c.do(ctx, "GET", "/api/v1/nodes", nil, &list); err != nil {
+		return nil, err
+	}
+	out := []contract.Node{}
+	for _, it := range list.Items {
+		n := contract.Node{Name: it.Metadata.Name, Roles: []string{}, Held: it.Metadata.Annotations[held] == "true"}
+		for l := range it.Metadata.Labels {
+			if role, ok := strings.CutPrefix(l, "node-role.kubernetes.io/"); ok {
+				n.Roles = append(n.Roles, role)
+			}
+		}
+		sort.Strings(n.Roles)
+		for _, cond := range it.Status.Conditions {
+			if cond.Type == "Ready" {
+				n.Ready = cond.Status == "True"
+			}
+		}
+		out = append(out, n)
+	}
+	return out, nil
 }
 
 // The ReplicaSet removes the lowest cost first; a free worker goes before any that holds an actor.

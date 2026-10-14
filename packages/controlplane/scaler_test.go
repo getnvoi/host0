@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getnvoi/host0/shared/contract"
 	"github.com/getnvoi/host0/shared/tiers"
 )
 
@@ -115,6 +116,13 @@ func (f *fakePools) Ready(_ context.Context, pool string) (int, error) {
 func (f *fakePools) Scale(_ context.Context, pool string, n int) error {
 	f.replicas[pool] = n
 	return nil
+}
+func (f *fakePools) Nodes(context.Context) ([]contract.Node, error) {
+	var out []contract.Node
+	for n, on := range f.held {
+		out = append(out, contract.Node{Name: n, Ready: true, Held: on})
+	}
+	return out, nil
 }
 func (f *fakePools) Cost(_ context.Context, pod string, c int) error { f.costs[pod] = c; return nil }
 func (f *fakePools) Hold(_ context.Context, node string, on bool) error {

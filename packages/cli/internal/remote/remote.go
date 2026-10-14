@@ -4,6 +4,7 @@ package remote
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,46 +13,81 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 
 	"github.com/getnvoi/host0/shared/contract"
 	"github.com/getnvoi/host0/shared/state"
 )
 
+// The plane's answer to a request that failed: its status and the sentence it wrote.
+type refused struct {
+	status int
+	msg    string
+}
+
+func (r refused) Error() string { return r.msg }
+
+func missing(err error) bool {
+	var r refused
+	return errors.As(err, &r) && r.status == http.StatusNotFound
+}
+
 func call(method, path string, in, out any) error {
-	st, err := state.Load()
-	if err != nil {
-		return err
-	}
-	var body io.Reader
-	if in != nil {
-		b, _ := json.Marshal(in)
-		body = bytes.NewReader(b)
-	}
-	req, _ := http.NewRequest(method, st.URL+path, body)
-	req.Header.Set("Authorization", "Bearer "+st.Token)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := send(method, path, in)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
-	if res.StatusCode >= 300 {
-		b, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("%s %s: %s", method, path, strings.TrimSpace(string(b)))
-	}
 	if out != nil {
-		return json.NewDecoder(res.Body).Decode(out)
+		if err := json.NewDecoder(res.Body).Decode(out); err != nil {
+			return fmt.Errorf("%s %s: %w", method, path, err)
+		}
 	}
 	return nil
 }
 
+// The response to a request that succeeded; the caller closes its body.
+func send(method, path string, in any) (*http.Response, error) {
+	st, err := state.Load()
+	if err != nil {
+		return nil, err
+	}
+	var body io.Reader
+	if in != nil {
+		b, err := json.Marshal(in)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewReader(b)
+	}
+	req, err := http.NewRequest(method, st.URL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+st.Token)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode >= 300 {
+		defer res.Body.Close()
+		b, err := io.ReadAll(res.Body)
+		if err != nil {
+			return nil, fmt.Errorf("%s %s: %d, and its body: %w", method, path, res.StatusCode, err)
+		}
+		return nil, refused{res.StatusCode, fmt.Sprintf("%s %s: %s", method, path, strings.TrimSpace(string(b)))}
+	}
+	return res, nil
+}
+
 func Commands() []*cobra.Command {
-	return []*cobra.Command{credentials(), env(), seed(), session(), approval(), preview(), open(), invite()}
+	return []*cobra.Command{credentials(), env(), seed(), session(), approval(), preview(), open(), invite(),
+		status(), whoami(), usage(), llm(), browsers(), logout()}
 }
 
 func credentials() *cobra.Command {
@@ -147,6 +183,30 @@ func credentials() *cobra.Command {
 	cmd.Flags().StringVar(&provider, "llm", "claude_code", "the agent CLI the credential is for: claude_code or codex")
 	cmd.Flags().StringArrayVar(&set, "set", nil, "a credential field, key=value")
 	cmd.Flags().StringArrayVar(&secret, "secret", nil, "a credential field read from this shell, key=VARIABLE")
+	cmd.AddCommand(&cobra.Command{
+		Use:   "ls",
+		Short: "Which credentials are set, never their values",
+		Args:  cobra.NoArgs,
+		RunE: func(*cobra.Command, []string) error {
+			var c contract.CredentialsSet
+			if err := call("GET", "/credentials", nil, &c); err != nil {
+				return err
+			}
+			github := "not set"
+			if slices.Contains(c.Stored, "github") {
+				github = "set"
+			}
+			fmt.Printf("github  %s\n\n", github)
+			return configs()
+		},
+	}, &cobra.Command{
+		Use:   "rm <name>",
+		Short: "Remove a credential: github (agent credentials: hz llm rm)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return call("DELETE", "/credentials/"+url.PathEscape(args[0]), nil, nil)
+		},
+	})
 	return cmd
 }
 
@@ -167,39 +227,6 @@ func claudeToken() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("claude setup-token printed no token")
-}
-
-func env() *cobra.Command {
-	cmd := &cobra.Command{Use: "env", Short: "Environments"}
-	cmd.AddCommand(&cobra.Command{
-		Use:   "apply <file>",
-		Short: "Declare an environment from a YAML file; names under secrets: are read from this shell",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			raw, err := os.ReadFile(args[0])
-			if err != nil {
-				return err
-			}
-			var e contract.Environment
-			var names struct {
-				Secrets []string `yaml:"secrets"`
-			}
-			if err := yaml.Unmarshal(raw, &e); err != nil {
-				return err
-			}
-			if err := yaml.Unmarshal(raw, &names); err != nil {
-				return err
-			}
-			e.Secrets = map[string]string{}
-			for _, n := range names.Secrets {
-				if e.Secrets[n] = os.Getenv(n); e.Secrets[n] == "" {
-					return fmt.Errorf("secret %s is not set in this shell", n)
-				}
-			}
-			return call("PUT", "/environments/"+e.Name, e, nil)
-		},
-	})
-	return cmd
 }
 
 func seed() *cobra.Command {
@@ -264,6 +291,7 @@ func session() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error { return follow(args[0]) },
 	})
+	cmd.AddCommand(sessions()...)
 	return cmd
 }
 

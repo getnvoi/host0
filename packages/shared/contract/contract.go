@@ -17,11 +17,12 @@ type Service struct {
 }
 
 type Environment struct {
-	Name     string            `json:"name" yaml:"name"`
-	Repo     string            `json:"repo" yaml:"repo"` // owner/name
-	Branch   string            `json:"branch" yaml:"branch"`
-	Image    string            `json:"image" yaml:"image"`
-	Env      map[string]string `json:"env,omitempty" yaml:"env"`
+	Name   string            `json:"name" yaml:"name"`
+	Repo   string            `json:"repo" yaml:"repo"` // owner/name
+	Branch string            `json:"branch" yaml:"branch"`
+	Image  string            `json:"image" yaml:"image"`
+	Env    map[string]string `json:"env,omitempty" yaml:"env"`
+	// Name to value; the plane answers with the names and empty values.
 	Secrets  map[string]string `json:"secrets,omitempty" yaml:"-"`
 	Setup    []string          `json:"setup" yaml:"setup"`
 	Services []Service         `json:"services" yaml:"services"`
@@ -33,6 +34,18 @@ type Environment struct {
 
 type Credentials struct {
 	GitHub string `json:"github,omitempty"`
+}
+
+// The credentials that hold a value, by name; the values never leave the plane.
+type CredentialsSet struct {
+	Stored []string `json:"stored"`
+}
+
+// A browser signed in to the web UI, under the label its link was asked with.
+type Browser struct {
+	Label string    `json:"label"`
+	At    time.Time `json:"at"`
+	Until time.Time `json:"until"`
 }
 
 // An agent credential. Its name is its id; turns run on the one live credential that is main.
@@ -253,4 +266,39 @@ type PreviewStatus struct {
 	Up     bool   `json:"up"`
 	Status int    `json:"status,omitempty"`
 	Error  string `json:"error,omitempty"`
+}
+
+// The cluster as asked of Kubernetes, Substrate and the edge at the moment of the request.
+type Cluster struct {
+	Name    string   `json:"name"`
+	Zone    string   `json:"zone"`
+	Nodes   []Node   `json:"nodes"`
+	Pools   []Pool   `json:"pools"`
+	Workers []Worker `json:"workers"`
+	Edge    []Host   `json:"edge"`
+}
+
+type Node struct {
+	Name  string   `json:"name"`
+	Roles []string `json:"roles"`
+	Ready bool     `json:"ready"`
+	Held  bool     `json:"held"` // kept from the autoscaler: it holds a paused actor's snapshot
+}
+
+type Pool struct {
+	Name     string `json:"name"`
+	Replicas int    `json:"replicas"`
+	Ready    int    `json:"ready"`
+}
+
+type Worker struct {
+	Pool     string `json:"pool"`
+	Pod      string `json:"pod"`
+	Assigned bool   `json:"assigned"`
+}
+
+// A host the plane serves; Error says why its record does not point at the cluster's tunnel.
+type Host struct {
+	Name  string `json:"name"`
+	Error string `json:"error,omitempty"`
 }

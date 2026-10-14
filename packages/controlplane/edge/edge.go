@@ -62,15 +62,16 @@ func (c Cloudflare) tunnel() (string, error) {
 	return t.T, json.Unmarshal(raw, &t)
 }
 
-func (c Cloudflare) Route(ctx context.Context, host string) error {
+// The zone's id, the tunnel's target and the records on host.
+func (c Cloudflare) lookup(ctx context.Context, host string) (string, string, []record, error) {
 	tunnel, err := c.tunnel()
 	if err != nil {
-		return fmt.Errorf("tunnel token: %w", err)
+		return "", "", nil, fmt.Errorf("tunnel token: %w", err)
 	}
 	// A zone moved to another account still answers to its name, with status "moved".
 	var zones []struct{ ID, Status string }
 	if err := c.do(ctx, "GET", "/zones?name="+url.QueryEscape(c.Zone), nil, &zones); err != nil {
-		return fmt.Errorf("zone %s: %w", c.Zone, err)
+		return "", "", nil, fmt.Errorf("zone %s: %w", c.Zone, err)
 	}
 	z := ""
 	for _, zone := range zones {
@@ -80,11 +81,20 @@ func (c Cloudflare) Route(ctx context.Context, host string) error {
 		}
 	}
 	if z == "" {
-		return fmt.Errorf("zone %s: not reachable in service", c.Zone)
+		return "", "", nil, fmt.Errorf("zone %s: not reachable in service", c.Zone)
 	}
-	target := tunnel + ".cfargotunnel.com"
-	var records []struct{ ID, Type, Content string }
+	var records []record
 	if err := c.do(ctx, "GET", "/zones/"+z+"/dns_records?name="+url.QueryEscape(host), nil, &records); err != nil {
+		return "", "", nil, err
+	}
+	return z, tunnel + ".cfargotunnel.com", records, nil
+}
+
+type record struct{ ID, Type, Content string }
+
+func (c Cloudflare) Route(ctx context.Context, host string) error {
+	z, target, records, err := c.lookup(ctx, host)
+	if err != nil {
 		return err
 	}
 	for _, r := range records {
@@ -96,4 +106,18 @@ func (c Cloudflare) Route(ctx context.Context, host string) error {
 	}
 	rec := map[string]any{"type": "CNAME", "name": host, "content": target, "proxied": true, "ttl": 1, "comment": "hz"}
 	return c.do(ctx, "POST", "/zones/"+z+"/dns_records", rec, nil)
+}
+
+func (c Cloudflare) Check(ctx context.Context, host string) error {
+	_, target, records, err := c.lookup(ctx, host)
+	if err != nil {
+		return err
+	}
+	for _, r := range records {
+		if r.Type != "CNAME" || r.Content != target {
+			return fmt.Errorf("%s is taken: %s %s", host, r.Type, r.Content)
+		}
+		return nil
+	}
+	return fmt.Errorf("%s has no record", host)
 }

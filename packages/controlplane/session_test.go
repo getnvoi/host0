@@ -136,6 +136,7 @@ func (s *sandbox) Template(context.Context, string, tiers.Tier, []Container) (st
 type edgeless struct{}
 
 func (edgeless) Route(context.Context, string) error { return nil }
+func (edgeless) Check(context.Context, string) error { return nil }
 
 var tokenSum = func() string {
 	sum := sha256.Sum256([]byte("cli-token"))
