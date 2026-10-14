@@ -172,6 +172,7 @@ func seedScript(env contract.Environment) string {
 	fmt.Fprintf(&b, "set -e\nmkdir -p %s\n", Home)
 	fmt.Fprintf(&b, "git config --global user.name hz && git config --global user.email agent@nvoi.to\n")
 	fmt.Fprintf(&b, "git config --global --add safe.directory '*'\n")
+	b.WriteString(announce(fmt.Sprintf("cloning %s@%s", env.Repo, env.Branch)))
 	fmt.Fprintf(&b, "[ -d %s/.git ] || git clone -q --branch %s \"https://x-access-token:$GITHUB_TOKEN@github.com/%s\" %s\n", App, env.Branch, env.Repo, App)
 	fmt.Fprintf(&b, "git -C %s remote set-url origin https://github.com/%s\n", App, env.Repo)
 	// A rebuild starts from the branch as it is now, not the checkout the last build left.
@@ -179,14 +180,24 @@ func seedScript(env contract.Environment) string {
 		App, env.Repo, env.Branch, App)
 	// Every runner, so a credential moved to another provider finds its CLI in the seed.
 	for _, r := range Runners {
+		b.WriteString(announce("installing " + r.Key()))
 		b.WriteString(r.Install() + "\n")
 	}
 	fmt.Fprintf(&b, "cd %s\n", App)
 	for _, s := range env.Setup {
+		first, _, _ := strings.Cut(s, "\n")
+		b.WriteString(announce("setup: " + first))
 		b.WriteString(s + "\n")
 	}
 	fmt.Fprintf(&b, "touch %s\n", Ready)
 	return b.String()
+}
+
+// A line the seed script prints to name the step it starts; the build reports the rest of the line as its step.
+const stepMark = "::hz-step:: "
+
+func announce(step string) string {
+	return "echo '" + strings.ReplaceAll(stepMark+step, "'", `'\''`) + "'\n"
 }
 
 func (p *Plane) env(name string) (contract.Environment, contract.Credentials, error) {
@@ -244,11 +255,49 @@ func (p *Plane) Reseed(name string) error {
 	if _, busy := seeding.LoadOrStore(name, true); busy {
 		return conflict{fmt.Errorf("the seed of %s is already being built", name)}
 	}
+	// Building before this returns, so a reader asking right after never sees the last build's outcome.
+	if err := p.saveSeed(contract.Seed{Env: name, State: "building", Step: "starting", At: time.Now()}); err != nil {
+		seeding.Delete(name)
+		return err
+	}
 	go func() {
 		defer seeding.Delete(name)
+		done := make(chan struct{})
+		defer close(done)
+		go p.heartbeat(name, beat, done)
 		p.Seed(context.Background(), name)
 	}()
 	return nil
+}
+
+// How often a build is announced while it runs; the cli takes ten seconds without word for a hang.
+const beat = 3 * time.Second
+
+// The setup's last line of output, by environment, while its seed builds.
+var tails sync.Map
+
+// Announces the build's row every interval, with the setup's last line, until done.
+func (p *Plane) heartbeat(name string, every time.Duration, done <-chan struct{}) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-t.C:
+		}
+		var s contract.Seed
+		if err := p.Store.Get("seeds", name, &s); err != nil {
+			s = contract.Seed{Env: name, State: "building", Step: "reading the seed row: " + err.Error()}
+		}
+		if s.State != "building" {
+			continue
+		}
+		if l, ok := tails.Load(name); ok {
+			s.Line = l.(string)
+		}
+		bus.publish(contract.Update{Kind: "seed", Seed: &s})
+	}
 }
 
 // The seed sessions fork from: the last one built ready, which a build in progress leaves in place.
@@ -268,15 +317,28 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	seed := contract.Seed{Env: name, State: "building", At: time.Now()}
 	fail := func(err error) error {
 		seed.State, seed.Error = "failed", err.Error()
-		p.Store.Put("seeds", name, seed)
+		if perr := p.saveSeed(seed); perr != nil {
+			log.Printf("seed %s: %v", name, perr)
+			bus.publish(contract.Update{Kind: "seed", Seed: &seed})
+		}
 		log.Printf("seed %s: %v", name, err)
 		return err
+	}
+	step := func(what string) error {
+		seed.Step = what
+		return p.saveSeed(seed)
+	}
+	defer tails.Delete(name)
+	if err := step("reading the environment"); err != nil {
+		return fail(err)
 	}
 	env, creds, err := p.env(name)
 	if err != nil {
 		return fail(err)
 	}
-	p.Store.Put("seeds", name, seed)
+	if err := step("resolving images"); err != nil {
+		return fail(err)
+	}
 	cs, err := p.containers(ctx, env)
 	if err != nil {
 		return fail(err)
@@ -286,12 +348,21 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	if err != nil {
 		return fail(err)
 	}
+	if err := step("building the template"); err != nil {
+		return fail(err)
+	}
 	if seed.Template, err = p.Sandboxes.Template(ctx, env.Name, tier, cs); err != nil {
 		return fail(err)
 	}
 	// One tag per build: a tag that exists is not moved, so a rebuild under the same name would leave forks on the old.
 	seed.Actor, seed.Tag = seed.Template, seed.Template+"-"+id()
-	p.Store.Put("seeds", name, seed)
+	services := []string{}
+	for _, s := range env.Services {
+		services = append(services, s.Name)
+	}
+	if err := step("starting the sandbox, services: " + strings.Join(services, ", ")); err != nil {
+		return fail(err)
+	}
 	// A build that crashed leaves its actor crashed, and a crashed actor never resumes: this build starts over.
 	if state, err := p.Sandboxes.State(ctx, seed.Actor); err == nil && state == "crashed" {
 		if err := p.Sandboxes.Delete(ctx, seed.Actor); err != nil {
@@ -308,16 +379,42 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	}
 	defer release()
 	bx := p.box(seed.Actor)
+	if err := step("waiting for boxd"); err != nil {
+		return fail(err)
+	}
 	if err := bx.Ready(ctx); err != nil {
 		return fail(err)
 	}
 	seed.Run = "seed-" + id()
-	p.Store.Put("seeds", name, seed)
+	if err := step("running the seed script"); err != nil {
+		return fail(err)
+	}
+	var lost error
 	run := box.Run{Argv: sh(seedScript(env)), Dir: "/workspace", Env: map[string]string{"GITHUB_TOKEN": creds.GitHub}}
-	if err := bx.Must(ctx, seed.Run, run, func(l string) { log.Printf("seed %s | %s", name, l) }); err != nil {
+	err = bx.Must(ctx, seed.Run, run, func(l string) {
+		log.Printf("seed %s | %s", name, l)
+		if what, ok := strings.CutPrefix(l, stepMark); ok {
+			tails.Delete(name)
+			if err := step(what); err != nil && lost == nil {
+				lost = err
+			}
+			return
+		}
+		tails.Store(name, l)
+	})
+	if err != nil {
+		return fail(err)
+	}
+	if lost != nil {
+		return fail(lost)
+	}
+	if err := step(fmt.Sprintf("waiting for the app on port %d", env.Preview)); err != nil {
 		return fail(err)
 	}
 	if err := p.answers(ctx, seed.Actor, env.Preview); err != nil {
+		return fail(err)
+	}
+	if err := step("snapshotting " + seed.Actor); err != nil {
 		return fail(err)
 	}
 	// Forks start from this boxd as it runs: it goes back to the environment's token, which each fork then trades
@@ -329,18 +426,24 @@ func (p *Plane) Seed(ctx context.Context, name string) error {
 	if err := p.Sandboxes.Suspend(ctx, seed.Actor); err != nil {
 		return fail(err)
 	}
+	if err := step("tagging " + seed.Tag); err != nil {
+		return fail(err)
+	}
 	if err := p.Sandboxes.Tag(ctx, seed.Tag, seed.Actor); err != nil {
 		return fail(err)
 	}
 	seed.Preview = p.Preview(name)
+	if err := step("routing " + seed.Preview); err != nil {
+		return fail(err)
+	}
 	if err := p.route(ctx, seed.Preview, Route{seed.Actor, env.Preview, tier.Name}); err != nil {
 		return fail(err)
 	}
-	seed.State = "ready"
+	seed.State, seed.Step = "ready", ""
 	if err := p.Store.Put("ready", name, seed); err != nil {
 		return fail(err)
 	}
-	return p.Store.Put("seeds", name, seed)
+	return p.saveSeed(seed)
 }
 
 type Route struct {

@@ -212,6 +212,10 @@ func (p *Plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		})
 		reply(w, &out, err)
 	})
+	api.HandleFunc("GET /approvals/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var a contract.Approval
+		reply(w, &a, p.Store.Get("approvals", r.PathValue("id"), &a))
+	})
 	api.HandleFunc("GET /usage", func(w http.ResponseWriter, r *http.Request) {
 		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
 		u, err := p.Usage(time.Now(), days, r.URL.Query().Get("by"))

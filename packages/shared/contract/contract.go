@@ -77,7 +77,9 @@ type Seed struct {
 	Actor    string    `json:"actor"`
 	Template string    `json:"template"`
 	Tag      string    `json:"tag"`
-	State    string    `json:"state"` // building, ready, failed
+	State    string    `json:"state"`          // building, ready, failed
+	Step     string    `json:"step,omitempty"` // what the build is doing now
+	Line     string    `json:"line,omitempty"` // the setup's last line of output, sent on the stream only
 	Error    string    `json:"error,omitempty"`
 	Preview  string    `json:"preview,omitempty"`
 	Spec     string    `json:"spec,omitempty"` // digest of the containers it was built from
@@ -149,13 +151,14 @@ func (s Session) Summary() Summary {
 		Prompt: prompt, Error: s.Error, By: s.By, At: s.At, Last: s.Last}
 }
 
-// What the UI is told as it happens: a session changed, events were appended to it, an approval changed.
+// What the UI is told as it happens: a session changed, events were appended to it, an approval or a seed changed.
 type Update struct {
-	Kind     string    `json:"kind"` // session, approval, reset
+	Kind     string    `json:"kind"` // session, approval, seed, reset
 	Session  *Summary  `json:"session,omitempty"`
 	From     int       `json:"from"` // index of the first event in Events; sent at 0 too
 	Events   []Event   `json:"events,omitempty"`
 	Approval *Approval `json:"approval,omitempty"`
+	Seed     *Seed     `json:"seed,omitempty"`
 }
 
 type EnvironmentSummary struct {
