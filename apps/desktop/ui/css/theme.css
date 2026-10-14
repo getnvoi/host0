@@ -1,0 +1,190 @@
+/* Tokens, derived from the marketing page: cool zinc greys, one blue for the primary and the blue tone, tight radii.
+   Grey areas replace borders; a line only divides layout. */
+@theme {
+  --color-*: initial;
+  /* A page from outside the system (a preview, an artifact, a picture) sits on white in both modes, as in a browser. */
+  --color-web: #ffffff;
+  /* Text and marks on a solid fill: the primary, a tone's ink, a checked box. */
+  --color-on-solid: #ffffff;
+  /* The lit top edge of a solid button. */
+  --color-glint: rgb(255 255 255 / 0.14);
+  --color-transparent: transparent;
+  /* Greys come from one hue and one tint (--hue, --tint on :root): oklch(lightness, chroma x tint, hue).
+     Lightness is the design and is fixed per role; hue and tint are the knobs. */
+  --color-ink: oklch(calc((var(--base) + var(--flip) * 21.5) * 1%) calc(0.013 * var(--tint)) var(--hue));
+  --color-secondary: oklch(calc((var(--base) + var(--flip) * 47) * 1%) calc(0.025 * var(--tint)) var(--hue));
+  --color-tertiary: oklch(calc((var(--base) + var(--flip) * 56) * 1%) calc(0.031 * var(--tint)) var(--hue));
+  --color-muted: oklch(calc((var(--base) + var(--flip) * 40) * 1%) calc(0.023 * var(--tint)) var(--hue));
+  --color-faint: oklch(calc((var(--base) + var(--flip) * 72) * 1%) calc(0.021 * var(--tint)) var(--hue));
+  --color-pressed: oklch(calc((var(--base) + var(--flip) * 92.6) * 1%) calc(0.007 * var(--tint)) var(--hue));
+  --color-area: oklch(calc((var(--base) + var(--flip) * 96.2) * 1%) calc(0.005 * var(--tint)) var(--hue));
+  --color-quiet: oklch(calc((var(--base) + var(--flip) * 98.4) * 1%) calc(0.003 * var(--tint)) var(--hue));
+  --color-frame: oklch(calc((var(--base) + var(--flip) * 97) * 1%) calc(0.006 * var(--tint)) var(--hue));
+  --color-frame-pressed: oklch(calc((var(--base) + var(--flip) * 92.5) * 1%) calc(0.009 * var(--tint)) var(--hue));
+  --color-page: oklch(calc((var(--base) + var(--flip) * 100) * 1%) calc(0.004 * var(--tint) * var(--wash)) var(--hue));
+  --color-line: oklch(calc((var(--base) + var(--flip) * 92.6) * 1%) calc(0.007 * var(--tint)) var(--hue));
+  --color-stone: oklch(calc((var(--base) + var(--flip) * 96.6) * 1%) calc(0.005 * var(--tint)) var(--hue));
+  /* A card's edge and the dividers inside it, one colour, a step darker while the card is hovered. */
+  --color-card-edge: color-mix(in srgb, var(--color-ink) 11%, transparent);
+  --color-card-edge-over: color-mix(in srgb, var(--color-ink) 18%, transparent);
+  /* The one keyboard focus ring, drawn 3px around what has focus. */
+  --color-focus: color-mix(in srgb, var(--color-ink) 15%, transparent);
+  --color-scrim: color-mix(in srgb, oklch(21.5% 0.013 70) 12%, transparent);
+  --color-separator: oklch(calc((var(--base) + var(--flip) * 72) * 1%) calc(0.021 * var(--tint)) var(--hue));
+  --color-field: color-mix(in oklab, var(--color-tertiary) 38%, var(--color-pressed));
+  --color-field-hover: color-mix(in oklab, var(--color-tertiary) 83%, var(--color-pressed));
+  /* The marketing page's one blue: primary actions, highlighted words, kickers. */
+  --color-primary: #266ff7;
+  --color-accent-fill: color-mix(in oklab, var(--color-primary) var(--tone-mix), var(--color-page));
+  --color-chart-1: oklch(calc((var(--base) + var(--flip) * 36) * 1%) min(0.07, calc(0.05 * var(--tint))) var(--hue));
+  --color-chart-2: oklch(calc((var(--base) + var(--flip) * 54) * 1%) min(0.08, calc(0.055 * var(--tint))) var(--hue));
+  --color-chart-3: oklch(calc((var(--base) + var(--flip) * 73) * 1%) min(0.07, calc(0.045 * var(--tint))) var(--hue));
+  --color-chart-4: oklch(calc((var(--base) + var(--flip) * 88) * 1%) min(0.05, calc(0.03 * var(--tint))) var(--hue));
+
+  /* A tone is its ink and its dot; the fill is the ink at --tone-mix over the page. */
+  --color-blue-ink: #266ff7;
+  --color-blue-fill: color-mix(in oklab, var(--color-blue-ink) var(--tone-mix), var(--color-page));
+  --color-blue-dot: #266ff7;
+  --color-green-ink: #1d7a4e;
+  --color-green-fill: color-mix(in oklab, var(--color-green-ink) var(--tone-mix), var(--color-page));
+  --color-green-dot: #2fa56b;
+  --color-orange-ink: #b9500a;
+  --color-orange-fill: color-mix(in oklab, var(--color-orange-ink) var(--tone-mix), var(--color-page));
+  --color-orange-dot: #ee6a1b;
+  --color-red-ink: #c9302f;
+  --color-red-fill: color-mix(in oklab, var(--color-red-ink) var(--tone-mix), var(--color-page));
+  --color-red-dot: #e5484d;
+  --color-yellow-ink: #6e5a00;
+  --color-yellow-fill: color-mix(in oklab, var(--color-yellow-dot) calc(var(--tone-mix) * 1.45), var(--color-page));
+  --color-yellow-dot: #dfae00;
+  --color-note-ink: #5c6234;
+  --color-note-fill: color-mix(in oklab, var(--color-note-ink) var(--tone-mix), var(--color-page));
+  --color-note-dot: #9aa05e;
+  --color-grey-ink: oklch(calc((var(--base) + var(--flip) * 47) * 1%) calc(0.025 * var(--tint)) var(--hue));
+  --color-grey-fill: oklch(calc((var(--base) + var(--flip) * 96.2) * 1%) calc(0.005 * var(--tint)) var(--hue));
+  --color-grey-dot: oklch(calc((var(--base) + var(--flip) * 72) * 1%) calc(0.021 * var(--tint)) var(--hue));
+
+  --color-avatar-olive: #e3e4d2;
+  --color-avatar-slate: #dde4f0;
+  /* The note composer's wash, a file's thumbnail wash and the stone panel's lower end. */
+  --color-note-wash: #fbfbf6;
+  --color-file-wash: #dde3da;
+  --color-stone-low: #edebe6;
+
+  --radius-*: initial;
+  --radius-chip: 2px;
+  --radius-tag: 6px;
+  --radius-pill: 6px;
+  --radius-control: 4px;
+  --radius-button: 6px;
+  --radius-block: 6px;
+  --radius-panel: 8px;
+  --radius-hero: 10px;
+  --radius-full: 9999px;
+
+  --font-*: initial;
+  --font-ui: "Inter", system-ui, sans-serif;
+  --font-display: "Inter Tight", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-serif: "Instrument Serif", serif;
+
+  --ease-enter: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+  /* A dialog settles evenly; a drawer or sidebar decelerates hard. */
+  --ease-dialog: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  /* What leaves speeds up as it goes. */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Measure */
+  --container-page: 760px;
+  --container-drawer: 480px;
+
+  /* Menus: a stone edge at 10% carries the panel; the shadow only lifts it. Edges are the ink at a share, drops are black. */
+  --shadow-menu: 0 0 0 1px color-mix(in srgb, var(--color-ink) 7%, transparent), 0 2px 4px rgb(0 0 0 / 0.03), 0 24px 48px -12px rgb(0 0 0 / 0.2);
+  --shadow-commander: 0 0 0.5px color-mix(in srgb, var(--color-ink) 6%, transparent), 0 24px 32px rgb(0 0 0 / 0.18);
+  --shadow-chosen: 0 0 0 1px color-mix(in srgb, var(--color-ink) 6%, transparent), 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-selected: 0 0 0 1px color-mix(in srgb, var(--color-ink) 6%, transparent), 0 1px 1px rgb(0 0 0 / 0.04);
+  --shadow-composer: 0 0 0 1px color-mix(in srgb, var(--color-ink) 6%, transparent), 0 1px 2px rgb(0 0 0 / 0.05), 0 8px 20px -8px rgb(0 0 0 / 0.1);
+  --shadow-knob: 0 1px 1px rgb(0 0 0 / 0.2);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-ink) 6%, transparent), 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-card-over: 0 0 0 1px color-mix(in srgb, var(--color-ink) 8%, transparent), 0 2px 6px rgb(0 0 0 / 0.06);
+  /* A card that lifts a little under the pointer (an artifact in the conversation). */
+  --shadow-lift: 0 2px 8px -2px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.03);
+  --shadow-ring: inset 0 0 0 1px var(--color-card-edge);
+  --shadow-ring-over: inset 0 0 0 1px var(--color-card-edge-over);
+}
+
+:root {
+  /* The knobs: where the greys sit on the colour wheel, and how far off grey. */
+  /* Light is the mirror's identity; dark sets base and flip. */
+  --base: 0;
+  --flip: 1;
+  --wash: 0;
+  --hue: 286;
+  --tint: 0.6;
+  /* The hover fill of clickables on the current surface: quiet on white, area in menus, frame-pressed on the frame. */
+  --click-fill: var(--color-quiet);
+  /* How much of a tone's ink its fill takes. */
+  --tone-mix: 9%;
+  /* How much of the ink a hover fill takes while its clickable is pressed: one step darker. A workspace could tune it. */
+  --press-mix: 4%;
+  /* How much a card shrinks while pressed, less than a button's 0.97 since it is larger. A workspace could tune it. */
+  --press-scale: 0.985;
+  /* How long a dialog or a lightbox takes to appear, a drawer or the sidebar to slide in (under 300ms), and any of
+     them to leave (shorter, so closing never waits). A workspace could tune them. */
+  --duration-enter: 260ms;
+  /* How long a panel or a scrim takes to fade in; its movement runs apart, on the longer times above. */
+  --duration-fade: 200ms;
+  --duration-drawer: 280ms;
+  --duration-exit: 100ms;
+  /* How much of its entrance movement a leaving panel runs backwards while it fades; a workspace could tune it. */
+  --presence-exit-share: 0.5;
+}
+
+/* Dark mirrors light: the same lightness steps reversed (base - flip * step), the same hue and tint, so the hue
+   knobs tint both. Only what has no mirror is set: the tones' inks, the solid fill and its text, shadows. */
+.dark {
+  color-scheme: dark;
+  --base: 116;
+  --flip: -0.982;
+  --wash: 1;
+  --tone-mix: 16%;
+  --color-on-solid: var(--color-page);
+  --color-scrim: rgb(0 0 0 / 0.5);
+  --color-glint: rgb(255 255 255 / 0.3);
+  --color-blue-ink: #7ab1ff;
+  --color-primary: #4d8bff;
+  --color-green-ink: #5fd39a;
+  --color-orange-ink: #ff9a55;
+  --color-red-ink: #ff7a7d;
+  --color-yellow-ink: #f0cf5a;
+  --color-note-ink: #c9cf8f;
+  --color-avatar-olive: #2a3018;
+  --color-avatar-slate: #1b2f45;
+  --color-note-wash: #3a3312;
+  --color-file-wash: #26302a;
+  --color-stone-low: oklch(calc((var(--base) + var(--flip) * 92) * 1%) calc(0.004 * var(--tint)) var(--hue));
+  --shadow-menu: 0 0 0 1px color-mix(in srgb, var(--color-ink) 10%, transparent), 0 24px 48px -12px rgb(0 0 0 / 0.6);
+  --shadow-commander: 0 0 0.5px color-mix(in srgb, var(--color-ink) 12%, transparent), 0 24px 32px rgb(0 0 0 / 0.5);
+  --shadow-chosen: 0 0 0 1px color-mix(in srgb, var(--color-ink) 10%, transparent), 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-selected: 0 0 0 1px color-mix(in srgb, var(--color-ink) 10%, transparent), 0 1px 1px rgb(0 0 0 / 0.3);
+  --shadow-composer: 0 0 0 1px color-mix(in srgb, var(--color-ink) 12%, transparent), 0 8px 20px -8px rgb(0 0 0 / 0.5);
+  --shadow-knob: 0 1px 1px rgb(0 0 0 / 0.4);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-ink) 10%, transparent), 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-card-over: 0 0 0 1px color-mix(in srgb, var(--color-ink) 16%, transparent), 0 2px 6px rgb(0 0 0 / 0.4);
+}
+
+/* Text styles. */
+@utility t-display { font: 500 40px/44px var(--font-display); letter-spacing: -1.6px; }
+@utility t-title { font: 500 22px/28px var(--font-display); letter-spacing: -0.7px; }
+@utility t-heading { font: 500 20px/28px var(--font-display); letter-spacing: -0.6px; }
+@utility t-prose { font: 400 16px/24px var(--font-ui); letter-spacing: 0.05px; }
+@utility t-ui { font: 400 14px/20px var(--font-ui); letter-spacing: 0.05px; }
+@utility t-label { font: 400 14px/20px var(--font-ui); letter-spacing: 0.05px; color: var(--color-secondary); }
+@utility t-small { font: 400 13px/18px var(--font-ui); letter-spacing: 0.05px; }
+@utility t-caption { font: 400 12.5px/16px var(--font-ui); letter-spacing: 0.05px; color: var(--color-tertiary); }
+@utility t-code { font: 400 13px/22px var(--font-mono); }
+@utility t-code-small { font: 400 12.5px/18px var(--font-mono); }
+/* The marketing page's pair: serif italic words inside a sans heading, and a mono label on the blue fill. */
+@utility t-highlight { font-family: var(--font-serif); font-style: italic; font-weight: 400; font-size: 1.12em; letter-spacing: -0.01em; }
+@utility t-kicker { font: 400 10.5px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-primary); background: var(--color-accent-fill); padding: 5px 7px; }

@@ -1,0 +1,85 @@
+/* An overlay's panel enters and leaves (presence.ts): a dialog or lightbox scales from where it was opened, a drawer
+   slides from its side. The panel leaves as a clone, since the page unmounts the overlay at once. */
+@layer components {
+  .presence-panel {
+    --presence-shift: 0px;
+    --presence-lift: 14px;
+    --presence-scale: 0.95;
+    animation: presence-fade-in var(--duration-fade) ease-out, presence-move-in var(--duration-enter) var(--ease-dialog);
+  }
+  /* An overlay that leaves without having entered with motion (the commander opens at once), and anything a key
+     opened, its scrim included. */
+  .presence-exit,
+  [data-still] .presence-panel,
+  [data-still] .presence-scrim {
+    animation: none;
+  }
+  /* A toast or notice: rises a few points as it fades in, sinks as it fades out. */
+  .presence-toast {
+    --presence-shift: 0px;
+    --presence-lift: 8px;
+    --presence-scale: 1;
+  }
+  /* A pane that leaves over the column that has already taken its room. */
+  .presence-ghost.presence-over {
+    position: absolute;
+    inset-block: 0;
+    right: 0;
+    display: flex;
+  }
+  .presence-drawer {
+    --presence-shift: 1.5rem;
+    --presence-lift: 0px;
+    --presence-scale: 1;
+    animation: presence-fade-in var(--duration-fade) ease-out, presence-move-in var(--duration-drawer) var(--ease-panel);
+  }
+  /* The scrim fades in with its panel, so the page does not darken in one frame. */
+  .presence-scrim {
+    animation: presence-scrim-in var(--duration-fade) ease-out;
+  }
+  .presence-ghost {
+    pointer-events: none;
+  }
+  .presence-ghost .presence-panel {
+    animation: presence-out var(--duration-exit) var(--ease-exit) forwards;
+  }
+  .presence-ghost .presence-scrim {
+    animation: presence-fade var(--duration-exit) var(--ease-exit) forwards;
+  }
+}
+
+/* A panel that appears while another is still leaving starts from where that one had got to. Its opacity and its
+   movement run apart: the fade is even, the movement settles. */
+@keyframes presence-fade-in {
+  from {
+    opacity: var(--presence-from-opacity, 0);
+  }
+}
+@keyframes presence-move-in {
+  from {
+    transform: translate(var(--presence-from-x, var(--presence-shift)), var(--presence-from-y, var(--presence-lift))) scale(var(--presence-from-scale, var(--presence-scale)));
+  }
+}
+/* A panel that leaves while it is still entering starts from where it had got to. It goes back only part of the way
+   it came (--presence-exit-share), so leaving is subtler than arriving. */
+@keyframes presence-out {
+  from {
+    opacity: var(--presence-live-opacity, 1);
+    transform: var(--presence-live-transform, none);
+  }
+  to {
+    opacity: 0;
+    transform: translate(calc(var(--presence-shift) * var(--presence-exit-share)), calc(var(--presence-lift) * var(--presence-exit-share)))
+      scale(calc(1 - (1 - var(--presence-scale)) * var(--presence-exit-share)));
+  }
+}
+@keyframes presence-scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes presence-fade {
+  to {
+    opacity: 0;
+  }
+}

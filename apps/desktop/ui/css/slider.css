@@ -1,0 +1,33 @@
+/* A range input drawn from the tokens: a round thumb on a thin track filled up to the value. */
+.slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  /* Taller than the drawing: the track and thumb stay centred, the reach around them grows. */
+  height: 32px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  --pos: 50%;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, var(--color-primary) var(--pos), var(--color-pressed) var(--pos));
+}
+.slider.slider-spectrum::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, oklch(72% 0.09 0), oklch(72% 0.09 60), oklch(72% 0.09 120), oklch(72% 0.09 180), oklch(72% 0.09 240), oklch(72% 0.09 300), oklch(72% 0.09 360));
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 9999px;
+  background: var(--color-page);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-ink) 14%, transparent), 0 1px 3px color-mix(in srgb, var(--color-ink) 22%, transparent);
+}
+.slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1.5px var(--color-ink), 0 0 0 4px color-mix(in srgb, var(--color-ink) 12%, transparent);
+}
+.slider:disabled { opacity: 0.5; cursor: default; }

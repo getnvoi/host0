@@ -1,0 +1,3 @@
+# One flat node_modules, as apps/ui had alone: its tests import transitive packages (@testing-library/dom).
+[install]
+linker = "hoisted"

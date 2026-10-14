@@ -7,6 +7,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { useTranslations } from "@/contexts/i18n";
 import { messageFrom } from "@/contexts/api/errors";
+import { transport } from "@/contexts/api/transport";
 import { killTerminal, terminalsKey, useTerminals } from "@/contexts/api/sessions";
 import { Button } from "@/ds/button";
 import { Empty } from "@/ds/empty";
@@ -200,8 +201,26 @@ function Shell({ session, id, onExit, typed }: { session: string; id: string; on
     };
     const connect = () => {
       clearTimeout(timer);
-      const proto = location.protocol === "https:" ? "wss" : "ws";
-      const self = new WebSocket(`${proto}://${location.host}/api/sessions/${session}/terminals/${id}?cols=${term.cols}&rows=${term.rows}`);
+      const attempt = {};
+      pending = attempt;
+      transport()
+        .socketURL(`/sessions/${session}/terminals/${id}?cols=${term.cols}&rows=${term.rows}`)
+        .then(
+          (url) => pending === attempt && !done && !paused && open(new WebSocket(url)),
+          () => pending === attempt && fail(),
+        );
+    };
+    // A connect superseded before its address arrived opens nothing.
+    let pending: object | undefined;
+    const fail = () => {
+      if (tries >= TRIES) {
+        setLink("lost");
+        return;
+      }
+      setLink("reconnecting");
+      timer = setTimeout(connect, backoff(tries++, 500, 8000));
+    };
+    const open = (self: WebSocket) => {
       ws = self;
       self.binaryType = "arraybuffer";
       let first = true;

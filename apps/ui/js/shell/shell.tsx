@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useTranslations } from "@/contexts/i18n";
 import { signOut, useMe, useSessions } from "@/contexts/api/sessions";
@@ -18,6 +18,9 @@ export function Shell({ rail, place, children }: { rail: boolean; place: "home" 
 }
 
 // The sidebar folds to a rail on narrow screens by itself; nothing to open from the head.
+// The workspace menu, set by a build that knows several workspaces; without it the plane's name stands alone.
+export const WorkspaceMenu = createContext<{ name: string; items: MenuItem[] } | undefined>(undefined);
+
 export function SideButton() {
   return null;
 }
@@ -46,7 +49,8 @@ function Side({ rail, place }: { rail: boolean; place: "home" | "session" }) {
   const location = useLocation();
   const [theme, setTheme] = useState<Theme>(readTheme);
   const current = location.pathname.match(/^\/s\/([^/]+)/)?.[1];
-  const name = me.data?.cluster ?? "hz";
+  const menu = useContext(WorkspaceMenu);
+  const name = menu?.name ?? me.data?.cluster ?? "hz";
   const pick = (next: Theme) => {
     setTheme(next);
     try {
@@ -76,7 +80,7 @@ function Side({ rail, place }: { rail: boolean; place: "home" | "session" }) {
       storageKey={`hz.rail.${place}`}
       recent={t("side.recent")}
       empty={t("side.none")}
-      workspace={{ name, items: [{ label: t("home.title"), glyph: "session", href: "/", current: location.pathname === "/" }] }}
+      workspace={{ name, items: [{ label: t("home.title"), glyph: "session", href: "/", current: location.pathname === "/" }, ...(menu?.items ?? [])] }}
       places={[
         { label: t("usage.title"), icon: "tier", href: "/usage", active: location.pathname === "/usage" },
         { label: t("llm.title"), icon: "llm", href: "/llm", active: location.pathname.startsWith("/llm") },

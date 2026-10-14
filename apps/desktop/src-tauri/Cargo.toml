@@ -1,0 +1,18 @@
+[package]
+name = "hz"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "hz_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-http = "2"
+tauri-plugin-deep-link = "2"
+keyring = { version = "3", features = ["apple-native"] }
+serde_json = "1"

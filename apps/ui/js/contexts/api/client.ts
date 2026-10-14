@@ -1,15 +1,21 @@
 import axios from "axios";
+import { transport } from "@/contexts/api/transport";
 
-// One instance for the plane's /api. Every write carries X-Requested-With, which the plane requires of a browser:
-// no cross-site form can set it. A 401 means the session ended; the app sends the reader to sign in again.
-export const api = axios.create({
-  baseURL: "/api",
-  headers: { Accept: "application/json", "Content-Type": "application/json", "X-Requested-With": "hz" },
+// One instance for the plane's api, wherever the transport says it is. A 401 means the session ended.
+export const api = axios.create({ headers: { Accept: "application/json", "Content-Type": "application/json" } });
+
+api.interceptors.request.use((config) => {
+  const t = transport();
+  config.baseURL ??= t.base;
+  for (const [k, v] of Object.entries(t.headers())) config.headers.set(k, v);
+  if (t.fetch) {
+    config.adapter = "fetch";
+    config.env = { ...config.env, fetch: t.fetch };
+  }
+  return config;
 });
 
 api.interceptors.response.use(undefined, (error) => {
-  if (axios.isAxiosError(error) && error.response?.status === 401 && location.pathname !== "/login") {
-    location.assign("/login");
-  }
+  if (axios.isAxiosError(error) && error.response?.status === 401) transport().signedOut();
   return Promise.reject(error);
 });
