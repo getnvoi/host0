@@ -69,14 +69,14 @@ func (p *plane) sample(ctx context.Context, now time.Time) {
 	}); err != nil {
 		log.Printf("usage: sessions: %v", err)
 	}
-	if err := p.Store.List("seeds", func(d func(any) error) error {
-		var s workspace.Seed
-		if d(&s) == nil && s.Actor != "" {
+	seeds, err := p.ws.Seeds()
+	if err != nil {
+		log.Printf("usage: seeds: %v", err)
+	}
+	for _, s := range seeds {
+		if s.Actor != "" {
 			actors[s.Actor] = usage{Session: "seed:" + s.Env, Env: s.Env}
 		}
-		return nil
-	}); err != nil {
-		log.Printf("usage: seeds: %v", err)
 	}
 	for actor, base := range actors {
 		state, err := p.Sandboxes.State(ctx, actor)

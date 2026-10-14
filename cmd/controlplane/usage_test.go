@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/workspace"
@@ -28,13 +29,13 @@ func TestSample(t *testing.T) {
 	st.Put("sessions", "s2", workspace.Session{ID: "s2", Env: "web", Actor: "wt-s2", By: "cli"})
 	st.Put("sessions", "s3", workspace.Session{ID: "s3", Env: "web", Actor: "wt-broken"})
 	st.Put("sessions", "s4", workspace.Session{ID: "s4", Env: "web", Actor: "wt-s4"})
-	st.Put("seeds", "web", workspace.Seed{Env: "web", Actor: "seed-web"})
 	sb := &fakeSandboxes{
 		states:  map[string]string{"wt-s1": "running", "wt-s2": "paused", "seed-web": "suspended", "wt-s4": "resuming"},
 		workers: []sandbox.Worker{{Pool: "hz-large", Pod: "a"}, {Pool: "hz-large", Pod: "b"}, {Pod: "c"}},
 	}
 	p, _ := serve(st, brokenState{sb}, nil, nil)
 	putEnv(t, p, workspace.Environment{Name: "web", Tier: "large"})
+	seedRow(t, p, "web", db.Seed{Actor: "seed-web", State: "ready"})
 	now := time.Date(2026, 9, 25, 23, 59, 0, 0, time.UTC)
 	p.sample(context.Background(), now)
 	p.sample(context.Background(), now)

@@ -88,6 +88,7 @@ type LLMConfigValues struct {
 type CredentialsInput Credentials
 
 type Seed struct {
+	ID       uint      `json:"-"` // its row
 	Env      string    `json:"env"`
 	Run      string    `json:"run,omitempty"` // the seed script's boxd run id
 	Actor    string    `json:"actor"`

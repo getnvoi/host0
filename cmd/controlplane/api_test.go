@@ -40,9 +40,9 @@ func TestOutside(t *testing.T) {
 // The routes still to move into Huma.
 var moving = []string{"api GET /stream", "api GET /sessions", "api GET /sessions/{id}/queue",
 	"api DELETE /sessions/{id}/queue/{i}", "api POST /sessions/{id}/stop", "api PUT /cluster/shape", "api GET /cluster/shape", "api GET /cluster/pods",
-	"api GET /cluster/pods/{namespace}/{pod}/log", "api GET /cluster", "api POST /environments/{name}/seed", "api GET /environments/{name}/seed", "api POST /sessions", "api GET /sessions/{id}",
+	"api GET /cluster/pods/{namespace}/{pod}/log", "api GET /cluster", "api POST /sessions", "api GET /sessions/{id}",
 	"api DELETE /sessions/{id}", "api POST /sessions/{id}/turns", "api POST /sessions/{id}/suspend",
-	"api POST /seeds/{name}/suspend", "api GET /sessions/{id}/preview", "api POST /previews", "api GET /sessions/{id}/changes",
+	"api GET /sessions/{id}/preview", "api POST /previews", "api GET /sessions/{id}/changes",
 	"api GET /sessions/{id}/logs", "api GET /sessions/{id}/logs/{name}", "api GET /sessions/{id}/terminals",
 	"api DELETE /sessions/{id}/terminals/{tid}", "api GET /approvals", "api GET /approvals/{id}", "api GET /usage",
 	"api POST /approvals/{id}/{decision}", "bearer /", "bearer POST /login-links", "bearer GET /browsers",

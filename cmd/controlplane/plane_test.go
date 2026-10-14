@@ -278,8 +278,8 @@ func TestEnvironmentCRUD(t *testing.T) {
 		t.Fatalf("delete under a session: %d %s", code, body)
 	}
 	p.Store.Delete("sessions", "s1")
-	p.Store.Put("seeds", "web", workspace.Seed{Env: "web", Actor: "tpl-b", State: "building"})
-	p.Store.Put("ready", "web", workspace.Seed{Env: "web", Actor: "tpl-a", State: "ready"})
+	seedRow(t, p, "web", db.Seed{Actor: "tpl-a", State: "ready"})
+	seedRow(t, p, "web", db.Seed{Actor: "tpl-b", State: "building"})
 	p.Store.Put("routes", p.ws.Preview("web"), sandbox.Route{Actor: "tpl-a", Port: 3000, Tier: "medium"})
 	if code, body := api("DELETE", "/environments/web", ""); code != 204 {
 		t.Fatalf("delete: %d %s", code, body)
@@ -288,11 +288,25 @@ func TestEnvironmentCRUD(t *testing.T) {
 		t.Fatalf("actors deleted: %v", sb.gone)
 	}
 	var rt sandbox.Route
-	if p.Store.Get("routes", p.ws.Preview("web"), &rt) != store.ErrNotFound || p.Store.Get("ready", "web", &workspace.Seed{}) != store.ErrNotFound {
+	var seeds int64
+	if p.Store.Get("routes", p.ws.Preview("web"), &rt) != store.ErrNotFound || p.DB.Model(&db.Seed{}).Count(&seeds).Error != nil || seeds != 0 {
 		t.Fatal("route or seed left behind")
 	}
 	if code, _ := api("GET", "/environments/web", ""); code != 404 {
 		t.Fatalf("get after delete: %d", code)
+	}
+}
+
+// Writes s as a seed row of the environment named.
+func seedRow(t *testing.T, p *plane, env string, s db.Seed) {
+	t.Helper()
+	var e db.Environment
+	if err := p.DB.Where("name = ?", env).First(&e).Error; err != nil {
+		t.Fatal(err)
+	}
+	s.EnvironmentID = e.ID
+	if err := p.DB.Create(&s).Error; err != nil {
+		t.Fatal(err)
 	}
 }
 

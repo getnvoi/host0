@@ -83,10 +83,11 @@ func (ws *Workspace) saveApproval(a Approval) error {
 	return nil
 }
 
-func (ws *Workspace) saveSeed(s Seed) error {
-	if err := ws.Store.Put("seeds", s.Env, s); err != nil {
+func (ws *Workspace) saveSeed(s *Seed) error {
+	if err := ws.putSeed(s); err != nil {
 		return err
 	}
-	ws.Bus.Publish(Update{Kind: "seed", Seed: &s})
+	c := *s
+	ws.Bus.Publish(Update{Kind: "seed", Seed: &c})
 	return nil
 }

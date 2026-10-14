@@ -1,0 +1,9 @@
+> GET /environments/shop/seed
+env      shop
+state    building
+step     setup: npm ci
+error    
+actor    shop-1a2b3c4d5e
+tag      
+preview  
+at       2026-10-01T09:00:00Z

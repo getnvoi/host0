@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -29,7 +30,7 @@ func withBox(t *testing.T, boxd http.HandlerFunc) (*plane, http.Handler) {
 	if _, err := p.ws.AddConfig(testLLM); err != nil {
 		t.Fatal(err)
 	}
-	p.Store.Put("seeds", "web", workspace.Seed{Env: "web", Run: "seed-1"})
+	seedRow(t, p, "web", db.Seed{Run: "seed-1", State: "ready"})
 	p.Store.Put("sessions", "s1", workspace.Session{ID: "s1", Env: "web", Actor: "wt-s1"})
 	return p, h
 }

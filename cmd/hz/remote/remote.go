@@ -65,26 +65,11 @@ func send(method, path string, in any) (*http.Response, error) {
 
 // The commands not yet generated from the spec.
 func legacy() map[string]func() *cobra.Command {
-	return map[string]func() *cobra.Command{"env seed": seed, "env suspend": envSuspend,
-		"session": session, "approval": approval, "preview": preview, "open": open, "invite": invite, "ls": status,
+	return map[string]func() *cobra.Command{"session": session, "approval": approval, "preview": preview, "open": open, "invite": invite, "ls": status,
 		"pods": pods, "logs": podLogs, "usage": usage, "browsers": browsers, "logout": logout}
 }
 
-func envSuspend() *cobra.Command {
-	return &cobra.Command{
-		Use:   "suspend <env>",
-		Short: "Suspend the actor the environment's preview routes to, freeing its worker",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			var out struct{ Actor string }
-			if err := call("POST", "/seeds/"+url.PathEscape(args[0])+"/suspend", nil, &out); err != nil {
-				return err
-			}
-			fmt.Printf("suspended %s\n", out.Actor)
-			return nil
-		},
-	}
-}
+func init() { written["env seed"] = seed }
 
 func seed() *cobra.Command {
 	return &cobra.Command{
@@ -112,6 +97,7 @@ const attempts = 4
 // A seed build followed on the plane's stream, opened before the build is asked for so no step is missed.
 type build struct {
 	st                    state.State
+	c                     *client.Client
 	env, last, step, line string
 	lines                 int
 	asked                 bool
@@ -119,6 +105,11 @@ type build struct {
 }
 
 func (b *build) follow() error {
+	c, err := connect(b.st)
+	if err != nil {
+		return err
+	}
+	b.c = c
 	for drops := 1; ; drops++ {
 		drop, heard, err := b.once()
 		if !drop {
@@ -159,7 +150,7 @@ func (b *build) once() (drop, heard bool, err error) {
 			var s workspace.Seed
 			switch {
 			case !b.asked:
-				if err := call("POST", "/environments/"+b.env+"/seed", nil, nil); err != nil {
+				if err := client.Done(b.c.EnvSeed(ctx, b.env)); err != nil {
 					return false, heard, err
 				}
 				b.asked = true
@@ -168,7 +159,7 @@ func (b *build) once() (drop, heard bool, err error) {
 				continue
 			case f.u.Kind == "reset":
 				// The plane restarted or this reader fell behind its ring: the row says where the build stands.
-				if err := call("GET", "/environments/"+b.env+"/seed", nil, &s); err != nil {
+				if s, err = client.Read[workspace.Seed](b.c.EnvStatus(ctx, b.env)); err != nil {
 					return false, heard, err
 				}
 				// The row keeps no output count: only a new step or state counts as progress here.

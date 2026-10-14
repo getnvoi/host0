@@ -37,8 +37,8 @@ func (ws *Workspace) Log(ctx context.Context, sid, name string, offset int64) ([
 	}
 	path := ""
 	if name == "setup" {
-		var seed Seed
-		if err := ws.Store.Get("seeds", s.Env, &seed); err != nil || seed.Run == "" {
+		seed, err := ws.served(s.Env)
+		if err != nil || seed.Run == "" {
 			return nil, offset, nil
 		}
 		path = fmt.Sprintf("%s/%s/log", Runs, seed.Run)

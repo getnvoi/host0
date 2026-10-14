@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"log"
 
 	"github.com/getnvoi/host0/internal/box"
 )
@@ -35,19 +36,14 @@ func (ws *Workspace) Named() map[string]bool {
 		}
 		return nil
 	})
-	ws.Store.List("ready", func(d func(any) error) error {
-		var s Seed
-		if d(&s) == nil {
+	seeds, err := ws.Seeds()
+	if err != nil {
+		log.Printf("seed actors: %v", err)
+	}
+	for _, s := range seeds {
+		if s.Actor != "" && (s.State == "ready" || s.State == "building") {
 			out[s.Actor] = true
 		}
-		return nil
-	})
-	ws.Store.List("seeds", func(d func(any) error) error {
-		var s Seed
-		if d(&s) == nil && s.State == "building" {
-			out[s.Actor] = true
-		}
-		return nil
-	})
+	}
 	return out
 }

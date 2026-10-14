@@ -359,7 +359,7 @@ func TestRecoverRunsQueueOfIdleSession(t *testing.T) {
 // A session whose fork failed is forked again by the next message, and runs its first prompt before it.
 func TestSayForksAgain(t *testing.T) {
 	p, fb := withBoxd(t)
-	p.Store.Put("ready", "web", Seed{Env: "web", Template: "t", Tag: "t", State: "ready"})
+	seedRow(t, p, Seed{Env: "web", Template: "t", Tag: "t", State: "ready"})
 	p.Store.Put("sessions", "f1", Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "hz/f1", State: "failed",
 		Error: "boom", Pending: "first"})
 	if err := p.Say("f1", "second", ""); err != nil {
@@ -456,8 +456,8 @@ func TestSeedOneAtATime(t *testing.T) {
 	}
 	close(held)
 	until(t, "the build to fail", func() bool {
-		var s Seed
-		return p.Store.Get("seeds", "web", &s) == nil && s.State == "failed"
+		s, err := p.SeedOf("web")
+		return err == nil && s.State == "failed"
 	})
 	until(t, "the build to be released", func() bool {
 		_, busy := seeding.Load("web")
@@ -468,8 +468,8 @@ func TestSeedOneAtATime(t *testing.T) {
 // A seed being built again leaves the last ready one in service.
 func TestSeedServesLastReady(t *testing.T) {
 	p, _ := withBoxd(t)
-	p.Store.Put("ready", "web", Seed{Env: "web", Template: "old", Tag: "old", State: "ready"})
-	p.Store.Put("seeds", "web", Seed{Env: "web", State: "building"})
+	seedRow(t, p, Seed{Env: "web", Template: "old", Tag: "old", State: "ready"})
+	seedRow(t, p, Seed{Env: "web", State: "building"})
 	if es, err := p.Environments(); err != nil || len(es) != 1 || !es[0].Ready {
 		t.Fatalf("environments %+v %v", es, err)
 	}
@@ -478,8 +478,7 @@ func TestSeedServesLastReady(t *testing.T) {
 		t.Fatalf("served %+v %v", seed, err)
 	}
 	p.Recover()
-	var s Seed
-	if p.Store.Get("seeds", "web", &s); s.State != "failed" {
+	if s, _ := p.SeedOf("web"); s.State != "failed" {
 		t.Fatalf("an interrupted build is %s", s.State)
 	}
 	if _, err := p.served("web"); err != nil {

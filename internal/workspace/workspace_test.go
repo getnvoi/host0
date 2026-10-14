@@ -171,6 +171,17 @@ func env(t *testing.T, p *Workspace, e Environment) {
 	}
 }
 
+// Writes s as a seed's row, its environment declared first if it is not.
+func seedRow(t *testing.T, p *Workspace, s Seed) {
+	t.Helper()
+	if _, err := p.Environment(s.Env); err != nil {
+		env(t, p, Environment{Name: s.Env})
+	}
+	if err := p.putSeed(&s); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // A sandbox whose every port is one boxd stand-in.
 type boxed struct {
 	sandbox.Sandboxes

@@ -179,6 +179,23 @@ type Provider struct {
 	Label  string   `json:"label"`
 }
 
+// Seed defines model for Seed.
+type Seed struct {
+	Actor    string    `json:"actor"`
+	At       time.Time `json:"at"`
+	Env      string    `json:"env"`
+	Error    *string   `json:"error,omitempty"`
+	Line     *string   `json:"line,omitempty"`
+	Lines    *int64    `json:"lines,omitempty"`
+	Preview  *string   `json:"preview,omitempty"`
+	Run      *string   `json:"run,omitempty"`
+	Spec     *string   `json:"spec,omitempty"`
+	State    string    `json:"state"`
+	Step     *string   `json:"step,omitempty"`
+	Tag      string    `json:"tag"`
+	Template string    `json:"template"`
+}
+
 // Service defines model for Service.
 type Service struct {
 	Command string             `json:"command"`
@@ -187,6 +204,12 @@ type Service struct {
 	Image   *string            `json:"image,omitempty"`
 	Name    string             `json:"name"`
 	Port    *int64             `json:"port,omitempty"`
+}
+
+// Suspended defines model for Suspended.
+type Suspended struct {
+	// Actor The actor suspended
+	Actor string `json:"actor"`
 }
 
 // LlmRmParams defines parameters for LlmRm.
@@ -351,6 +374,16 @@ type ClientInterface interface {
 	// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
 	EnvPut(ctx context.Context, name string, body EnvPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// EnvStatus The environment's seed build: the one under way, or the last to end
+	//
+	// Corresponds with GET /environments/{name}/seed (the `EnvStatus` operationId).
+	EnvStatus(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnvSeed Build the environment's seed: clone, set up, start its services, snapshot and tag it
+	//
+	// Corresponds with POST /environments/{name}/seed (the `EnvSeed` operationId).
+	EnvSeed(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// LlmLs The agent credentials: live first, then archived; secrets left out
 	//
 	// Corresponds with GET /llm/configs (the `LlmLs` operationId).
@@ -408,6 +441,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /me (the `Me` operationId).
 	Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnvSuspend Suspend the actor the environment's preview routes to, freeing its worker
+	//
+	// Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
+	EnvSuspend(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 // CredentialsGet Which credentials hold a value, never the values
@@ -587,6 +625,36 @@ func (c *Client) EnvPut(ctx context.Context, name string, body EnvPutJSONRequest
 	return c.Client.Do(req)
 }
 
+// EnvStatus The environment's seed build: the one under way, or the last to end
+//
+// Corresponds with GET /environments/{name}/seed (the `EnvStatus` operationId).
+func (c *Client) EnvStatus(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvStatusRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnvSeed Build the environment's seed: clone, set up, start its services, snapshot and tag it
+//
+// Corresponds with POST /environments/{name}/seed (the `EnvSeed` operationId).
+func (c *Client) EnvSeed(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvSeedRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // LlmLs The agent credentials: live first, then archived; secrets left out
 //
 // Corresponds with GET /llm/configs (the `LlmLs` operationId).
@@ -735,6 +803,21 @@ func (c *Client) LlmProviders(ctx context.Context, reqEditors ...RequestEditorFn
 // Corresponds with GET /me (the `Me` operationId).
 func (c *Client) Me(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMeRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnvSuspend Suspend the actor the environment's preview routes to, freeing its worker
+//
+// Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
+func (c *Client) EnvSuspend(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnvSuspendRequest(c.Server, name)
 	if err != nil {
 		return nil, err
 	}
@@ -1031,6 +1114,74 @@ func NewEnvPutRequestWithBody(server string, name string, contentType string, bo
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEnvStatusRequest constructs an http.Request for the EnvStatus method
+func NewEnvStatusRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/environments/%s/seed", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewEnvSeedRequest constructs an http.Request for the EnvSeed method
+func NewEnvSeedRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/environments/%s/seed", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -1332,6 +1483,40 @@ func NewMeRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewEnvSuspendRequest constructs an http.Request for the EnvSuspend method
+func NewEnvSuspendRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/seeds/%s/suspend", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1453,6 +1638,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /environments/{name} (the `EnvPut` operationId).
 	EnvPutWithResponse(ctx context.Context, name string, body EnvPutJSONRequestBody, reqEditors ...RequestEditorFn) (*EnvPutResponse, error)
 
+	// EnvStatusWithResponse The environment's seed build: the one under way, or the last to end
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /environments/{name}/seed (the `EnvStatus` operationId).
+	EnvStatusWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvStatusResponse, error)
+
+	// EnvSeedWithResponse Build the environment's seed: clone, set up, start its services, snapshot and tag it
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /environments/{name}/seed (the `EnvSeed` operationId).
+	EnvSeedWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvSeedResponse, error)
+
 	// LlmLsWithResponse The agent credentials: live first, then archived; secrets left out
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -1522,6 +1721,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /me (the `Me` operationId).
 	MeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*MeResponse, error)
+
+	// EnvSuspendWithResponse Suspend the actor the environment's preview routes to, freeing its worker
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
+	EnvSuspendWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvSuspendResponse, error)
 }
 
 type CredentialsGetResponse struct {
@@ -1874,6 +2080,95 @@ func (r EnvPutResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r EnvPutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnvStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Seed
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnvStatusResponse) GetJSON200() *Seed {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r EnvStatusResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvStatusResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvStatusResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnvSeedResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r EnvSeedResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvSeedResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvSeedResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvSeedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvSeedResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -2243,6 +2538,54 @@ func (r MeResponse) ContentType() string {
 	return ""
 }
 
+type EnvSuspendResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Suspended
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r EnvSuspendResponse) GetJSON200() *Suspended {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r EnvSuspendResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r EnvSuspendResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnvSuspendResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnvSuspendResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnvSuspendResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // CredentialsGetWithResponse Which credentials hold a value, never the values
 //
 // Returns a wrapper object for the known response body format(s).
@@ -2386,6 +2729,32 @@ func (c *ClientWithResponses) EnvPutWithResponse(ctx context.Context, name strin
 	return ParseEnvPutResponse(rsp)
 }
 
+// EnvStatusWithResponse The environment's seed build: the one under way, or the last to end
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /environments/{name}/seed (the `EnvStatus` operationId).
+func (c *ClientWithResponses) EnvStatusWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvStatusResponse, error) {
+	rsp, err := c.EnvStatus(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvStatusResponse(rsp)
+}
+
+// EnvSeedWithResponse Build the environment's seed: clone, set up, start its services, snapshot and tag it
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /environments/{name}/seed (the `EnvSeed` operationId).
+func (c *ClientWithResponses) EnvSeedWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvSeedResponse, error) {
+	rsp, err := c.EnvSeed(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvSeedResponse(rsp)
+}
+
 // LlmLsWithResponse The agent credentials: live first, then archived; secrets left out
 //
 // Returns a wrapper object for the known response body format(s).
@@ -2514,6 +2883,19 @@ func (c *ClientWithResponses) MeWithResponse(ctx context.Context, reqEditors ...
 		return nil, err
 	}
 	return ParseMeResponse(rsp)
+}
+
+// EnvSuspendWithResponse Suspend the actor the environment's preview routes to, freeing its worker
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /seeds/{name}/suspend (the `EnvSuspend` operationId).
+func (c *ClientWithResponses) EnvSuspendWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvSuspendResponse, error) {
+	rsp, err := c.EnvSuspend(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnvSuspendResponse(rsp)
 }
 
 // ParseCredentialsGetResponse parses an HTTP response from a CredentialsGetWithResponse call
@@ -2764,6 +3146,68 @@ func ParseEnvPutResponse(rsp *http.Response) (*EnvPutResponse, error) {
 	return response, nil
 }
 
+// ParseEnvStatusResponse parses an HTTP response from a EnvStatusWithResponse call
+func ParseEnvStatusResponse(rsp *http.Response) (*EnvStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Seed
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnvSeedResponse parses an HTTP response from a EnvSeedWithResponse call
+func ParseEnvSeedResponse(rsp *http.Response) (*EnvSeedResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvSeedResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 202:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseLlmLsResponse parses an HTTP response from a LlmLsWithResponse call
 func ParseLlmLsResponse(rsp *http.Response) (*LlmLsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2999,6 +3443,39 @@ func ParseMeResponse(rsp *http.Response) (*MeResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Me
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnvSuspendResponse parses an HTTP response from a EnvSuspendWithResponse call
+func ParseEnvSuspendResponse(rsp *http.Response) (*EnvSuspendResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnvSuspendResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Suspended
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

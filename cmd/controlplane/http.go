@@ -78,17 +78,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 		c, err := p.Status(r.Context())
 		reply(w, &c, err)
 	})
-	api.HandleFunc("POST /environments/{name}/seed", func(w http.ResponseWriter, r *http.Request) {
-		if err := ws.Reseed(r.PathValue("name")); err != nil {
-			reply(w, nil, err)
-			return
-		}
-		w.WriteHeader(http.StatusAccepted)
-	})
-	api.HandleFunc("GET /environments/{name}/seed", func(w http.ResponseWriter, r *http.Request) {
-		var s workspace.Seed
-		reply(w, &s, p.Store.Get("seeds", r.PathValue("name"), &s))
-	})
 	api.HandleFunc("POST /sessions", func(w http.ResponseWriter, r *http.Request) {
 		var in struct{ Env, Prompt string }
 		var s workspace.Session
@@ -107,14 +96,6 @@ func (p *plane) Handler(apiHost, appHost, tokenSHA256 string) http.Handler {
 	})
 	api.HandleFunc("POST /sessions/{id}/suspend", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, nil, ws.Suspend(r.Context(), r.PathValue("id")))
-	})
-	api.HandleFunc("POST /seeds/{name}/suspend", func(w http.ResponseWriter, r *http.Request) {
-		var out struct {
-			Actor string `json:"actor"`
-		}
-		var err error
-		out.Actor, err = ws.SuspendSeed(r.Context(), r.PathValue("name"))
-		reply(w, &out, err)
 	})
 	api.HandleFunc("GET /sessions/{id}/preview", func(w http.ResponseWriter, r *http.Request) {
 		st, err := ws.PreviewStatus(r.Context(), r.PathValue("id"))

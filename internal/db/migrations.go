@@ -22,6 +22,7 @@ var migrations = []*gormigrate.Migration{
 	{ID: "0001", Migrate: migrate0001},
 	{ID: "0002", Migrate: migrate0002},
 	{ID: "0003", Migrate: migrate0003},
+	{ID: "0004", Migrate: migrate0004},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -79,6 +80,23 @@ type m3Credential struct {
 }
 
 func (m3Credential) TableName() string { return "credentials" }
+
+// A seed's setup run, whose log a session reads, and when its build started.
+func migrate0004(tx *gorm.DB) error {
+	for _, c := range []string{"Run", "StartedAt"} {
+		if err := tx.Migrator().AddColumn(&m4Seed{}, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type m4Seed struct {
+	Run       string
+	StartedAt time.Time
+}
+
+func (m4Seed) TableName() string { return "seeds" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {

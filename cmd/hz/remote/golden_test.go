@@ -105,6 +105,9 @@ var goldens = []golden{
 			Archived: &archived}}},
 	{"llm-providers", []string{"llm", "providers"}, "GET /llm/providers", []llm.Provider{{Key: "claude_code", Label: "Claude Code"}}},
 	{"llm-rm", []string{"llm", "rm", "Claude Code", "--remove"}, "DELETE /llm/configs/{name}", nil},
+	{"env-status", []string{"env", "status", "shop"}, "GET /environments/shop/seed", workspace.Seed{Env: "shop", State: "building",
+		Step: "setup: npm ci", Actor: "shop-1a2b3c4d5e", At: archived}},
+	{"env-suspend", []string{"env", "suspend", "shop"}, "POST /seeds/shop/suspend", map[string]string{"actor": "shop-1a2b3c4d5e"}},
 	{"llm-use", []string{"llm", "use", "OpenAI"}, "POST /llm/configs/OpenAI/main", nil},
 }
 

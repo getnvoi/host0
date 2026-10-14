@@ -120,6 +120,8 @@ type Seed struct {
 	Error         string
 	Preview       string
 	BuiltAt       *time.Time
+	Run           string // the boxd run of its setup script
+	StartedAt     time.Time
 }
 
 // DeletedAt hides a session; its events stay, and the foreign key refuses a hard delete while they do.

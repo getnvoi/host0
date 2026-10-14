@@ -64,9 +64,9 @@ func TestSayWhileRunning(t *testing.T) {
 func TestNamed(t *testing.T) {
 	p := newWorkspace(t, nil)
 	p.Store.Put("sessions", "s1", Session{ID: "s1", Actor: "wt-s1", State: "forking"})
-	p.Store.Put("ready", "shop", Seed{Env: "shop", State: "ready", Actor: "shop-b30f1ae1ab"})
-	p.Store.Put("seeds", "web", Seed{Env: "web", State: "building", Actor: "web-1111111111"})
-	p.Store.Put("seeds", "shop", Seed{Env: "shop", State: "failed", Actor: "shop-853d8ecc03"})
+	seedRow(t, p, Seed{Env: "shop", State: "ready", Actor: "shop-b30f1ae1ab"})
+	seedRow(t, p, Seed{Env: "web", State: "building", Actor: "web-1111111111"})
+	seedRow(t, p, Seed{Env: "shop", State: "failed", Actor: "shop-853d8ecc03"})
 	got := p.Named()
 	if len(got) != 3 || !got["wt-s1"] || !got["shop-b30f1ae1ab"] || !got["web-1111111111"] {
 		t.Fatalf("named %v", got)

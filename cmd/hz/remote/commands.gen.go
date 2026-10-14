@@ -90,6 +90,17 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:     "env.seed",
+		Short:  "Build the environment's seed: clone, set up, start its services, snapshot and tag it",
+		Method: "POST",
+		Route:  "/environments/{name}/seed",
+		HZ:     hz{By: []string{"env seed"}},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.EnvSeed(ctx, args[0], edit)
+		},
+	},
+	{
 		ID:          "env.set",
 		Short:       "Change the environment's fields; hz env seed rebuilds its seed",
 		Method:      "PATCH",
@@ -100,6 +111,28 @@ var operations = []operation{
 		Body:        []param{{Name: "branch", Kind: "string", Help: ""}, {Name: "env", Kind: "map", Help: ""}, {Name: "image", Kind: "string", Help: ""}, {Name: "preview", Kind: "int", Help: ""}, {Name: "repo", Kind: "string", Help: ""}, {Name: "setup", Kind: "list", Help: ""}, {Name: "tier", Kind: "string", Help: ""}, {Name: "tools", Kind: "map", Help: ""}},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.EnvSetWithBody(ctx, args[0], "application/merge-patch+json", body, edit)
+		},
+	},
+	{
+		ID:     "env.status",
+		Short:  "The environment's seed build: the one under way, or the last to end",
+		Method: "GET",
+		Route:  "/environments/{name}/seed",
+		HZ:     hz{Output: "fields", Columns: []string{"env", "state", "step", "error", "actor", "tag", "preview", "at"}, By: []string{"env seed"}},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.EnvStatus(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "env.suspend",
+		Short:  "Suspend the actor the environment's preview routes to, freeing its worker",
+		Method: "POST",
+		Route:  "/seeds/{name}/suspend",
+		HZ:     hz{Output: "fields"},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.EnvSuspend(ctx, args[0], edit)
 		},
 	},
 	{

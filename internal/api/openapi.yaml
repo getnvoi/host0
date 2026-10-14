@@ -328,6 +328,45 @@ components:
         - label
         - fields
       type: object
+    Seed:
+      additionalProperties: false
+      properties:
+        actor:
+          type: string
+        at:
+          format: date-time
+          type: string
+        env:
+          type: string
+        error:
+          type: string
+        line:
+          type: string
+        lines:
+          format: int64
+          type: integer
+        preview:
+          type: string
+        run:
+          type: string
+        spec:
+          type: string
+        state:
+          type: string
+        step:
+          type: string
+        tag:
+          type: string
+        template:
+          type: string
+      required:
+        - env
+        - actor
+        - template
+        - tag
+        - state
+        - at
+      type: object
     Service:
       additionalProperties: false
       properties:
@@ -349,6 +388,15 @@ components:
       required:
         - name
         - command
+      type: object
+    Suspended:
+      additionalProperties: false
+      properties:
+        actor:
+          description: The actor suspended
+          type: string
+      required:
+        - actor
       type: object
   securitySchemes:
     bearer:
@@ -591,6 +639,67 @@ paths:
         by:
           - env apply
           - env create
+  /environments/{name}/seed:
+    get:
+      operationId: env.status
+      parameters:
+        - description: The environment's name
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The environment's name
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Seed"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "The environment's seed build: the one under way, or the last to end"
+      x-hz:
+        by:
+          - env seed
+        columns:
+          - env
+          - state
+          - step
+          - error
+          - actor
+          - tag
+          - preview
+          - at
+        output: fields
+    post:
+      operationId: env.seed
+      parameters:
+        - description: The environment's name
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The environment's name
+            type: string
+      responses:
+        "202":
+          description: Accepted
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "Build the environment's seed: clone, set up, start its services, snapshot and tag it"
+      x-hz:
+        by:
+          - env seed
   /llm/configs:
     get:
       operationId: llm.ls
@@ -803,6 +912,33 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The cluster and zone this plane serves
+      x-hz:
+        output: fields
+  /seeds/{name}/suspend:
+    post:
+      operationId: env.suspend
+      parameters:
+        - description: The environment's name
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The environment's name
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Suspended"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Suspend the actor the environment's preview routes to, freeing its worker
       x-hz:
         output: fields
 security:

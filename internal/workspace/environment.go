@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -14,7 +15,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/getnvoi/host0/internal/db"
-	"github.com/getnvoi/host0/internal/store"
 )
 
 // Held across each read and write of an environment's rows, so two patches do not lose one another.
@@ -280,23 +280,18 @@ func (ws *Workspace) DeleteEnvironment(ctx context.Context, name string) error {
 		sort.Strings(users)
 		return Conflict{fmt.Errorf("environment %s has sessions %s: remove them first", name, strings.Join(users, ", "))}
 	}
-	for _, kind := range []string{"seeds", "ready"} {
-		var s Seed
-		err := ws.Store.Get(kind, name, &s)
-		if err == store.ErrNotFound || (err == nil && s.Actor == "") {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if err := ws.Sandboxes.Delete(ctx, s.Actor); err != nil {
-			return fmt.Errorf("seed %s: %w", s.Actor, err)
+	var actors []string
+	if err := ws.DB.Model(&db.Seed{}).Where("environment_id = ? AND actor != ''", row.ID).Order("id DESC").
+		Pluck("actor", &actors).Error; err != nil {
+		return err
+	}
+	for _, a := range slices.Compact(actors) {
+		if err := ws.Sandboxes.Delete(ctx, a); err != nil {
+			return fmt.Errorf("seed %s: %w", a, err)
 		}
 	}
-	for _, row := range [][2]string{{"routes", ws.Preview(name)}, {"ready", name}, {"seeds", name}} {
-		if err := ws.Store.Delete(row[0], row[1]); err != nil {
-			return err
-		}
+	if err := ws.Store.Delete("routes", ws.Preview(name)); err != nil {
+		return err
 	}
 	if err := ws.DB.Delete(&row).Error; err != nil {
 		return err

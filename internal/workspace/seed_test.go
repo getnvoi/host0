@@ -158,7 +158,7 @@ func TestSeedFailureCarriesTheError(t *testing.T) {
 // Each beat reports the row and the setup's last line, not merely that the build goes on.
 func TestSeedHeartbeat(t *testing.T) {
 	p := newWorkspace(t, nil)
-	p.Store.Put("seeds", "hb", Seed{Env: "hb", State: "building", Step: "setup: bundle install"})
+	seedRow(t, p, Seed{Env: "hb", State: "building", Step: "setup: bundle install"})
 	tails.Store("hb", &progress{line: "Installing rails 8.0.2", lines: 40})
 	t.Cleanup(func() { tails.Delete("hb") })
 	c := p.Bus.(*bus).tap(t)
@@ -240,8 +240,7 @@ func TestRestartAfterSeedBuildsNothing(t *testing.T) {
 	if len(sb.created) != len(first) {
 		t.Fatalf("a restart made actors %v", sb.created[len(first):])
 	}
-	var row Seed
-	if restarted.Store.Get("seeds", "shop", &row); row.State != "ready" || row.Actor != first[0] {
+	if row, _ := restarted.SeedOf("shop"); row.State != "ready" || row.Actor != first[0] {
 		t.Fatalf("the seed after a restart: %+v", row)
 	}
 	actor, err := restarted.SuspendSeed(context.Background(), "shop")

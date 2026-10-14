@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/getnvoi/host0/internal/box"
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
 )
@@ -91,19 +92,14 @@ func forked(s Session) bool { return s.Forked || s.Turns > 0 }
 // Picks up what a restart interrupted: seed builds, decisions, forks, turns, and queues behind a session at rest.
 // boxd keeps each turn's log, so following it again rebuilds its events exactly.
 func (ws *Workspace) Recover() {
-	var seeds []Seed
-	ws.Store.List("seeds", func(d func(any) error) error {
-		var s Seed
-		if d(&s) == nil && s.State == "building" {
-			seeds = append(seeds, s)
-		}
-		return nil
-	})
-	for _, s := range seeds {
-		log.Printf("recover seed %s: interrupted", s.Env)
-		s.State, s.Error = "failed", "interrupted by a restart of the plane"
-		if err := ws.saveSeed(s); err != nil {
-			log.Printf("recover seed %s: %v", s.Env, err)
+	var rows []db.Seed
+	if err := ws.DB.Where("state = ?", "building").Find(&rows).Error; err != nil {
+		log.Printf("recover seeds: %v", err)
+	}
+	for _, r := range rows {
+		log.Printf("recover seed %d: interrupted", r.ID)
+		if err := ws.DB.Model(&r).Updates(map[string]any{"state": "failed", "error": "interrupted by a restart of the plane"}).Error; err != nil {
+			log.Printf("recover seed %d: %v", r.ID, err)
 		}
 	}
 	// A decision cut short is carried out again: whether its action ran is unknown, and every action is safe to repeat.
