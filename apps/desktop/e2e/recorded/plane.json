@@ -1,0 +1,106 @@
+{
+  "_recorded": "By hand from internal/workspace, internal/llm and internal/sandbox's JSON tags, 2026-10-15. Re-record from a real plane through the hub once the hub exists.",
+  "me": { "cluster": "northwind", "zone": "example.com" },
+  "providers": [
+    {
+      "key": "claude_code",
+      "label": "Claude Code",
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Credential kind",
+          "type": "select",
+          "required": true,
+          "help": "oauth for a Claude subscription, api_key for an Anthropic key, bearer for a third-party endpoint such as z.ai or Kimi",
+          "options": [
+            { "value": "oauth", "label": "Claude subscription (OAuth)" },
+            { "value": "api_key", "label": "Anthropic API key" },
+            { "value": "bearer", "label": "Third-party endpoint (bearer)" }
+          ]
+        },
+        { "key": "token", "label": "Token", "type": "password", "secret": true, "required": true, "placeholder": "sk-ant-..." },
+        { "key": "base_url", "label": "Base URL", "type": "text", "placeholder": "https://api.anthropic.com", "help": "Only for a third-party endpoint. Leave empty for Anthropic." },
+        {
+          "key": "model",
+          "label": "Model",
+          "type": "select",
+          "default": "sonnet",
+          "help": "The vendor's alias; it follows their current model.",
+          "options": [
+            { "value": "sonnet", "label": "Sonnet" },
+            { "value": "opus", "label": "Opus" },
+            { "value": "haiku", "label": "Haiku" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "codex",
+      "label": "Codex",
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Credential kind",
+          "type": "select",
+          "required": true,
+          "help": "chatgpt for a ChatGPT sign-in, api_key for an OpenAI key",
+          "options": [
+            { "value": "chatgpt", "label": "ChatGPT sign-in" },
+            { "value": "api_key", "label": "OpenAI API key" }
+          ]
+        },
+        { "key": "token", "label": "Token", "type": "password", "secret": true, "required": true, "placeholder": "sk-...", "help": "For a ChatGPT sign-in, the whole of ~/.codex/auth.json." },
+        { "key": "base_url", "label": "Base URL", "type": "text", "placeholder": "https://api.openai.com/v1", "help": "Only for an OpenAI-compatible endpoint. Leave empty for OpenAI." },
+        { "key": "model", "label": "Model", "type": "text", "placeholder": "gpt-5", "help": "Empty runs codex's default." }
+      ]
+    }
+  ],
+  "shape": {
+    "workers": { "type": "cx33", "location": "fsn1", "max": 3, "idle": 600000000000 },
+    "tiers": [
+      { "name": "small", "cpu": "1", "memory": "2Gi", "cpuRequest": "250m" },
+      { "name": "medium", "cpu": "2", "memory": "4Gi", "cpuRequest": "500m", "default": true },
+      { "name": "large", "cpu": "4", "memory": "8Gi", "cpuRequest": "1" }
+    ]
+  },
+  "proposal": {
+    "name": "shop",
+    "repo": "northwind/shop",
+    "branch": "main",
+    "image": "ghcr.io/getnvoi/hz-ruby:3.3",
+    "env": { "RAILS_ENV": "development" },
+    "setup": ["bundle install", "bin/rails db:prepare"],
+    "services": [{ "name": "web", "command": "bin/rails server -b 0.0.0.0 -p 3000", "port": 3000 }],
+    "preview": 3000,
+    "tier": "medium",
+    "tools": { "git_push": "approval" }
+  },
+  "seed": [
+    { "env": "shop", "state": "building", "step": "cloning", "at": "2026-10-15T09:00:00Z" },
+    { "env": "shop", "state": "building", "step": "setup", "line": "$ bundle install", "lines": 1, "at": "2026-10-15T09:00:05Z" },
+    { "env": "shop", "state": "building", "step": "setup", "line": "Bundle complete! 92 Gemfile dependencies, 141 gems now installed.", "lines": 2, "at": "2026-10-15T09:00:40Z" },
+    { "env": "shop", "state": "building", "step": "services", "line": "$ bin/rails server -b 0.0.0.0 -p 3000", "lines": 3, "at": "2026-10-15T09:00:45Z" },
+    { "env": "shop", "state": "ready", "step": "ready", "lines": 3, "preview": "seed-shop.northwind.example.com", "at": "2026-10-15T09:00:52Z" }
+  ],
+  "session": {
+    "id": "k7f2qa",
+    "env": "shop",
+    "branch": "hz/k7f2qa",
+    "preview": "k7f2qa.northwind.example.com",
+    "state": "awaiting_approval",
+    "title": "Health endpoint",
+    "at": "2026-10-15T09:10:00Z",
+    "last": "2026-10-15T09:12:30Z",
+    "turns": 1,
+    "events": [
+      { "kind": "prompt", "content": "Add a /health endpoint that answers 200 with the app's version", "at": "2026-10-15T09:10:00Z" },
+      { "kind": "status", "content": "init", "at": "2026-10-15T09:10:05Z" },
+      { "kind": "message", "content": "I'll add a health controller and a route for it.", "at": "2026-10-15T09:10:20Z" },
+      { "kind": "tool_use", "tool": "Write", "tool_id": "toolu_01", "content": "{\"file_path\":\"app/controllers/health_controller.rb\",\"content\":\"class HealthController < ApplicationController\\n  def show = render plain: Rails.application.config.version\\nend\\n\"}", "at": "2026-10-15T09:11:00Z" },
+      { "kind": "tool_result", "tool_id": "toolu_01", "content": "File created successfully", "at": "2026-10-15T09:11:01Z" },
+      { "kind": "message", "content": "The endpoint is written. I want to push the branch so you can open a pull request.", "at": "2026-10-15T09:12:00Z" }
+    ]
+  },
+  "approval": { "id": "ap1", "session": "k7f2qa", "tool": "git_push", "input": "git push origin hz/k7f2qa", "state": "pending" },
+  "streamed": { "kind": "message", "content": "Pushed hz/k7f2qa. The pull request can be opened from GitHub.", "at": "2026-10-15T09:13:00Z" }
+}
