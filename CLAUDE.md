@@ -117,15 +117,19 @@ command.
 ```
 shared/        names, the api contract                everyone
 infra/         the install: interfaces, steps, manifests  local commands only
-hetzner/       infra.Cloud
+cloud/         the contract, conformance, hetzner
 cloudflare/    infra.Edge
 controlplane/  the api, sandboxes, turns, approvals   runs in the cluster
 cli/           the hz binary
 ```
 
-**A contract lives with its consumer; a provider is its own module.** `infra` declares `Cloud`, `Edge` and
-`Shell` and imports no provider; `hetzner` and `cloudflare` implement them and the cli wires them in. The
-control plane declares `Sandboxes` and `Runner` the same way; `substrate` and `claude` implement them.
+**A contract lives with its consumer; a provider is its own module.** `infra` declares `Edge` and `Shell` and
+imports no provider; `cloudflare` implements `Edge` and the cli wires it in. The control plane declares
+`Sandboxes` and `Runner` the same way; `substrate` and `claude` implement them.
+
+**A contract with several providers lives in its own module, with its conformance suite.** `cloud` declares
+`Cloud`, each provider implements it under `cloud/` and passes `cloud/conformance` against a cassette recorded
+from a real run; `infra` and the control plane consume it.
 
 **`controlplane` must not import `infra`.** Anything the control plane needs from the install is in `shared`,
 or it does not exist.
