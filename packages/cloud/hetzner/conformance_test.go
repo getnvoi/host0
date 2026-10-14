@@ -14,13 +14,13 @@ import (
 func TestConformance(t *testing.T) {
 	token := os.Getenv("HCLOUD_TOKEN")
 	conformance.Run(t, conformance.Subject{
-		New: func(rt http.RoundTripper, say func(string, ...any), sleep cloud.Sleep) cloud.Cloud {
-			return New(token, rt, say, sleep)
+		New: func(rt http.RoundTripper, location string, say func(string, ...any), sleep cloud.Sleep) cloud.Cloud {
+			return New(token, location, rt, say, sleep)
 		},
 		Cassette: "testdata/hetzner.json",
 		Secret:   token,
 		Location: "fsn1",
-		Type:     "cx23",
+		Type:     "ccx13",
 		Classify: classify,
 		Created: func(response []byte) string {
 			// {"server": {...}, "action": {...}}: the one that is not an action.
@@ -50,7 +50,7 @@ func TestConformance(t *testing.T) {
 
 // POST to a collection creates, DELETE deletes, an action writes.
 func classify(method, path string) (op, kind string) {
-	parts := strings.Split(strings.TrimPrefix(strings.SplitN(path, "?", 2)[0], "/v1/"), "/")
+	parts := strings.Split(strings.TrimPrefix(path, "/v1/"), "/")
 	kind = parts[0]
 	switch {
 	case method == "POST" && len(parts) == 1:

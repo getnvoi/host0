@@ -33,8 +33,8 @@ const (
 type Plane struct {
 	Sandboxes Sandboxes
 	Pools     Pools
-	// Where worker servers are made; nil when the cluster's own nodes are all it has.
-	Cloud cloud.Cloud
+	// The cloud worker servers are made on, in the shape's location; nil when the cluster's own nodes are all it has.
+	Cloud func(location string) (cloud.Cloud, error)
 	// The cloud-init a worker server boots with: it joins the cluster as a worker node.
 	WorkerInit string
 	// Idle this long, an actor is paused; this long, suspended and its worker freed.

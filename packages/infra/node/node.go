@@ -23,7 +23,7 @@ var tmpl = template.Must(template.New("k3s").Parse(script))
 var Encrypt string
 
 type params struct {
-	Role, Token, NetRange, ControlIP, Registry, LocalRegistry string
+	Role, Token, Subnet, ControlIP, Registry, LocalRegistry string
 	Labels                                                    []string
 	// Shell that sets provider_id and external_ips.
 	Identity string
@@ -36,7 +36,7 @@ func render(role, token string, labels map[string]string, identity string) strin
 	}
 	sort.Strings(ls)
 	var b bytes.Buffer
-	_ = tmpl.Execute(&b, params{role, token, naming.NetRange, naming.ControlIP, naming.Registry, naming.LocalRegistry(), ls, identity})
+	_ = tmpl.Execute(&b, params{role, token, naming.Subnet, naming.ControlIP, naming.Registry, naming.LocalRegistry(), ls, identity})
 	return b.String()
 }
 

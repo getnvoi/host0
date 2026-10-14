@@ -8,12 +8,12 @@ GATES="ClusterTrustBundle=true,ClusterTrustBundleProjection=true,PodCertificateR
 
 ip=""
 for _ in $(seq 60); do
-  ip=$(ip -4 -o addr show to {{.NetRange}} | awk '{print $4}' | cut -d/ -f1 | head -1)
+  ip=$(ip -4 -o addr show to {{.Subnet}} | awk '{print $4}' | cut -d/ -f1 | head -1)
   [ -n "$ip" ] && break
   sleep 2
 done
-[ -n "$ip" ] || { echo "no address in {{.NetRange}}" >&2; exit 1; }
-iface=$(ip -4 -o addr show to {{.NetRange}} | awk '{print $2}' | head -1)
+[ -n "$ip" ] || { echo "no address in {{.Subnet}}" >&2; exit 1; }
+iface=$(ip -4 -o addr show to {{.Subnet}} | awk '{print $2}' | head -1)
 
 {{.Identity}}
 case "$provider_id" in *://?*) ;; *) echo "no provider id: got \"$provider_id\"" >&2; exit 1 ;; esac

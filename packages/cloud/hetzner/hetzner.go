@@ -19,24 +19,33 @@ import (
 var Provider = cloud.Provider{
 	Name:  "hetzner",
 	Creds: []cloud.Credential{{Key: "token", Var: "HCLOUD_TOKEN", Help: "a Hetzner Cloud project's read and write API token"}},
-	New: func(creds map[string]string, say func(string, ...any)) (cloud.Cloud, error) {
+	// ccx23 for both: a new project allows 8 dedicated cores, which is one control node and one worker.
+	Defaults: cloud.Defaults{Location: "fsn1", ControlType: "ccx23", WorkerType: "ccx23", Arch: "amd64"},
+	New: func(creds map[string]string, location string, say func(string, ...any)) (cloud.Cloud, error) {
 		if creds["token"] == "" {
 			return nil, fmt.Errorf("hetzner needs its token")
 		}
-		return New(creds["token"], http.DefaultTransport, say, cloud.Wait), nil
+		if location == "" {
+			return nil, fmt.Errorf("hetzner needs a location: fsn1, nbg1, hel1, ash, hil, sin")
+		}
+		return New(creds["token"], location, http.DefaultTransport, say, cloud.Wait), nil
 	},
 }
 
+// The cluster's private network; servers attach in naming.Subnet.
+const netRange = "10.0.0.0/16"
+
 type Client struct {
-	rest  cloud.REST
-	say   func(string, ...any)
-	sleep cloud.Sleep
+	location string
+	rest     cloud.REST
+	say      func(string, ...any)
+	sleep    cloud.Sleep
 }
 
 var _ cloud.Cloud = Client{}
 
-func New(token string, rt http.RoundTripper, say func(string, ...any), sleep cloud.Sleep) Client {
-	return Client{say: say, sleep: sleep, rest: cloud.REST{
+func New(token, location string, rt http.RoundTripper, say func(string, ...any), sleep cloud.Sleep) Client {
+	return Client{location: location, say: say, sleep: sleep, rest: cloud.REST{
 		Provider:  "hetzner",
 		Base:      "https://api.hetzner.cloud/v1",
 		Auth:      func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+token) },
@@ -57,11 +66,6 @@ func Message(body []byte) string {
 }
 
 func (Client) Name() string { return "hetzner" }
-
-// ccx23 for both: a new project allows 8 dedicated cores, which is one control node and one worker.
-func (Client) Defaults(context.Context) (cloud.Defaults, error) {
-	return cloud.Defaults{Location: "fsn1", ControlType: "ccx23", WorkerType: "ccx23", Arch: "amd64"}, nil
-}
 
 func (h Client) do(ctx context.Context, method, path string, in, out any) error {
 	return h.rest.Do(ctx, method, path, in, out)
@@ -104,10 +108,10 @@ func (h Client) ensure(ctx context.Context, kind, name string, body map[string]a
 	return h.do(ctx, "POST", "/"+kind, body, nil)
 }
 
-func (h Client) Base(ctx context.Context, c naming.Cluster, location, publicKey string, open []int) error {
+func (h Client) Base(ctx context.Context, c naming.Cluster, publicKey string, open []int) error {
 	if err := h.ensure(ctx, "networks", c.Prefix(), map[string]any{
-		"name": c.Prefix(), "ip_range": naming.NetRange, "labels": cloud.Owner(c),
-		"subnets": []map[string]any{{"type": "cloud", "ip_range": naming.Subnet, "network_zone": zone(location)}},
+		"name": c.Prefix(), "ip_range": netRange, "labels": cloud.Owner(c),
+		"subnets": []map[string]any{{"type": "cloud", "ip_range": naming.Subnet, "network_zone": zone(h.location)}},
 	}); err != nil {
 		return err
 	}
@@ -215,9 +219,9 @@ func (h Client) Server(ctx context.Context, c naming.Cluster, spec cloud.Spec) (
 		if net == 0 || fw == 0 {
 			return cloud.Server{}, fmt.Errorf("hetzner: no network or firewall %s: the cluster's base comes first", c.Prefix())
 		}
-		h.say("server %s (%s, %s)", spec.Name, spec.Type, spec.Location)
+		h.say("server %s (%s, %s)", spec.Name, spec.Type, h.location)
 		body := map[string]any{
-			"name": spec.Name, "server_type": spec.Type, "location": spec.Location, "image": "ubuntu-24.04",
+			"name": spec.Name, "server_type": spec.Type, "location": h.location, "image": "ubuntu-24.04",
 			"ssh_keys": []string{c.Prefix()}, "labels": cloud.Owner(c),
 			"firewalls": []map[string]any{{"firewall": fw}},
 		}

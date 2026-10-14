@@ -10,11 +10,11 @@ import (
 	"github.com/getnvoi/host0/shared/naming"
 )
 
-// ID is the provider's own.
+// ID is the provider's own, opaque outside it. PublicIPv6 is the address the provider reports, empty for none.
 type Server struct{ ID, Name, PublicIP, PublicIPv6 string }
 
-// Init is cloud-init user data, empty for none.
-type Spec struct{ Name, Type, Location, PrivateIP, Init string }
+// Init is cloud-init user data, empty for none. The server is in its client's location.
+type Spec struct{ Name, Type, PrivateIP, Init string }
 
 // Arch is the servers' GOARCH.
 type Defaults struct{ Location, ControlType, WorkerType, Arch string }
@@ -22,11 +22,11 @@ type Defaults struct{ Location, ControlType, WorkerType, Arch string }
 // Key is the provider's name for it, Var the shell variable it is read from by default.
 type Credential struct{ Key, Var, Help string }
 
+// A client is bound to one location: every call acts there.
 type Cloud interface {
 	Name() string
-	Defaults(ctx context.Context) (Defaults, error)
 	// Network, firewall and ssh key, each named Cluster.Prefix(); the firewall lets in tcp Inbound(open) only.
-	Base(ctx context.Context, c naming.Cluster, location, publicKey string, open []int) error
+	Base(ctx context.Context, c naming.Cluster, publicKey string, open []int) error
 	// The server named s.Name, created when absent; an existing one is returned as it is.
 	Server(ctx context.Context, c naming.Cluster, s Spec) (Server, error)
 	// The server by name as it is now; an error naming it when there is none.
@@ -46,7 +46,9 @@ type Cloud interface {
 type Provider struct {
 	Name  string
 	Creds []Credential
-	New   func(creds map[string]string, say func(string, ...any)) (Cloud, error)
+	// What a cluster gets when its file leaves them out; known before a location is chosen.
+	Defaults Defaults
+	New      func(creds map[string]string, location string, say func(string, ...any)) (Cloud, error)
 }
 
 // The provider named name among ps.

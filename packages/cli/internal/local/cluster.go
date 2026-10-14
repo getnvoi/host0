@@ -58,6 +58,7 @@ func common(c *cobra.Command, o *options) {
 	f.StringVar(&o.edge, "edge", "", edgeHelp)
 	f.StringVar(&o.provider, "dns", "CLOUDFLAREAPI", dnsHelp)
 	f.StringVar(&o.cloud, "cloud", "hetzner", cloudHelp())
+	f.StringVar(&o.cfg.Location, "location", "", "cloud location; the cloud's default when empty")
 	f.StringToStringVar(&o.cloudVars, "cloud-credentials", nil, "key=VARIABLE for each of the cloud's credentials; replaces cloud.credentials")
 	f.StringToStringVar(&o.dnsVars, "dns-credentials", nil, "key=VARIABLE for each of the DNS provider's credentials; replaces dns.credentials")
 }
@@ -65,7 +66,6 @@ func common(c *cobra.Command, o *options) {
 // Flags install alone takes.
 func installFlags(c *cobra.Command, o *options) {
 	f := c.Flags()
-	f.StringVar(&o.cfg.Location, "location", "", "cloud location; the cloud's default when empty")
 	f.StringVar(&o.cfg.ControlType, "control-type", "", "control node server type; the cloud's default when empty")
 	f.StringVar(&o.cfg.WorkerType, "worker-type", "", "worker server type, one for all: a snapshot is tied to its CPU; the cloud's default when empty")
 	f.IntVar(&o.cfg.WorkerMax, "worker-max", 5, "most worker servers the plane makes")
@@ -269,10 +269,6 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 		return nil, err
 	}
 	say := func(f string, a ...any) { fmt.Fprintf(os.Stdout, "  "+f+"\n", a...) }
-	cl, creds, err := openCloud(provider, o.cloudVars, say)
-	if err != nil {
-		return nil, err
-	}
 
 	home, _ := os.UserHomeDir()
 	if install {
@@ -290,10 +286,7 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 	if err := os.MkdirAll(cache, 0o700); err != nil {
 		return nil, err
 	}
-	d, err := cl.Defaults(c.Context())
-	if err != nil {
-		return nil, err
-	}
+	d := provider.Defaults
 	o.cfg.Arch = d.Arch
 	for _, v := range []struct {
 		dst *string
@@ -304,6 +297,10 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 		if *v.dst == "" {
 			*v.dst = v.def
 		}
+	}
+	cl, creds, err := openCloud(provider, o.cloudVars, o.cfg.Location, say)
+	if err != nil {
+		return nil, err
 	}
 	edge, err := selectEdge(o, say, func(ctx context.Context) ([]string, error) {
 		s, err := cl.Lookup(ctx, cluster.Control())
@@ -336,7 +333,7 @@ func env(c *cobra.Command, args []string, o options, install bool) (*infra.Env, 
 }
 
 // The cloud with its credentials from the shell: from the variables vars names by key, else each Credential's Var.
-func openCloud(p cloud.Provider, vars map[string]string, say func(string, ...any)) (cloud.Cloud, map[string]string, error) {
+func openCloud(p cloud.Provider, vars map[string]string, location string, say func(string, ...any)) (cloud.Cloud, map[string]string, error) {
 	if vars == nil {
 		vars = map[string]string{}
 		for _, c := range p.Creds {
@@ -352,7 +349,7 @@ func openCloud(p cloud.Provider, vars map[string]string, say func(string, ...any
 			return nil, nil, fmt.Errorf("cloud %s needs %s: %s", p.Name, c.Key, c.Help)
 		}
 	}
-	cl, err := p.New(creds, say)
+	cl, err := p.New(creds, location, say)
 	return cl, creds, err
 }
 

@@ -9,7 +9,6 @@ import (
 )
 
 const (
-	NetRange  = "10.0.0.0/16"
 	Subnet    = "10.0.1.0/24"
 	ControlIP = "10.0.1.2"
 	// Images pushed from the laptop are named localhost:RegistryPort; atelet and containerd map it to Registry.

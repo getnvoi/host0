@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -56,7 +57,12 @@ func node(name string) contract.Node { return contract.Node{Name: name, Ready: t
 
 func workerPlane(cl *fakeCloud, pools *fakePools, routes ...Route) *Plane {
 	fl = &fleet{free: map[string]time.Time{}}
-	return &Plane{Cluster: "dev", Cloud: cl, WorkerInit: "#cloud-config", Pools: pools, Store: newStore(routes...),
+	return &Plane{Cluster: "dev", Cloud: func(location string) (cloud.Cloud, error) {
+		if location != "fsn1" {
+			return nil, fmt.Errorf("location %q", location)
+		}
+		return cl, nil
+	}, WorkerInit: "#cloud-config", Pools: pools, Store: newStore(routes...),
 		Sandboxes: &fakeSandboxes{states: map[string]string{}}}
 }
 
@@ -71,7 +77,7 @@ func TestPlaceNamesTheLowestFreeWorker(t *testing.T) {
 	if err != nil || name != "hz-dev-w2" || !slices.Equal(cl.made, []string{"hz-dev-w2"}) {
 		t.Fatalf("placed %q, made %v: %v", name, cl.made, err)
 	}
-	if s := cl.servers["hz-dev-w2"]; s.Type != "ccx23" || s.Location != "fsn1" || s.PrivateIP != "10.0.1.12" || s.Init != "#cloud-config" {
+	if s := cl.servers["hz-dev-w2"]; s.Type != "ccx23" || s.PrivateIP != "10.0.1.12" || s.Init != "#cloud-config" {
 		t.Fatalf("spec %+v", s)
 	}
 	if !slices.Equal(said, []string{"creating server hz-dev-w2 (ccx23, fsn1)"}) {

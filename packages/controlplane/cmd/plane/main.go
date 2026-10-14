@@ -104,7 +104,7 @@ func main() {
 }
 
 // The cloud the plane makes worker servers on, from the Secret install mounts at dir; none on a cluster without one.
-func workers(dir string) (cloud.Cloud, string, error) {
+func workers(dir string) (func(location string) (cloud.Cloud, error), string, error) {
 	name, err := os.ReadFile(filepath.Join(dir, "provider"))
 	if errors.Is(err, fs.ErrNotExist) {
 		log.Printf("no %s: worker servers are not made, the cluster's nodes are all it has", dir)
@@ -129,8 +129,8 @@ func workers(dir string) (cloud.Cloud, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	cl, err := provider.New(creds, func(f string, a ...any) { log.Printf("cloud: "+f, a...) })
-	return cl, string(init), err
+	say := func(f string, a ...any) { log.Printf("cloud: "+f, a...) }
+	return func(location string) (cloud.Cloud, error) { return provider.New(creds, location, say) }, string(init), nil
 }
 
 // The host's record, retried until it is made: an edge that is down at boot does not keep the plane down.

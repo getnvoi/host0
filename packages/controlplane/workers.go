@@ -40,6 +40,19 @@ func (p *Plane) shape() (contract.Shape, error) {
 	return s, nil
 }
 
+// The shape, and the cloud in its location.
+func (p *Plane) cloud() (contract.Shape, cloud.Cloud, error) {
+	shape, err := p.shape()
+	if err != nil {
+		return shape, nil, err
+	}
+	cl, err := p.Cloud(shape.Workers.Location)
+	if err != nil {
+		return shape, nil, fmt.Errorf("the cloud in %q: %w", shape.Workers.Location, err)
+	}
+	return shape, cl, nil
+}
+
 func (p *Plane) tier(name string) (tiers.Tier, error) {
 	s, err := p.shape()
 	if err != nil {
@@ -85,12 +98,12 @@ func (p *Plane) place(ctx context.Context) (string, error) {
 	}
 	fl.making.Lock()
 	defer fl.making.Unlock()
-	shape, err := p.shape()
+	shape, cl, err := p.cloud()
 	if err != nil {
 		return "", err
 	}
 	c := naming.Cluster{Name: p.Cluster}
-	servers, err := p.Cloud.List(ctx, c)
+	servers, err := cl.List(ctx, c)
 	if err != nil {
 		return "", fmt.Errorf("listing worker servers: %w", err)
 	}
@@ -118,8 +131,8 @@ func (p *Plane) place(ctx context.Context) (string, error) {
 	}
 	name := c.Worker(i)
 	report(ctx, "creating server %s (%s, %s)", name, shape.Workers.Type, shape.Workers.Location)
-	if _, err := p.Cloud.Server(ctx, c, cloud.Spec{Name: name, Type: shape.Workers.Type, Location: shape.Workers.Location,
-		PrivateIP: naming.WorkerIP(i), Init: p.WorkerInit}); err != nil {
+	if _, err := cl.Server(ctx, c, cloud.Spec{Name: name, Type: shape.Workers.Type, PrivateIP: naming.WorkerIP(i),
+		Init: p.WorkerInit}); err != nil {
 		return "", fmt.Errorf("creating server %s: %w", name, err)
 	}
 	return name, nil
@@ -168,12 +181,12 @@ func (p *Plane) retire(ctx context.Context) error {
 	if p.Cloud == nil {
 		return nil
 	}
-	shape, err := p.shape()
+	shape, cl, err := p.cloud()
 	if err != nil {
 		return err
 	}
 	c := naming.Cluster{Name: p.Cluster}
-	servers, err := p.Cloud.List(ctx, c)
+	servers, err := cl.List(ctx, c)
 	if err != nil {
 		return fmt.Errorf("listing worker servers: %w", err)
 	}
@@ -208,7 +221,7 @@ func (p *Plane) retire(ctx context.Context) error {
 		if since := fl.since(s.Name, now); now.Sub(since) < limit {
 			continue
 		}
-		if err := p.drop(ctx, s.Name, joined, limit); err != nil {
+		if err := p.drop(ctx, cl, s.Name, joined, limit); err != nil {
 			return err
 		}
 	}
@@ -225,7 +238,7 @@ func (p *Plane) retire(ctx context.Context) error {
 }
 
 // Cordoned first, so nothing lands while its server goes; a pod that landed before keeps it.
-func (p *Plane) drop(ctx context.Context, name string, joined bool, idle time.Duration) error {
+func (p *Plane) drop(ctx context.Context, cl cloud.Cloud, name string, joined bool, idle time.Duration) error {
 	if joined {
 		if err := p.Pools.Cordon(ctx, name, true); err != nil {
 			return fmt.Errorf("cordoning %s: %w", name, err)
@@ -241,7 +254,7 @@ func (p *Plane) drop(ctx context.Context, name string, joined bool, idle time.Du
 	} else {
 		log.Printf("workers: %s has not joined in %s: deleting it", name, idle)
 	}
-	if err := p.Cloud.Delete(ctx, name); err != nil {
+	if err := cl.Delete(ctx, name); err != nil {
 		return fmt.Errorf("deleting server %s: %w", name, err)
 	}
 	if joined {

@@ -52,10 +52,10 @@ const apiPort = "16443"
 var Install = []infra.Step{
 	step("dns credentials", func(ctx context.Context, e *infra.Env) error { return e.Edge.Reach(ctx) }),
 	step("base", func(ctx context.Context, e *infra.Env) error {
-		return e.Cloud.Base(ctx, e.Cluster, e.Config.Location, e.Config.PublicKey, e.Edge.Ports())
+		return e.Cloud.Base(ctx, e.Cluster, e.Config.PublicKey, e.Edge.Ports())
 	}),
 	always("control node", func(ctx context.Context, e *infra.Env) (err error) {
-		spec := cloud.Spec{Name: e.Cluster.Control(), Type: e.Config.ControlType, Location: e.Config.Location, PrivateIP: naming.ControlIP}
+		spec := cloud.Spec{Name: e.Cluster.Control(), Type: e.Config.ControlType, PrivateIP: naming.ControlIP}
 		if e.Control, err = e.Cloud.Server(ctx, e.Cluster, spec); err != nil {
 			return err
 		}

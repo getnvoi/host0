@@ -17,13 +17,14 @@ import (
 
 // A provider under test. Ops are read from its requests: Classify names each one's op and resource kind.
 type Subject struct {
-	New func(rt http.RoundTripper, say func(string, ...any), sleep cloud.Sleep) cloud.Cloud
+	New func(rt http.RoundTripper, location string, say func(string, ...any), sleep cloud.Sleep) cloud.Cloud
 	// testdata/<provider>.json beside the provider's test.
 	Cassette string
 	// The credential, when recording; scrubbed from the cassette.
 	Secret         string
 	Location, Type string
-	// op is "create", "delete", "write" or "" for a read; kind is the resource's, "servers" for a server.
+	// op is "create", "delete", "write" or "" for a read; kind is the resource's, "servers" for a server. The path
+	// carries no query.
 	Classify func(method, path string) (op, kind string)
 	// The id a create's response names, and the id a delete's path names.
 	Created func(response []byte) string
@@ -72,12 +73,12 @@ func Run(t *testing.T, s Subject) {
 	if record {
 		sleep = cloud.Wait
 	}
-	cl := s.New(tape, say, sleep)
+	cl := s.New(tape, s.Location, say, sleep)
 	c := naming.Cluster{Name: cluster}
 	ctx := context.Background()
 	if record {
 		// Recording starts and ends with nothing of the cluster's, whatever happens between.
-		direct := s.New(http.DefaultTransport, func(string, ...any) {}, cloud.Wait)
+		direct := s.New(http.DefaultTransport, s.Location, func(string, ...any) {}, cloud.Wait)
 		if err := direct.Destroy(ctx, c); err != nil {
 			t.Fatal(err)
 		}
@@ -107,7 +108,7 @@ func Run(t *testing.T, s Subject) {
 		var out []string
 		for _, i := range is {
 			if op, _ := s.Classify(i.Method, i.Path); op != "" {
-				out = append(out, i.Method+" "+i.Path)
+				out = append(out, i.String())
 			}
 		}
 		return out
@@ -119,16 +120,16 @@ func Run(t *testing.T, s Subject) {
 		}
 	}
 
-	must("base", cl.Base(ctx, c, s.Location, key, open))
+	must("base", cl.Base(ctx, c, key, open))
 	if len(writes(since())) == 0 {
 		t.Fatal("the first base wrote nothing")
 	}
-	must("base again", cl.Base(ctx, c, s.Location, key, open))
+	must("base again", cl.Base(ctx, c, key, open))
 	if w := writes(since()); len(w) > 0 {
 		t.Errorf("the second base writes %v", w)
 	}
 
-	control := cloud.Spec{Name: c.Control(), Type: s.Type, Location: s.Location, PrivateIP: naming.ControlIP}
+	control := cloud.Spec{Name: c.Control(), Type: s.Type, PrivateIP: naming.ControlIP}
 	made, err := cl.Server(ctx, c, control)
 	must("server", err)
 	if made.ID == "" || made.Name != control.Name || made.PublicIP == "" {
@@ -152,7 +153,7 @@ func Run(t *testing.T, s Subject) {
 		t.Errorf("provider id %q does not hold the server's id %s", id, made.ID)
 	}
 
-	worker := cloud.Spec{Name: c.Prefix() + "-w1", Type: s.Type, Location: s.Location, PrivateIP: "10.0.1.3", Init: cloudInit}
+	worker := cloud.Spec{Name: c.Prefix() + "-w1", Type: s.Type, PrivateIP: "10.0.1.3", Init: cloudInit}
 	w1, err := cl.Server(ctx, c, worker)
 	must("worker", err)
 	list, err := cl.List(ctx, c)
@@ -162,7 +163,7 @@ func Run(t *testing.T, s Subject) {
 	}
 	since()
 
-	bad := cloud.Spec{Name: c.Prefix() + "-bad", Type: "nope", Location: s.Location, PrivateIP: "10.0.1.4"}
+	bad := cloud.Spec{Name: c.Prefix() + "-bad", Type: "nope", PrivateIP: "10.0.1.4"}
 	_, err = cl.Server(ctx, c, bad)
 	var refused *Interaction
 	for _, i := range since() {
@@ -229,7 +230,7 @@ func check(t *testing.T, s Subject, c naming.Cluster, log []event) {
 		i := *e.req
 		op, kind := s.Classify(i.Method, i.Path)
 		if ports, ok, err := s.Ports(i.Method, i.Path, []byte(i.Body)); err != nil {
-			t.Errorf("%s %s: %v", i.Method, i.Path, err)
+			t.Errorf("%s: %v", i, err)
 		} else if ok {
 			rules++
 			if !slices.Equal(ports, cloud.Inbound(open)) {
