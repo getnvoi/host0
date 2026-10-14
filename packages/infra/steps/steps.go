@@ -169,6 +169,7 @@ var Install = []infra.Step{
 		}
 		return kube.Run(ctx, e.Shell, "-n hz delete workerpool --ignore-not-found -l 'workload,workload notin ("+strings.Join(names, ",")+")'", e.Out)
 	}),
+	step("certificates", certificates),
 	step("edge", func(ctx context.Context, e *infra.Env) error {
 		secrets, err := e.Edge.Serve(ctx, e.Cluster, service, hosts(e))
 		if err != nil {
@@ -197,7 +198,7 @@ var Install = []infra.Step{
 	}),
 	step("control plane", func(ctx context.Context, e *infra.Env) error {
 		// The box token is in every template: a new one would orphan every seed and fork. Only the API token rotates.
-		have, err := planeSecret(ctx, e)
+		have, err := secretData(ctx, e, "plane")
 		if err != nil {
 			return err
 		}
@@ -270,27 +271,102 @@ func hosts(e *infra.Env) []string {
 	return []string{naming.Host(e.Cluster, "api", e.Config.Zone), naming.Host(e.Cluster, "app", e.Config.Zone)}
 }
 
-// The plane secret's values by key; none when there is no secret yet.
-func planeSecret(ctx context.Context, e *infra.Env) (map[string][]byte, error) {
-	raw, err := kube.Output(ctx, e.Shell, "-n "+naming.Namespace+" get secret plane --ignore-not-found -o jsonpath={.data}")
+// A secret's values in naming.Namespace by key; none when there is no secret.
+func secretData(ctx context.Context, e *infra.Env, name string) (map[string][]byte, error) {
+	raw, err := kube.Output(ctx, e.Shell, "-n "+naming.Namespace+" get secret "+name+" --ignore-not-found -o jsonpath={.data}")
 	if err != nil {
-		return nil, fmt.Errorf("reading the plane secret: %w: %s", err, raw)
+		return nil, fmt.Errorf("reading secret %s: %w: %s", name, err, raw)
 	}
 	data := map[string]string{}
 	if raw != "" {
 		if err := json.Unmarshal([]byte(raw), &data); err != nil {
-			return nil, fmt.Errorf("the plane secret's data: %w: %s", err, raw)
+			return nil, fmt.Errorf("secret %s's data: %w: %s", name, err, raw)
 		}
 	}
 	out := map[string][]byte{}
 	for k, v := range data {
 		b, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
-			return nil, fmt.Errorf("the plane secret's %s: %w", k, err)
+			return nil, fmt.Errorf("secret %s's %s: %w", name, k, err)
 		}
 		out[k] = b
 	}
 	return out, nil
+}
+
+// The edge that keeps its certificates in naming.Certs.
+const proxy = "proxy"
+
+// Creates naming.Certs for the proxy, empty, or from ~/.hz/certs/<zone> when that file exists. A cluster's own
+// certificates are never replaced.
+func certificates(ctx context.Context, e *infra.Env) error {
+	if e.Edge.Deployment() != proxy {
+		return nil
+	}
+	have, err := secretData(ctx, e, naming.Certs)
+	if err != nil {
+		return err
+	}
+	if len(have) > 0 {
+		return nil
+	}
+	data := map[string]string{}
+	path := state.CertsPath(e.Config.Zone)
+	if _, err := os.Stat(path); err == nil {
+		key, err := state.Key()
+		if err != nil {
+			return err
+		}
+		if key == nil {
+			return fmt.Errorf("%s is sealed with %s, which is not there", path, state.KeyPath())
+		}
+		saved, err := state.Certs(e.Config.Zone, key)
+		if err != nil {
+			return err
+		}
+		for k, v := range saved {
+			data[k] = string(v)
+		}
+		e.Say("certificates restored from %s", path)
+	}
+	return kube.Apply(ctx, e.Shell, kube.Secret(naming.Namespace, naming.Certs, data), e.Out)
+}
+
+// Writes the proxy's certificate secret to ~/.hz/certs/<zone>, sealed with ~/.hz/key, for the next install of the
+// zone to restore. Run before the servers go.
+func KeepCerts(ctx context.Context, e *infra.Env) error {
+	if e.Edge.Deployment() != proxy {
+		return fmt.Errorf("--keep-cert keeps the public edge's certificate; this cluster's edge is %s", e.Edge.Deployment())
+	}
+	key, err := state.Key()
+	if err != nil {
+		return err
+	}
+	if key == nil {
+		return fmt.Errorf("--keep-cert seals with %s, which is not there", state.KeyPath())
+	}
+	control, err := e.Cloud.Lookup(ctx, e.Cluster.Control())
+	if err != nil {
+		return err
+	}
+	if e.Shell, err = e.Dial(ctx, control.PublicIP+":22"); err != nil {
+		return err
+	}
+	if c, ok := e.Shell.(io.Closer); ok {
+		e.Defer(func() { c.Close() })
+	}
+	data, err := secretData(ctx, e, naming.Certs)
+	if err != nil {
+		return err
+	}
+	if len(data) == 0 {
+		return fmt.Errorf("secret %s holds no certificate to keep", naming.Certs)
+	}
+	if err := state.SaveCerts(e.Config.Zone, key, data); err != nil {
+		return err
+	}
+	e.Say("certificates kept at %s", state.CertsPath(e.Config.Zone))
+	return nil
 }
 
 // The sealing key, from ~/.hz/key and the cluster's: equal, or the one that exists restores the other, or a new one.

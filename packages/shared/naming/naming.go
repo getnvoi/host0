@@ -16,6 +16,8 @@ const (
 	RegistryPort = 15001
 	Registry     = ControlIP + ":5001"
 	Namespace    = "hz-system"
+	// The Secret in Namespace holding the public edge's ACME account and certificates.
+	Certs = "proxy-certs"
 )
 
 type Cluster struct{ Name string }

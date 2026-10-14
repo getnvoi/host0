@@ -1,4 +1,21 @@
 # The public edge: on the control node's own 80 and 443, TLS for *.<zone>, every request to the plane.
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: proxy, namespace: hz-system }
+---
+# The ACME account and certificates live in one Secret the install creates; the proxy reads and rewrites only it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: { name: proxy, namespace: hz-system }
+rules:
+  - { apiGroups: [""], resources: [secrets], resourceNames: [proxy-certs], verbs: [get, update] }
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: { name: proxy, namespace: hz-system }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: proxy }
+subjects: [{ kind: ServiceAccount, name: proxy, namespace: hz-system }]
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: proxy, namespace: hz-system }
@@ -9,6 +26,7 @@ spec:
   template:
     metadata: { labels: { app: proxy } }
     spec:
+      serviceAccountName: proxy
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector: { node-role.kubernetes.io/control-plane: "[[.ControlLabel]]" }
@@ -25,8 +43,8 @@ spec:
             - { containerPort: 80, hostPort: 80 }
             - { containerPort: 443, hostPort: 443 }
           volumeMounts:
-            - { name: certs, mountPath: /var/lib/hz/proxy }
+            - { name: journal, mountPath: /var/lib/hz/proxy }
       volumes:
-        # The account, the certificate and the challenge journal outlive the pod on the node it is pinned to.
-        - name: certs
+        # The challenge journal outlives the pod on the node it is pinned to.
+        - name: journal
           hostPath: { path: /var/lib/hz/proxy, type: DirectoryOrCreate }

@@ -39,6 +39,7 @@ type options struct {
 	provider string
 	key      string
 	only     []string
+	keepCert bool
 }
 
 // Flags both install and destroy take.
@@ -80,24 +81,22 @@ func Cluster() *cobra.Command {
 		Short: "Every server, network, firewall and key labelled with the cluster, and its tunnel or its records",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			e, err := env(c, args, o, false)
+			e, err := env(c, args, o, o.keepCert)
 			if err != nil {
 				return err
 			}
-			// Servers first: the tunnel cannot go while its connectors, which run on them, are connected.
-			if err := e.Cloud.Destroy(c.Context(), e.Cluster); err != nil {
-				return err
+			var keep func(context.Context, *infra.Env) error
+			if o.keepCert {
+				keep = steps.KeepCerts
 			}
-			if err := e.Edge.Destroy(c.Context(), e.Cluster); err != nil {
-				return err
-			}
-			if _, err := os.Stat(state.KeyPath()); err == nil {
-				e.Say("%s stays: it is the sealing key's backup, and an install restores it to the next cluster", state.KeyPath())
-			}
-			return nil
+			return teardown(c.Context(), e, keep)
 		},
 	}
 	common(destroy, &o)
+	destroy.Flags().BoolVar(&o.keepCert, "keep-cert", false, "development: keep the public edge's certificate at "+
+		"~/.hz/certs/<zone>, sealed with ~/.hz/key, for the next install of the zone; it exists to stay under "+
+		"Let's Encrypt's limits while iterating")
+	destroy.Flags().StringVar(&o.key, "ssh-key", "~/.ssh/id_ed25519", "private key, for --keep-cert")
 
 	cmd.AddCommand(install, destroy)
 	cmd.PersistentPreRun = func(c *cobra.Command, _ []string) {
@@ -105,6 +104,27 @@ func Cluster() *cobra.Command {
 		c.SetContext(ctx)
 	}
 	return cmd
+}
+
+// keep, when set, runs while the servers are still there; a keep that fails stops the destroy.
+func teardown(ctx context.Context, e *infra.Env, keep func(context.Context, *infra.Env) error) error {
+	defer e.Close()
+	if keep != nil {
+		if err := keep(ctx, e); err != nil {
+			return err
+		}
+	}
+	// Servers first: the tunnel cannot go while its connectors, which run on them, are connected.
+	if err := e.Cloud.Destroy(ctx, e.Cluster); err != nil {
+		return err
+	}
+	if err := e.Edge.Destroy(ctx, e.Cluster); err != nil {
+		return err
+	}
+	if _, err := os.Stat(state.KeyPath()); err == nil {
+		e.Say("%s stays: it is the sealing key's backup, and an install restores it to the next cluster", state.KeyPath())
+	}
+	return nil
 }
 
 // Fills what a flag left unset from the file.
