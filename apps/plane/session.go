@@ -673,5 +673,7 @@ func (p *Plane) resume(ctx context.Context, actor, tierName string) error {
 	if err != nil {
 		return err
 	}
+	// A woken boxd may be back on its environment's token; keyed asks it again.
+	keyedAt.Delete(actor)
 	return p.wake(ctx, actor, tier)
 }

@@ -280,3 +280,24 @@ func TestShrinkUnmarksTaken(t *testing.T) {
 		t.Fatalf("a taken pod kept its mark: %v", pools.costs)
 	}
 }
+
+// A woken actor's boxd may be on its environment's token, so a check made before it slept no longer counts.
+func TestResumeForgetsKeyed(t *testing.T) {
+	sc = newScaler()
+	sb := &fakeSandboxes{states: map[string]string{"a": "suspended", "b": "running"}}
+	p := &Plane{Sandboxes: sb, Pools: &fakePools{replicas: map[string]int{}}, Store: newStore()}
+	keyedAt.Store("a", time.Now())
+	keyedAt.Store("b", time.Now())
+	for _, a := range []string{"a", "b"} {
+		if err := p.resume(context.Background(), a, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, ok := keyedAt.Load("a"); ok {
+		t.Fatal("a woken actor is still taken as keyed")
+	}
+	if _, ok := keyedAt.Load("b"); !ok {
+		t.Fatal("a running actor lost its check")
+	}
+	keyedAt.Delete("b")
+}
