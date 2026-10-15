@@ -137,6 +137,16 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:     "cluster.db",
+		Short:  "The plane's database as it lies on disk: no plaintext, no foreign file, every secret sealed",
+		Method: "GET",
+		Route:  "/cluster/db",
+		H0:     h0{Output: "fields", Columns: []string{"ok", "dir", "markers", "found", "plain", "foreign", "sealed", "unsealed", "files"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.ClusterDb(ctx, edit)
+		},
+	},
+	{
 		ID:     "cluster.shape",
 		Short:  "The workers and tiers h0 cluster install declared",
 		Method: "GET",

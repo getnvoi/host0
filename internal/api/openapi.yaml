@@ -72,6 +72,62 @@ components:
         - state
         - at
       type: object
+    AtRest:
+      additionalProperties: false
+      properties:
+        dir:
+          description: The directory the database lives in
+          type: string
+        files:
+          description: Each file in the directory
+          items:
+            $ref: "#/components/schemas/File"
+          nullable: true
+          type: array
+        foreign:
+          description: Files in the directory that are not the database, its -wal or its -shm
+          items:
+            type: string
+          nullable: true
+          type: array
+        found:
+          description: Markers found in the files, summed over files; 0 when encrypted
+          format: int64
+          type: integer
+        markers:
+          description: Plaintext values read through the database and searched for in its files
+          format: int64
+          type: integer
+        ok:
+          description: No plain header, no marker found, no foreign file and every sealed value sealed
+          type: boolean
+        plain:
+          description: Files that start with a plain SQLite or WAL header
+          items:
+            type: string
+          nullable: true
+          type: array
+        sealed:
+          description: Values of sealed columns, as stored
+          format: int64
+          type: integer
+        unsealed:
+          description: Sealed columns holding a value without the sealed prefix, as table.column
+          items:
+            type: string
+          nullable: true
+          type: array
+      required:
+        - dir
+        - ok
+        - markers
+        - found
+        - plain
+        - foreign
+        - sealed
+        - unsealed
+        - files
+      type: object
     Browser:
       additionalProperties: false
       properties:
@@ -400,6 +456,32 @@ components:
       x-go-type: llm.Field
       x-go-type-import:
         path: github.com/getnvoi/host0/internal/llm
+    File:
+      additionalProperties: false
+      properties:
+        foreign:
+          description: It is not the database, its -wal or its -shm
+          type: boolean
+        found:
+          description: Markers found in it
+          format: int64
+          type: integer
+        name:
+          type: string
+        plain:
+          description: It starts with a plain SQLite or WAL header
+          type: boolean
+        size:
+          description: Bytes
+          format: int64
+          type: integer
+      required:
+        - name
+        - size
+        - plain
+        - found
+        - foreign
+      type: object
     FileChange:
       additionalProperties: false
       properties:
@@ -1667,6 +1749,36 @@ paths:
       x-h0:
         by:
           - ls
+  /cluster/db:
+    get:
+      operationId: cluster.db
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AtRest"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "The plane's database as it lies on disk: no plaintext, no foreign file, every secret sealed"
+      x-h0:
+        columns:
+          - ok
+          - dir
+          - markers
+          - found
+          - plain
+          - foreign
+          - sealed
+          - unsealed
+          - files
+        noTool: true
+        output: fields
   /cluster/pods:
     get:
       operationId: pods

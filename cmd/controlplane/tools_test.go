@@ -37,7 +37,7 @@ func TestToolsFromOperations(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"approval_approve", "approval_deny", "agent_put", "agent_tool_set", "agent_tool_rm",
-		"stream", "invite"} {
+		"stream", "invite", "cluster_db"} {
 		if _, ok := tools[name]; ok {
 			t.Errorf("%s is a tool", name)
 		}

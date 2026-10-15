@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/workers"
@@ -17,6 +18,8 @@ type PodLog struct {
 }
 
 var errNoPods = errors.New("this plane reads no pods")
+
+var errNoDB = errors.New("this plane names no database file")
 
 // The cluster now, the shape install wrote, and any pod with its log.
 func (p *plane) cluster(a huma.API) {
@@ -34,6 +37,14 @@ func (p *plane) cluster(a huma.API) {
 		h0{By: []string{"cluster install"}})),
 		func(_ context.Context, in *struct{ Body sandbox.Shape }) (*struct{}, error) {
 			return nil, problem(p.sc.SetShape(in.Body))
+		})
+	huma.Register(a, op("cluster.db", "GET", "/cluster/db", "The plane's database as it lies on disk: no plaintext, no foreign file, every secret sealed",
+		h0{Output: "fields", Columns: []string{"ok", "dir", "markers", "found", "plain", "foreign", "sealed", "unsealed", "files"}, NoTool: true}),
+		func(context.Context, *struct{}) (*body[db.AtRest], error) {
+			if p.DBPath == "" {
+				return nil, problem(errNoDB)
+			}
+			return answer(db.Inspect(p.DB, p.DBPath))
 		})
 	huma.Register(a, op("pods", "GET", "/cluster/pods", "Every pod in the cluster, or one node's",
 		h0{Output: "table", Columns: []string{"namespace", "name", "node", "phase"}}),

@@ -70,6 +70,36 @@ type Approval struct {
 	Turn    *int64     `json:"turn,omitempty"`
 }
 
+// AtRest defines model for AtRest.
+type AtRest struct {
+	// Dir The directory the database lives in
+	Dir string `json:"dir"`
+
+	// Files Each file in the directory
+	Files *[]File `json:"files"`
+
+	// Foreign Files in the directory that are not the database, its -wal or its -shm
+	Foreign *[]string `json:"foreign"`
+
+	// Found Markers found in the files, summed over files; 0 when encrypted
+	Found int64 `json:"found"`
+
+	// Markers Plaintext values read through the database and searched for in its files
+	Markers int64 `json:"markers"`
+
+	// Ok No plain header, no marker found, no foreign file and every sealed value sealed
+	Ok bool `json:"ok"`
+
+	// Plain Files that start with a plain SQLite or WAL header
+	Plain *[]string `json:"plain"`
+
+	// Sealed Values of sealed columns, as stored
+	Sealed int64 `json:"sealed"`
+
+	// Unsealed Sealed columns holding a value without the sealed prefix, as table.column
+	Unsealed *[]string `json:"unsealed"`
+}
+
 // Browser defines model for Browser.
 type Browser struct {
 	// At When it signed in
@@ -209,6 +239,22 @@ type Event = llm.Event
 
 // Field defines model for Field.
 type Field = llm.Field
+
+// File defines model for File.
+type File struct {
+	// Foreign It is not the database, its -wal or its -shm
+	Foreign bool `json:"foreign"`
+
+	// Found Markers found in it
+	Found int64  `json:"found"`
+	Name  string `json:"name"`
+
+	// Plain It starts with a plain SQLite or WAL header
+	Plain bool `json:"plain"`
+
+	// Size Bytes
+	Size int64 `json:"size"`
+}
 
 // FileChange defines model for FileChange.
 type FileChange struct {
@@ -820,6 +866,11 @@ type ClientInterface interface {
 	// Corresponds with GET /cluster (the `Ls` operationId).
 	Ls(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ClusterDb The plane's database as it lies on disk: no plaintext, no foreign file, every secret sealed
+	//
+	// Corresponds with GET /cluster/db (the `ClusterDb` operationId).
+	ClusterDb(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Pods Every pod in the cluster, or one node's
 	//
 	// Corresponds with GET /cluster/pods (the `Pods` operationId).
@@ -1415,6 +1466,21 @@ func (c *Client) Logout(ctx context.Context, label string, reqEditors ...Request
 // Corresponds with GET /cluster (the `Ls` operationId).
 func (c *Client) Ls(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewLsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ClusterDb The plane's database as it lies on disk: no plaintext, no foreign file, every secret sealed
+//
+// Corresponds with GET /cluster/db (the `ClusterDb` operationId).
+func (c *Client) ClusterDb(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClusterDbRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2872,6 +2938,33 @@ func NewLsRequest(server string) (*http.Request, error) {
 	}
 
 	operationPath := fmt.Sprintf("/cluster")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewClusterDbRequest constructs an http.Request for the ClusterDb method
+func NewClusterDbRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/cluster/db")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -4908,6 +5001,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /cluster (the `Ls` operationId).
 	LsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*LsResponse, error)
 
+	// ClusterDbWithResponse The plane's database as it lies on disk: no plaintext, no foreign file, every secret sealed
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /cluster/db (the `ClusterDb` operationId).
+	ClusterDbWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClusterDbResponse, error)
+
 	// PodsWithResponse Every pod in the cluster, or one node's
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -5988,6 +6088,54 @@ func (r LsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r LsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ClusterDbResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *AtRest
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ClusterDbResponse) GetJSON200() *AtRest {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r ClusterDbResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r ClusterDbResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ClusterDbResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClusterDbResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ClusterDbResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -8292,6 +8440,19 @@ func (c *ClientWithResponses) LsWithResponse(ctx context.Context, reqEditors ...
 	return ParseLsResponse(rsp)
 }
 
+// ClusterDbWithResponse The plane's database as it lies on disk: no plaintext, no foreign file, every secret sealed
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /cluster/db (the `ClusterDb` operationId).
+func (c *ClientWithResponses) ClusterDbWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ClusterDbResponse, error) {
+	rsp, err := c.ClusterDb(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClusterDbResponse(rsp)
+}
+
 // PodsWithResponse Every pod in the cluster, or one node's
 //
 // Returns a wrapper object for the known response body format(s).
@@ -9513,6 +9674,39 @@ func ParseLsResponse(rsp *http.Response) (*LsResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Cluster
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClusterDbResponse parses an HTTP response from a ClusterDbWithResponse call
+func ParseClusterDbResponse(rsp *http.Response) (*ClusterDbResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClusterDbResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AtRest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

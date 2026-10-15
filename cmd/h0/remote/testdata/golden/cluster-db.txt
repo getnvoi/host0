@@ -1,0 +1,10 @@
+> GET /cluster/db
+ok        true
+dir       /var/lib/h0
+markers   9
+found     0
+plain     
+foreign   
+sealed    3
+unsealed  
+files     [{"foreign":false,"found":0,"name":"h0.db","plain":false,"size":4096},{"foreign":false,"found":0,"name":"h0.db-shm","plain":false,"size":32768},{"foreign":false,"found":0,"name":"h0.db-wal","plain":false,"size":86552}]
