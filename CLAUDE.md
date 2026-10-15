@@ -348,3 +348,7 @@ go test ./...
 ```
 
 Nothing is stubbed. Third parties are mocked from captured real responses, never from invented ones.
+
+A person never runs against a stub. Development is the real path on the development zone (hostzero.app): the real
+hub, the real GitHub App, real provisioning, real keys. Test doubles such as apps/desktop/e2e/hub.ts live inside
+automated tests only; when the real piece does not exist yet, say so instead of starting the double.
