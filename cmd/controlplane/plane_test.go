@@ -6,9 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -21,6 +23,9 @@ import (
 	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/kube"
+	"github.com/getnvoi/host0/internal/llm"
+	"github.com/getnvoi/host0/internal/llm/claude"
+	"github.com/getnvoi/host0/internal/llm/codex"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/shared/seal"
 	"github.com/getnvoi/host0/internal/workers"
@@ -48,6 +53,26 @@ func newDB(t *testing.T) *gorm.DB {
 	return gdb
 }
 
+// The Messages API and OpenAI's models, answering with captured bodies: refused for the token "bad".
+var providers = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	name := "anthropic"
+	if r.URL.Path == "/v1/models" {
+		name = "openai"
+	}
+	code := http.StatusOK
+	if r.Header.Get("x-api-key") == "bad" || r.Header.Get("authorization") == "Bearer bad" {
+		code = http.StatusUnauthorized
+	}
+	body, err := os.ReadFile(fmt.Sprintf("../../internal/llm/testdata/%s-%d.json", name, code))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(code)
+	w.Write(body)
+}))
+
 // Routes host to rt, as a fork or a seed build does.
 func routeTo(t *testing.T, p *plane, host string, rt sandbox.Route) {
 	t.Helper()
@@ -73,6 +98,7 @@ func serve(gdb *gorm.DB, sb sandbox.Sandboxes, pools workers.Pools, e edge.Route
 	}
 	p := wire(gdb, sb, pools, e, "dev", "nvoi.to", "-preview", "box")
 	p.ws.Pin = func(_ context.Context, image string) (string, error) { return image, nil }
+	p.ws.Runners = []llm.Runner{claude.Runner{API: providers.URL}, codex.Runner{API: providers.URL + "/v1"}}
 	sum := sha256.Sum256([]byte("cli-token"))
 	return p, p.Handler("api-dev.nvoi.to", "app-dev.nvoi.to", hex.EncodeToString(sum[:]))
 }
@@ -508,5 +534,46 @@ func TestConfigSecrets(t *testing.T) {
 	res = call(h, "POST", "api-dev.nvoi.to", "/llm/configs", `{"name":"x","provider":"claude_code","values":{"kind":"oauth"}}`, bearer)
 	if res.Code != 400 || detail(res) != "Token is needed" {
 		t.Fatalf("missing token: %d %s", res.Code, res.Body)
+	}
+}
+
+func TestConfigVerified(t *testing.T) {
+	p, h := handler(t)
+	host := strings.TrimPrefix(providers.URL, "http://")
+	refused := []struct{ path, method, body, want string }{
+		{"/llm/configs", "POST", `{"name":"work","provider":"claude_code","values":{"kind":"api_key","token":"bad"}}`,
+			host + " answered 401 Unauthorized: invalid x-api-key"},
+		{"/llm/configs", "POST", `{"name":"gpt","provider":"codex","values":{"token":"bad"}}`,
+			host + " answered 401 Unauthorized: Incorrect API key provided: sk-bad. You can find your API key at https://platform.openai.com/account/api-keys."},
+	}
+	for _, c := range refused {
+		if res := call(h, c.method, "api-dev.nvoi.to", c.path, c.body, bearer); res.Code != 400 || detail(res) != c.want {
+			t.Errorf("%s: %d %s", c.body, res.Code, res.Body)
+		}
+	}
+	var n int64
+	if p.DB.Model(&db.LLMConfig{}).Count(&n); n != 0 {
+		t.Fatalf("a refused key is not saved: %d rows", n)
+	}
+	for _, body := range []string{`{"name":"work","provider":"claude_code","values":{"kind":"oauth","token":"sk-ant-oat01"}}`,
+		`{"name":"gpt","provider":"codex","values":{"token":"sk-proj"}}`} {
+		if res := call(h, "POST", "api-dev.nvoi.to", "/llm/configs", body, bearer); res.Code != 200 {
+			t.Fatalf("%s: %d %s", body, res.Code, res.Body)
+		}
+	}
+	res := call(h, "PUT", "api-dev.nvoi.to", "/llm/configs/work", `{"values":{"kind":"bearer","token":"bad"}}`, bearer)
+	if res.Code != 400 || detail(res) != host+" answered 401 Unauthorized: invalid x-api-key" {
+		t.Fatalf("a refused change: %d %s", res.Code, res.Body)
+	}
+	var stored db.LLMConfig
+	if p.DB.Where("name = ?", "work").First(&stored); stored.Values["token"] != "sk-ant-oat01" {
+		t.Fatalf("a refused change keeps the stored values: %v", stored.Values)
+	}
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closed.Close()
+	p.ws.Runners = []llm.Runner{claude.Runner{API: closed.URL}}
+	res = call(h, "POST", "api-dev.nvoi.to", "/llm/configs", `{"name":"x","provider":"claude_code","values":{"kind":"api_key","token":"k"}}`, bearer)
+	if res.Code != http.StatusBadGateway || !strings.Contains(detail(res), "could not be reached") {
+		t.Fatalf("an endpoint out of reach: %d %s", res.Code, res.Body)
 	}
 }

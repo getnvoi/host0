@@ -46,16 +46,16 @@ func (p *plane) credentials(a huma.API) {
 		})
 	huma.Register(a, op("llm.add", "POST", "/llm/configs", "Add an agent credential; the first live one is in use",
 		h0{By: []string{"credentials"}}),
-		func(_ context.Context, in *struct{ Body workspace.LLMConfigInput }) (*body[workspace.LLMConfig], error) {
-			return answer(ws.AddConfig(in.Body))
+		func(ctx context.Context, in *struct{ Body workspace.LLMConfigInput }) (*body[workspace.LLMConfig], error) {
+			return answer(ws.AddConfig(ctx, in.Body))
 		})
 	huma.Register(a, op("llm.set", "PUT", "/llm/configs/{name}", "Change a credential's values; a secret left empty keeps the stored one",
 		h0{By: []string{"credentials"}}),
-		func(_ context.Context, in *struct {
+		func(ctx context.Context, in *struct {
 			Name string `path:"name" doc:"The credential's label"`
 			Body workspace.LLMConfigValues
 		}) (*body[workspace.LLMConfig], error) {
-			return answer(ws.UpdateConfig(in.Name, in.Body.Values))
+			return answer(ws.UpdateConfig(ctx, in.Name, in.Body.Values))
 		})
 	huma.Register(a, op("llm.use", "POST", "/llm/configs/{name}/main", "Run turns on this credential",
 		h0{Output: "none", By: []string{"credentials"}}),

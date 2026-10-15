@@ -2,8 +2,12 @@
 package llm
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -20,6 +24,8 @@ type Runner interface {
 	Fields() []Field
 	// Shell that installs the CLI in the seed; does nothing when it is there.
 	Install() string
+	// One small real request with values Check accepted; the error is the provider's sentence, or Unreachable.
+	Verify(ctx context.Context, values map[string]string) error
 	// The process environment a turn runs under, from values Check accepted.
 	Env(values map[string]string) map[string]string
 	// Session empty starts a conversation; otherwise the turn continues it.
@@ -80,6 +86,46 @@ func Check(runners []Runner, provider string, values map[string]string) (Runner,
 		}
 	}
 	return r, out, nil
+}
+
+// The provider could not be asked: the network failed, not the credential.
+type Unreachable struct{ Err error }
+
+func (u Unreachable) Error() string { return u.Err.Error() }
+func (u Unreachable) Unwrap() error { return u.Err }
+
+// How long Ask waits for the whole answer.
+const Wait = 10 * time.Second
+
+// Sends req; a 429 is a credential that authenticated, any other non-2xx is refused with the body's error.message.
+func Ask(ctx context.Context, req *http.Request) error {
+	ctx, cancel := context.WithTimeout(ctx, Wait)
+	defer cancel()
+	res, err := http.DefaultClient.Do(req.WithContext(ctx))
+	if err != nil {
+		return Unreachable{fmt.Errorf("%s could not be reached: %w", req.URL.Host, err)}
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(res.Body, 64<<10))
+	if err != nil {
+		return Unreachable{fmt.Errorf("%s could not be read: %w", req.URL.Host, err)}
+	}
+	if res.StatusCode/100 == 2 || res.StatusCode == http.StatusTooManyRequests {
+		return nil
+	}
+	var e struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	said := strings.TrimSpace(string(body[:min(len(body), 300)]))
+	if json.Unmarshal(body, &e) == nil && e.Error.Message != "" {
+		said = e.Error.Message
+	}
+	if said == "" {
+		said = http.StatusText(res.StatusCode)
+	}
+	return errors.New(req.URL.Host + " answered " + res.Status + ": " + said)
 }
 
 func allowed(options []Option, v string) bool {

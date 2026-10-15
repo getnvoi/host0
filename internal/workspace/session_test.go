@@ -142,7 +142,7 @@ func withBoxd(t *testing.T) (*Workspace, *fakeBoxd) {
 	t.Cleanup(srv.Close)
 	p := newWorkspace(t, &fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}})
 	env(t, p, Environment{Name: "web", Branch: "main"})
-	if _, err := p.AddConfig(testLLM); err != nil {
+	if _, err := p.AddConfig(context.Background(), testLLM); err != nil {
 		t.Fatal(err)
 	}
 	return p, fb

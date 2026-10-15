@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/getnvoi/host0/internal/auth"
+	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
@@ -37,7 +38,8 @@ func refusal(status int, msg string, errs ...error) huma.StatusError {
 	return &huma.ErrorModel{Status: status, Title: http.StatusText(status), Detail: msg}
 }
 
-// The status err is answered with: not found 404, a bad request 400, a conflict 409, anything else 422.
+// The status err is answered with: not found 404, a bad request 400, a conflict 409, a provider out of reach 502,
+// anything else 422.
 func status(err error) int {
 	var (
 		invalid  workspace.Invalid
@@ -45,8 +47,11 @@ func status(err error) int {
 		conflict workspace.Conflict
 		missing  workspace.NotFound
 		nobody   auth.NotFound
+		far      llm.Unreachable
 	)
 	switch {
+	case errors.As(err, &far):
+		return http.StatusBadGateway
 	case errors.Is(err, sandbox.ErrNotFound), errors.As(err, &missing), errors.As(err, &nobody):
 		return http.StatusNotFound
 	case errors.As(err, &invalid), errors.As(err, &shape):

@@ -2,8 +2,12 @@
 package codex
 
 import (
+	"cmp"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -13,7 +17,10 @@ import (
 // The MCP server name; tool events carry mcp__h0__<tool>, the name the plane and the UI read.
 const Server = "h0"
 
-type Runner struct{}
+type Runner struct {
+	// Where Verify asks when the credential has no base_url; https://api.openai.com/v1 when empty.
+	API string
+}
 
 func (Runner) Key() string   { return "codex" }
 func (Runner) Label() string { return "Codex" }
@@ -42,6 +49,47 @@ func (Runner) Env(v map[string]string) map[string]string {
 		env["OPENAI_BASE_URL"] = v["base_url"]
 	}
 	return env
+}
+
+// An API key lists the models; a ChatGPT sign-in is read for the tokens codex loads, with no request.
+func (r Runner) Verify(ctx context.Context, v map[string]string) error {
+	token := strings.TrimSpace(v["token"])
+	if json.Valid([]byte(token)) {
+		return signIn(token)
+	}
+	base := cmp.Or(v["base_url"], r.API, "https://api.openai.com/v1")
+	req, err := http.NewRequest("GET", strings.TrimSuffix(base, "/")+"/models", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("authorization", "Bearer "+token)
+	return llm.Ask(ctx, req)
+}
+
+// auth.json as codex login writes it: an API key, or the tokens of a ChatGPT sign-in.
+func signIn(raw string) error {
+	var a struct {
+		Key    *string `json:"OPENAI_API_KEY"`
+		Tokens *struct {
+			ID      string `json:"id_token"`
+			Access  string `json:"access_token"`
+			Refresh string `json:"refresh_token"`
+		} `json:"tokens"`
+	}
+	if err := json.Unmarshal([]byte(raw), &a); err != nil {
+		return fmt.Errorf("the token is JSON but not a codex auth.json: %w", err)
+	}
+	switch {
+	case a.Key != nil && *a.Key != "":
+		return nil
+	case a.Tokens == nil:
+		return errors.New("auth.json has neither OPENAI_API_KEY nor tokens: run codex login")
+	case a.Tokens.ID == "" || a.Tokens.Access == "" || a.Tokens.Refresh == "":
+		return errors.New("auth.json tokens lack id_token, access_token or refresh_token: run codex login")
+	case strings.Count(a.Tokens.ID, ".") != 2:
+		return errors.New("auth.json id_token is not a JWT: run codex login")
+	}
+	return nil
 }
 
 func (Runner) Argv(t llm.Turn) []string {

@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -90,8 +91,23 @@ func (ws *Workspace) saveConfig(c LLMConfig) error {
 	return ws.DB.Save(&r).Error
 }
 
-// Adds a credential; the first live one is main.
-func (ws *Workspace) AddConfig(in LLMConfigInput) (LLMConfig, error) {
+// values as Check fills them, once one request with them has answered.
+func (ws *Workspace) verify(ctx context.Context, provider string, values map[string]string) (map[string]string, error) {
+	r, values, err := llm.Check(ws.Runners, provider, values)
+	if err != nil {
+		return nil, Invalid{err}
+	}
+	if err := r.Verify(ctx, values); err != nil {
+		if errors.As(err, new(llm.Unreachable)) {
+			return nil, err
+		}
+		return nil, Invalid{err}
+	}
+	return values, nil
+}
+
+// Adds a credential once a request with it has answered; the first live one is main.
+func (ws *Workspace) AddConfig(ctx context.Context, in LLMConfigInput) (LLMConfig, error) {
 	configs.Lock()
 	defer configs.Unlock()
 	name := strings.TrimSpace(in.Name)
@@ -106,9 +122,9 @@ func (ws *Workspace) AddConfig(in LLMConfigInput) (LLMConfig, error) {
 	} else if !errors.As(err, new(NotFound)) {
 		return LLMConfig{}, err
 	}
-	_, values, err := llm.Check(ws.Runners, in.Provider, in.Values)
+	values, err := ws.verify(ctx, in.Provider, in.Values)
 	if err != nil {
-		return LLMConfig{}, Invalid{err}
+		return LLMConfig{}, err
 	}
 	c := LLMConfig{Name: name, Provider: in.Provider, Values: values}
 	main, err := ws.main()
@@ -122,8 +138,9 @@ func (ws *Workspace) AddConfig(in LLMConfigInput) (LLMConfig, error) {
 	return ws.redact(c), ws.saveConfig(c)
 }
 
-// Changes a credential's values; the provider stays, and a secret left empty keeps the stored one.
-func (ws *Workspace) UpdateConfig(name string, values map[string]string) (LLMConfig, error) {
+// Changes a credential's values once a request with them has answered; the provider stays, and a secret left
+// empty keeps the stored one.
+func (ws *Workspace) UpdateConfig(ctx context.Context, name string, values map[string]string) (LLMConfig, error) {
 	configs.Lock()
 	defer configs.Unlock()
 	c, err := ws.config(name)
@@ -143,8 +160,8 @@ func (ws *Workspace) UpdateConfig(name string, values map[string]string) (LLMCon
 			merged[f.Key] = c.Values[f.Key]
 		}
 	}
-	if _, c.Values, err = llm.Check(ws.Runners, c.Provider, merged); err != nil {
-		return c, Invalid{err}
+	if c.Values, err = ws.verify(ctx, c.Provider, merged); err != nil {
+		return LLMConfig{}, err
 	}
 	return ws.redact(c), ws.saveConfig(c)
 }
