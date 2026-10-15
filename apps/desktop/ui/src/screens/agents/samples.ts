@@ -1,7 +1,7 @@
 // Fixtures for the gallery, shaped on the examples in `doc/openapi.yaml` and the web views.
 import {
   agentModel, credentialModel, skillModel, taskModel, workflowStep,
-  type AgentToolModel, type BoardStateModel, type ConnectionModel, type CredentialOption, type PlaceModel, type ProviderModel, type RunModel, type TaskToken, type WorkflowModel,
+  type AgentToolModel, type BoardStateModel, type GrantLevel, type ConnectionModel, type CredentialOption, type PlaceModel, type ProviderModel, type RunModel, type TaskToken, type WorkflowModel,
 } from "./models";
 
 const devInstructions =
@@ -9,7 +9,8 @@ const devInstructions =
   "When you change what a page looks like, call create_screenshot on it so the user sees it. Anything that touches GitHub (push, pull request) " +
   "goes through the h0 tools: you have no credentials. An h0 tool answering 'Queued' is normal: end your turn right after. Answer briefly.";
 
-const defaults: Record<string, string> = {
+// Tools granted at their default level.
+const defaults: Record<string, GrantLevel> = {
   set_title: "auto",
   ask_user: "approval",
   create_screenshot: "auto",
@@ -98,7 +99,7 @@ const skills = [
   }),
 ];
 
-// The tools an agent sets a level for, as `agents/tools` serves them: by category, each at its default level.
+// The tools an agent may be granted, as `agents/tools` serves them: by category, each at its default level.
 const agentTools: AgentToolModel[] = [
   { name: "set_title", label: "Set title", category: "Sessions", asks: false, outbound: false, level: "auto" },
   { name: "ask_user", label: "Question", category: "Sessions", asks: true, outbound: false, level: "approval" },
@@ -153,7 +154,8 @@ const agents = [
     tagline: "Reads a diff and leaves notes",
     model: "opus",
     instructions: "Review it. Say which tests you ran.",
-    tools: { ...defaults, push_branch: "deny", create_pull_request: "deny", Bash: "approval", WebSearch: "deny" },
+    // Not granted push_branch, create_pull_request or WebSearch: it has no such tools.
+    tools: (({ push_branch, create_pull_request, WebSearch, ...granted }) => ({ ...granted, Bash: "approval" as const }))(defaults),
     createdAt: "2026-02-01T00:00:00Z",
   }),
   agentModel({ id: "a3", name: "Writer", slug: "writer", model: "haiku", instructions: "Small steps.", tools: { ...defaults, create_pull_request: "auto", WebFetch: "auto" }, skillIds: ["s2", "s3"], createdAt: "2026-03-01T00:00:00Z" }),
