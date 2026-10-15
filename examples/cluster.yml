@@ -13,5 +13,5 @@ tiers:
   - { name: medium, cpu: 2, memory: 4Gi, default: true }
   - { name: large, cpu: 4, memory: 8Gi }
 # tunnel: Cloudflare's tunnel, CLOUDFLAREAPI only; public: records at the control node, TLS on 80/443
-edge: { mode: public, zone: nvoi.to, previewSuffix: -preview }
+edge: { mode: public, zone: hostzero.app, previewSuffix: -preview }
 dns: { provider: CLOUDFLAREAPI, credentials: { apitoken: CLOUDFLARE_API_TOKEN } }

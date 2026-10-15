@@ -7,5 +7,5 @@ tiers:
   - { name: small, cpu: 1, memory: 2Gi }
   - { name: medium, cpu: 2, memory: 4Gi, default: true }
   - { name: large, cpu: 4, memory: 8Gi }
-edge: { mode: public, zone: nvoi.to, previewSuffix: -preview }
+edge: { mode: public, zone: hostzero.app, previewSuffix: -preview }
 dns: { provider: CLOUDFLAREAPI, credentials: { apitoken: CLOUDFLARE_API_TOKEN } }

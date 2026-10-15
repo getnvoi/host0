@@ -24,7 +24,7 @@ func TestLoadExample(t *testing.T) {
 	}
 	if f.Name != "dev" || f.Workers.Max != 5 || f.Workers.Idle != "10m" || f.Control.Type != "ccx23" || len(f.Tiers) != 3 ||
 		f.Cloud.Provider != "hetzner" || f.Cloud.Credentials["token"] != "HCLOUD_TOKEN" ||
-		f.Edge.Mode != "public" || f.Edge.Zone != "nvoi.to" || f.Edge.PreviewSuffix != "-preview" ||
+		f.Edge.Mode != "public" || f.Edge.Zone != "hostzero.app" || f.Edge.PreviewSuffix != "-preview" ||
 		f.DNS.Provider != "CLOUDFLAREAPI" || f.DNS.Credentials["apitoken"] != "CLOUDFLARE_API_TOKEN" {
 		t.Fatalf("%+v", f)
 	}
