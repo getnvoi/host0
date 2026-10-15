@@ -73,7 +73,7 @@ func (ws *Workspace) Push(ctx context.Context, sid string) (Pushed, error) {
 	bx := ws.box(s.Actor)
 	run := "push-" + id()
 	started(ctx, run)
-	script := fmt.Sprintf("rm -f %[1]s && git bundle create -q %[1]s HEAD", pushBundle)
+	script := fmt.Sprintf("rm -f %[1]s && git bundle create -q %[1]s HEAD", quote(pushBundle))
 	if err := bx.Must(ctx, run, box.Run{Argv: sh(script), Dir: App}, nil); err != nil {
 		return Pushed{}, fmt.Errorf("bundling %s: %w", s.Branch, err)
 	}

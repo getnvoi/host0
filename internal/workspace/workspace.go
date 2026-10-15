@@ -177,7 +177,7 @@ func (ws *Workspace) containers(ctx context.Context, env Environment) ([]sandbox
 		{Name: "boxd", Image: ws.BoxImage, Command: []string{"/ko-app/boxd", "install", Boxd}},
 		{Name: "agent", Image: image, Env: withPath(with(base, "H0_BOX_TOKEN", ws.derive("env", env.Name))), Probe: box.Port,
 			// boxd comes back when it dies: its runs' logs are on /workspace, and it settles the ones it lost.
-			Command: sh(fmt.Sprintf("until [ -x %s ]; do sleep 0.2; done; while :; do %s; sleep 1; done", Boxd, Boxd))},
+			Command: sh(fmt.Sprintf("until [ -x %[1]s ]; do sleep 0.2; done; while :; do %[1]s; sleep 1; done", quote(Boxd)))},
 	}
 	for _, s := range env.Services {
 		img, env := image, withPath(base)
@@ -193,12 +193,13 @@ func (ws *Workspace) containers(ctx context.Context, env Environment) ([]sandbox
 		for k, v := range s.Env {
 			env[k] = v
 		}
-		cmd := s.Command
+		// The command is the user's own shell, run whole by a sh of its own: nothing in it reaches the wrapper.
+		cmd := "sh -c " + quote(s.Command)
 		if !s.Early {
 			// Waits for the checkout, and comes back up when it exits: a restart is touching nothing but the process.
-			cmd = fmt.Sprintf("until [ -f %s ]; do sleep 1; done; cd %s; while :; do %s; sleep 1; done", Ready, App, s.Command)
+			cmd = fmt.Sprintf("until [ -f %s ]; do sleep 1; done; cd %s; while :; do %s; sleep 1; done", quote(Ready), quote(App), cmd)
 		}
-		cmd = fmt.Sprintf("mkdir -p %s; { %s; } 2>&1 | tee -a %s/%s.log", Logs, cmd, Logs, s.Name)
+		cmd = fmt.Sprintf("mkdir -p %s; { %s; } 2>&1 | tee -a %s", quote(Logs), cmd, quote(Logs+"/"+s.Name+".log"))
 		cs = append(cs, sandbox.Container{Name: s.Name, Image: img, Command: sh(cmd), Env: env})
 	}
 	return cs, nil
@@ -207,37 +208,36 @@ func (ws *Workspace) containers(ctx context.Context, env Environment) ([]sandbox
 // Unpack the plane's bundle, install the agent CLI, run the environment's setup; the services start once it is done.
 func seedScript(env Environment, runners []llm.Runner) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "set -e\nmkdir -p %s\n", Home)
+	fmt.Fprintf(&b, "set -e\nmkdir -p %s\n", quote(Home))
 	fmt.Fprintf(&b, "git config --global user.name h0 && git config --global user.email agent@nvoi.to\n")
 	fmt.Fprintf(&b, "git config --global --add safe.directory '*'\n")
 	b.WriteString(announce(fmt.Sprintf("unpacking %s@%s", env.Repo, env.Branch)))
 	ref := "refs/heads/" + env.Branch
-	fmt.Fprintf(&b, "[ -d %s/.git ] || git clone -q --branch %s %s %s\n", App, env.Branch, checkoutBundle, App)
+	app, bundle, origin := quote(App), quote(checkoutBundle), "refs/remotes/origin/"+env.Branch
+	fmt.Fprintf(&b, "[ -d %s ] || git clone -q --branch %s %s %s\n", quote(App+"/.git"), quote(env.Branch), bundle, app)
 	// A rebuild starts from the branch as it is now, not the checkout the last build left.
-	fmt.Fprintf(&b, "git -C %s fetch -q %s +%s:refs/remotes/origin/%s && git -C %s reset -q --hard refs/remotes/origin/%s\n",
-		App, checkoutBundle, ref, env.Branch, App, env.Branch)
-	fmt.Fprintf(&b, "git -C %s remote set-url origin https://github.com/%s\nrm -f %s\n", App, env.Repo, checkoutBundle)
+	fmt.Fprintf(&b, "git -C %s fetch -q %s %s && git -C %s reset -q --hard %s\n",
+		app, bundle, quote("+"+ref+":"+origin), app, quote(origin))
+	fmt.Fprintf(&b, "git -C %s remote set-url origin %s\nrm -f %s\n", app, quote("https://github.com/"+env.Repo), bundle)
 	// Every runner, so a credential moved to another provider finds its CLI in the seed.
 	for _, r := range runners {
 		b.WriteString(announce("installing " + r.Key()))
 		b.WriteString(r.Install() + "\n")
 	}
-	fmt.Fprintf(&b, "cd %s\n", App)
+	fmt.Fprintf(&b, "cd %s\n", quote(App))
 	for _, s := range env.Setup {
 		first, _, _ := strings.Cut(s, "\n")
 		b.WriteString(announce("setup: " + first))
 		b.WriteString(s + "\n")
 	}
-	fmt.Fprintf(&b, "touch %s\n", Ready)
+	fmt.Fprintf(&b, "touch %s\n", quote(Ready))
 	return b.String()
 }
 
 // A line the seed script prints to name the step it starts; the build reports the rest of the line as its step.
 const stepMark = "::h0-step:: "
 
-func announce(step string) string {
-	return "echo '" + strings.ReplaceAll(stepMark+step, "'", `'\''`) + "'\n"
-}
+func announce(step string) string { return "echo " + quote(stepMark+step) + "\n" }
 
 func (ws *Workspace) env(name string) (Environment, Credentials, error) {
 	env, err := ws.environment(ws.DB, name)

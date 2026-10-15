@@ -229,6 +229,19 @@ func (ws *Workspace) valid(e Environment) error {
 	if e.Name == "" {
 		return fmt.Errorf("an environment needs a name")
 	}
+	if err := validEnvName(e.Name); err != nil {
+		return err
+	}
+	if e.Repo != "" {
+		if err := validRepo(e.Repo); err != nil {
+			return err
+		}
+	}
+	if e.Branch != "" {
+		if err := validBranch(e.Branch); err != nil {
+			return err
+		}
+	}
 	if _, err := ws.Workers.Tier(e.Tier); err != nil {
 		return err
 	}
@@ -236,6 +249,9 @@ func (ws *Workspace) valid(e Environment) error {
 	for _, s := range e.Services {
 		if s.Name == "" {
 			return fmt.Errorf("a service needs a name")
+		}
+		if err := validServiceName(s.Name); err != nil {
+			return err
 		}
 		if seen[s.Name] {
 			return fmt.Errorf("service %s is declared twice", s.Name)
