@@ -14,6 +14,9 @@ export class ApiError extends Error {
 
 export const hub = String(import.meta.env.VITE_H0_HUB ?? "").replace(/\/$/, "");
 
+// The deep-link scheme the hub sends sign-in back to: h0-dev for the development build, which has its own identifier.
+export const scheme = String(import.meta.env.VITE_H0_SCHEME ?? "h0");
+
 let token: string | undefined;
 let ws: string | undefined;
 

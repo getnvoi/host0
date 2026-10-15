@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,7 +9,20 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/getnvoi/host0/internal/db"
+	"github.com/getnvoi/host0/internal/scm"
 )
+
+// What the GitHub App reaches with the workspace's GitHub token.
+func (ws *Workspace) Repositories(ctx context.Context) ([]scm.Repository, error) {
+	c, err := ws.credentials()
+	if err != nil {
+		return nil, err
+	}
+	if c.GitHub == "" {
+		return nil, Conflict{errors.New("the workspace holds no GitHub token: h0 credentials hands it one")}
+	}
+	return ws.Forge.Repositories(ctx, c.GitHub)
+}
 
 // The credentials a workspace holds of its own, by name.
 var credentialNames = []string{"github"}

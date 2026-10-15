@@ -3,9 +3,11 @@ package local
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -25,8 +27,10 @@ func Machine() *cobra.Command {
 	var cfg infra.Config
 	var name string
 	var only []string
-	var edge, provider string
+	var edge, provider, hub string
 	flags := func(c *cobra.Command) {
+		c.Flags().StringVar(&hub, "hub", "http://host.docker.internal:"+hubPort,
+			"where the tunnel sends <name>.<zone>: the hub h0 local hub runs on this machine, as kind's pods reach it; empty routes nothing")
 		c.Flags().StringVar(&cfg.Zone, "zone", "", "Cloudflare zone its hosts are served under")
 		c.Flags().StringVar(&name, "name", "local", "the cluster's name: its hosts are app-<name>.<zone>, its tunnel h0-cluster-<name>")
 		c.Flags().StringVar(&cfg.PreviewSuffix, "preview-suffix", "-preview", "previews are <id>-<name><suffix>.<zone>")
@@ -53,10 +57,14 @@ func Machine() *cobra.Command {
 			return nil, err
 		}
 		say := func(f string, a ...any) { fmt.Fprintf(os.Stdout, "  "+f+"\n", a...) }
+		hosts := map[string]string{}
+		if hub != "" {
+			hosts[hubHost(name, cfg.Zone)] = hub
+		}
 		return &infra.Env{
 			Cluster: cluster,
 			Config:  config(cfg),
-			Edge:    cloudflare.Client{Token: token, Zone: cfg.Zone, Suffix: cfg.PreviewSuffix, Say: say},
+			Edge:    cloudflare.Client{Token: token, Zone: cfg.Zone, Suffix: cfg.PreviewSuffix, Say: say, Hosts: hosts},
 			Laptop:  state.Laptop{},
 			Out:     os.Stdout,
 			Cache:   cache,
@@ -94,8 +102,45 @@ func Machine() *cobra.Command {
 		},
 	}
 	flags(down)
-	cmd.AddCommand(up, down)
+	cmd.AddCommand(up, down, hubCommand())
 	return cmd
+}
+
+// The hub's port on this machine, which h0 local up's tunnel reaches.
+const hubPort = "5490"
+
+// The hub's host: <name>.<zone>, local.hostzero.app.
+func hubHost(name, zone string) string { return name + "." + zone }
+
+// cmd/api from this checkout, built and run in place of h0, at https://<name>.<zone> through h0 local up's tunnel.
+func hubCommand() *cobra.Command {
+	var zone, name, redirect string
+	c := &cobra.Command{
+		Use: "hub",
+		Short: "Build and run the hub on :" + hubPort + ", reached at https://<name>.<zone> through h0 local up's tunnel; " +
+			"GITHUB_APP_CLIENT_ID, GITHUB_APP_CLIENT_SECRET, GITHUB_APP_SLUG, HCLOUD_TOKEN and CLOUDFLARE_API_TOKEN come from this shell",
+		Args: cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			cache, err := cacheDir()
+			if err != nil {
+				return err
+			}
+			bin := filepath.Join(cache, "h0-hub")
+			build := exec.CommandContext(c.Context(), "go", "build", "-o", bin, "./cmd/api")
+			build.Dir, build.Stdout, build.Stderr = source(), os.Stdout, os.Stderr
+			if err := build.Run(); err != nil {
+				return fmt.Errorf("go build ./cmd/api: %w", err)
+			}
+			env := append(os.Environ(), "H0_HUB_URL=https://"+hubHost(name, zone), "H0_ZONE="+zone,
+				"H0_HUB_ADDR=127.0.0.1:"+hubPort, "H0_APP_REDIRECT="+redirect, "H0_SOURCE="+source())
+			return syscall.Exec(bin, []string{bin}, env)
+		},
+	}
+	c.Flags().StringVar(&zone, "zone", "", "Cloudflare zone h0 local up serves under; the hub provisions workspaces under it too")
+	c.Flags().StringVar(&name, "name", "local", "h0 local up's --name: the hub is at https://<name>.<zone>")
+	c.Flags().StringVar(&redirect, "redirect", "h0-dev://auth", "the one app address sign-in returns to: the development app's")
+	_ = c.MarkFlagRequired("zone")
+	return c
 }
 
 // kind runs on this machine's arch, and its one node takes every pool: the plane makes no worker server.

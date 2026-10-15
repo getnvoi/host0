@@ -77,6 +77,73 @@ func open(ctx context.Context, token, repo, head string) (string, error) {
 	return prs[0].HTMLURL, nil
 }
 
+// Every repository of every installation the token sees, a hundred a page.
+func (Forge) Repositories(ctx context.Context, token string) ([]scm.Repository, error) {
+	out := []scm.Repository{}
+	for page := 1; ; page++ {
+		var got struct {
+			Installations []struct {
+				ID int64 `json:"id"`
+			} `json:"installations"`
+		}
+		if err := get(ctx, token, fmt.Sprintf("/user/installations?per_page=100&page=%d", page), &got); err != nil {
+			return nil, err
+		}
+		for _, in := range got.Installations {
+			rs, err := installation(ctx, token, in.ID)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, rs...)
+		}
+		if len(got.Installations) < 100 {
+			return out, nil
+		}
+	}
+}
+
+func installation(ctx context.Context, token string, id int64) ([]scm.Repository, error) {
+	var out []scm.Repository
+	for page := 1; ; page++ {
+		var got struct {
+			Repositories []scm.Repository `json:"repositories"`
+		}
+		if err := get(ctx, token, fmt.Sprintf("/user/installations/%d/repositories?per_page=100&page=%d", id, page), &got); err != nil {
+			return nil, err
+		}
+		out = append(out, got.Repositories...)
+		if len(got.Repositories) < 100 {
+			return out, nil
+		}
+	}
+}
+
+// GET path into out; a refusal carries GitHub's own message.
+func get(ctx context.Context, token, path string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", root+path, nil)
+	if err != nil {
+		return err
+	}
+	res, err := send(req, token)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		var e struct {
+			Message string `json:"message"`
+		}
+		if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
+			return fmt.Errorf("github %d on %s, and its answer does not read: %w", res.StatusCode, path, err)
+		}
+		return fmt.Errorf("github %d on %s: %s", res.StatusCode, path, e.Message)
+	}
+	if err := json.NewDecoder(res.Body).Decode(out); err != nil {
+		return fmt.Errorf("github %s: %w", path, err)
+	}
+	return nil
+}
+
 func send(req *http.Request, token string) (*http.Response, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")

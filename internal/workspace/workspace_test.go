@@ -17,6 +17,7 @@ import (
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/llm/claude"
 	"github.com/getnvoi/host0/internal/sandbox"
+	"github.com/getnvoi/host0/internal/scm"
 	"github.com/getnvoi/host0/internal/shared/seal"
 )
 
@@ -116,6 +117,11 @@ func (f *forge) Push(_ context.Context, token, _, bundle, branch string) error {
 	}
 	f.pushed[branch] = string(b)
 	return err
+}
+
+func (f *forge) Repositories(_ context.Context, token string) ([]scm.Repository, error) {
+	f.took(token)
+	return []scm.Repository{{FullName: "o/r", DefaultBranch: "main"}}, nil
 }
 
 func (f *forge) took(token string) {

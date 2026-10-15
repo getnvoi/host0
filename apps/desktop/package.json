@@ -7,7 +7,8 @@
     "build": "tsc --noEmit -p tsconfig.json && vite build",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "tauri": "tauri",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "app:dev": "VITE_H0_HUB=https://local.hostzero.app VITE_H0_SCHEME=h0-dev tauri build --debug --bundles app --config src-tauri/tauri.dev.conf.json && rm -rf '/Applications/h0 dev.app' && ditto 'src-tauri/target/debug/bundle/macos/h0 dev.app' '/Applications/h0 dev.app'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -9,7 +9,13 @@ bun install                                   # at the repository root
 VITE_H0_HUB=https://hub.example bun run build # the web bundle in dist/
 bun run e2e                                   # Playwright, headless WebKit, against e2e/hub.ts
 bun tauri build --debug --bundles app         # src-tauri/target/debug/bundle/macos/h0.app
+bun run app:dev                               # "h0 dev" in /Applications: hub https://local.hostzero.app, scheme h0-dev
 ```
+
+The development build (`src-tauri/tauri.dev.conf.json`) has its own identifier, `dev.h0.desktop.development`, and its
+own scheme, `h0-dev`, so it lives beside the production app; `VITE_H0_SCHEME` tells the web app which scheme it is.
+Its hub is `cmd/api` on this machine: `h0 local up --zone hostzero.app` routes `local.hostzero.app` through the
+local cluster's tunnel to port 5490, and `h0 local hub --zone hostzero.app` runs it there.
 
 A build without `VITE_H0_HUB` starts and says it names no hub.
 
@@ -28,7 +34,7 @@ A 401 from the hub means the token is gone: the app forgets it and shows sign-in
 
 | Request | Answer |
 |---|---|
-| `GET /v1/auth/github?challenge=<b64url sha256(verifier)>&method=S256&state=<random>&redirect=h0://auth` (opened in the browser) | GitHub's sign-in, then `302 h0://auth?code=<one-time code>&state=<state>`, or `h0://auth?error=<reason>&state=<state>` |
+| `GET /v1/auth/github?challenge=<b64url sha256(verifier)>&method=S256&state=<random>&redirect=h0://auth` (opened in the browser; `h0-dev://auth` from the development build, the one redirect its hub accepts) | GitHub's sign-in, then `302 h0://auth?code=<one-time code>&state=<state>`, or `h0://auth?error=<reason>&state=<state>` |
 | `POST /v1/auth/token` `{"code","verifier"}` | `{"token"}`; 400 when the code was used, expired or does not match the challenge |
 | `DELETE /v1/auth/token` | 204; the token stops working |
 | `GET /v1/me` | `{"login","name","avatar_url"}` |
@@ -58,7 +64,7 @@ forks and rests), `GET sessions/{id}`, `GET sessions/{id}/queue`, `DELETE sessio
 `GET sessions/{id}/terminals/{tid}` (websocket), `DELETE sessions/{id}/terminals/{tid}`, `GET approvals?session=`,
 `POST approvals/{id}/approve|deny`, `GET environments`, `GET|PUT|DELETE environments/{name}`,
 `POST|GET environments/{name}/seed`, `GET cluster/shape`, `GET llm/providers`, `GET|POST llm/configs`,
-`PUT|DELETE llm/configs/{name}` (`?remove=1`), `POST llm/configs/{name}/main|restore`.
+`PUT|DELETE llm/configs/{name}` (`?remove=1`), `POST llm/configs/{name}/main|restore`, `GET github/repositories` (what the hub's repositories answers from).
 
 The agents' keys from onboarding are `POST llm/configs`: `{"name":"Claude","provider":"claude_code","values":{"kind":"api_key"|"oauth","token"}}`
 (`oauth` when the value starts with `sk-ant-oat`) and `{"name":"OpenAI","provider":"codex","values":{"kind":"api_key","token"}}`.

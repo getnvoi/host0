@@ -855,6 +855,20 @@ components:
       required:
         - branch
       type: object
+    Repository:
+      additionalProperties: false
+      properties:
+        default_branch:
+          type: string
+        full_name:
+          type: string
+        private:
+          type: boolean
+      required:
+        - full_name
+        - default_branch
+        - private
+      type: object
     Rest:
       additionalProperties: false
       properties:
@@ -2221,6 +2235,32 @@ paths:
       x-h0:
         by:
           - env seed
+  /github/repositories:
+    get:
+      operationId: github.repositories
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Repository"
+                nullable: true
+                type: array
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: The repositories the GitHub App's installations reach with the workspace's GitHub token
+      x-h0:
+        columns:
+          - full_name
+          - default_branch
+          - private
+        output: table
   /llm/configs:
     get:
       operationId: llm.ls

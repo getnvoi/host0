@@ -80,8 +80,8 @@ func refused(from, to string, test bool) string {
 		return "imports " + to + ", which is in no place of the layout"
 	case toKind == "cmd" && !(kind == "cmd" && toTop == top):
 		return "imports a binary's own code: nothing imports cmd/ but the binary itself"
-	case toTop == "internal/infra" && !inside && from != "cmd/h0/local":
-		return "imports the install: only cmd/h0/local may"
+	case toTop == "internal/infra" && !inside && from != "cmd/h0/local" && from != "cmd/api":
+		return "imports the install: only cmd/h0/local and cmd/api, the hub, may"
 	case kind == "cmd":
 		return ""
 	case kind == "shared":
@@ -182,8 +182,9 @@ func TestRefused(t *testing.T) {
 		{"internal/cloud/hetzner", "internal/cloud/conformance", false, "an implementation"},
 		{"internal/box", "internal/workspace", false, "a client"},
 		{"internal/shared/naming", "internal/shared/seal", false, "shared"},
-		{"cmd/controlplane", "internal/infra", false, "only cmd/h0/local"},
+		{"cmd/controlplane", "internal/infra", false, "only cmd/h0/local and cmd/api"},
 		{"cmd/h0/local", "internal/infra/steps", false, ""},
+		{"cmd/api", "internal/infra/steps", false, ""},
 		{"internal/oddity", "internal/shared/seal", false, "no place"},
 		{"cmd/controlplane", "internal/store", false, "internal/db"},
 		{"internal/workspace", "internal/store/files", true, "internal/db"},
