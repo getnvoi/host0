@@ -23,25 +23,25 @@ type SignedOut struct {
 // Sign-in links and the browsers they signed in: the CLI's alone, never a browser's.
 func (p *plane) signIns(a huma.API) {
 	huma.Register(a, bearerOnly(op("invite", "POST", "/login-links", "A one-time link that signs a browser in to the web UI",
-		hz{By: []string{"open", "invite"}})),
+		h0{By: []string{"open", "invite"}})),
 		func(_ context.Context, in *struct{ Body LoginLinkInput }) (*body[LoginLink], error) {
 			url, err := p.auth.LoginLink(p.app, in.Body.Label)
 			return answer(LoginLink{url}, err)
 		})
 	huma.Register(a, bearerOnly(op("browsers", "GET", "/browsers", "Browsers signed in to the web UI",
-		hz{Output: "table", Columns: []string{"label", "at", "until"}})),
+		h0{Output: "table", Columns: []string{"label", "at", "until"}})),
 		func(context.Context, *struct{}) (*body[[]auth.Browser], error) {
 			return answer(p.auth.Browsers())
 		})
 	huma.Register(a, bearerOnly(op("logout", "DELETE", "/browsers/{label}", "Sign out the browsers under label",
-		hz{By: []string{"logout"}})),
+		h0{By: []string{"logout"}})),
 		func(_ context.Context, in *struct {
 			Label string `path:"label" doc:"The label their link was asked with"`
 		}) (*body[SignedOut], error) {
 			n, err := p.auth.SignOut(in.Label)
 			return answer(SignedOut{n}, err)
 		})
-	huma.Register(a, bearerOnly(op("logout.all", "DELETE", "/browsers", "Sign out every browser", hz{By: []string{"logout"}})),
+	huma.Register(a, bearerOnly(op("logout.all", "DELETE", "/browsers", "Sign out every browser", h0{By: []string{"logout"}})),
 		func(context.Context, *struct{}) (*body[SignedOut], error) {
 			n, err := p.auth.SignOut("")
 			return answer(SignedOut{n}, err)

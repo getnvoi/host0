@@ -37,7 +37,7 @@ func (s *Scaler) Shape() (sandbox.Shape, error) {
 	var row db.Shape
 	err := s.DB.First(&row, shapeID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return sandbox.Shape{}, fmt.Errorf("the plane holds no cluster shape: hz cluster install writes it")
+		return sandbox.Shape{}, fmt.Errorf("the plane holds no cluster shape: h0 cluster install writes it")
 	}
 	if err != nil {
 		return sandbox.Shape{}, fmt.Errorf("the cluster shape: %w", err)

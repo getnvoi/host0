@@ -1,4 +1,4 @@
-# hz cluster install -f examples/cluster.yml: a flag given on the command line overrides its value here.
+# h0 cluster install -f examples/cluster.yml: a flag given on the command line overrides its value here.
 # credentials map the provider's own key to the shell variable holding it; dns keys are dnscontrol's creds.json keys.
 name: dev
 cloud: { provider: hetzner, location: fsn1, credentials: { token: HCLOUD_TOKEN } }

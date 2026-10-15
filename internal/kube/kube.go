@@ -194,7 +194,7 @@ func (c *Client) Nodes(ctx context.Context) ([]Node, error) {
 	return out, nil
 }
 
-// The node's public addresses, which hz gave it at boot as node-external-ip.
+// The node's public addresses, which h0 gave it at boot as node-external-ip.
 func (c *Client) Addresses(ctx context.Context, node string) ([]string, error) {
 	var n struct {
 		Status struct {
@@ -279,7 +279,7 @@ type Node struct {
 	Name  string   `json:"name"`
 	Roles []string `json:"roles"`
 	Ready bool     `json:"ready"`
-	// Its server's public addresses and id, as hz gave them to the node at boot.
+	// Its server's public addresses and id, as h0 gave them to the node at boot.
 	Addresses  []string  `json:"addresses"`
 	ProviderID string    `json:"providerID"`
 	Created    time.Time `json:"created"`

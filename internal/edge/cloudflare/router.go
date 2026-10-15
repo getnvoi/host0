@@ -104,7 +104,7 @@ func (c Router) Route(ctx context.Context, host string) error {
 		}
 		return nil
 	}
-	rec := map[string]any{"type": "CNAME", "name": host, "content": target, "proxied": true, "ttl": 1, "comment": "hz"}
+	rec := map[string]any{"type": "CNAME", "name": host, "content": target, "proxied": true, "ttl": 1, "comment": "h0"}
 	return c.do(ctx, "POST", "/zones/"+z+"/dns_records", rec, nil)
 }
 

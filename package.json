@@ -1,5 +1,5 @@
 {
-  "name": "hz",
+  "name": "h0",
   "private": true,
   "workspaces": ["apps/ui", "apps/desktop"]
 }

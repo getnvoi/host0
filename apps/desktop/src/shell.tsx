@@ -5,7 +5,7 @@ import { MemoryRouter, useParams, useRoutes } from "react-router-dom";
 import {
   Button, CommanderOverlay, composerShortcuts, describe, destination, EmptyState, ErrorState, HiddenPages, LoadingState, NavigateContext, paths, rowId, same, settingsPages, ShowsTabStrip, Sidebar,
   TabStrip, Window, type CommanderGroup, type CommanderRow, type SettingsPage, type Tone,
-} from "@hz/ui";
+} from "@h0/ui";
 import { routes } from "./pages";
 import { PageBoundary } from "./boundary";
 import { OnboardingPage, SignInPage } from "./pages/start";
@@ -204,7 +204,7 @@ function useShortcuts() {
 function useSidebar(): [boolean, () => void] {
   const [open, setOpen] = useState(() => {
     try {
-      return localStorage.getItem("hz.sidebar") === "1";
+      return localStorage.getItem("h0.sidebar") === "1";
     } catch {
       return false;
     }
@@ -212,7 +212,7 @@ function useSidebar(): [boolean, () => void] {
   const toggle = () => {
     setOpen(!open);
     try {
-      localStorage.setItem("hz.sidebar", open ? "0" : "1");
+      localStorage.setItem("h0.sidebar", open ? "0" : "1");
     } catch {
       // Kept when storage allows it.
     }
@@ -296,7 +296,7 @@ function Unreachable({ failure, retry }: { failure: { message: string; next: num
   const seconds = Math.max(0, Math.ceil((failure.next - now) / 1000));
   return (
     <div data-drag className="flex h-full items-center justify-center bg-page">
-      <ErrorState title="Can't reach hz" message={`${failure.message} ${seconds > 0 ? `Trying again in ${seconds}s.` : "Trying again."}`} retry={retry} waiting={seconds > 0} />
+      <ErrorState title="Can't reach h0" message={`${failure.message} ${seconds > 0 ? `Trying again in ${seconds}s.` : "Trying again."}`} retry={retry} waiting={seconds > 0} />
     </div>
   );
 }

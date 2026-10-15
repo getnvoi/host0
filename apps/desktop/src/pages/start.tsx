@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import {
   OnboardingScreen, paths, SignInScreen, type OnboardingEnvironment, type OnboardingKeys, type OnboardingLoad, type OnboardingLog, type OnboardingRepo, type OnboardingStep,
   type OnboardingWorkspace,
-} from "@hz/ui";
-import { sse, StreamError } from "@hz/transport";
+} from "@h0/ui";
+import { sse, StreamError } from "@h0/transport";
 import * as native from "@/native";
 import { bearer, get, hub, hubRequest, openUrl, request, spaceRequest, workspace } from "../api/client";
 import { useAccount, useApi, useHub, useUpdates } from "../api/live";

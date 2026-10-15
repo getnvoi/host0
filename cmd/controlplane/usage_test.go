@@ -28,7 +28,7 @@ func (b brokenState) State(ctx context.Context, a string) (string, error) {
 func TestSample(t *testing.T) {
 	sb := &fakeSandboxes{
 		states:  map[string]string{"wt-s1": "running", "wt-s2": "paused", "seed-web": "suspended", "wt-s4": "resuming"},
-		workers: []sandbox.Worker{{Pool: "hz-large", Pod: "a"}, {Pool: "hz-large", Pod: "b"}, {Pod: "c"}},
+		workers: []sandbox.Worker{{Pool: "h0-large", Pod: "a"}, {Pool: "h0-large", Pod: "b"}, {Pod: "c"}},
 	}
 	p, _ := serve(newDB(t), brokenState{sb}, nil, nil)
 	putEnv(t, p, workspace.Environment{Name: "web", Tier: "large"})

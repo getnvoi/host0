@@ -262,7 +262,7 @@ func (ws *Workspace) runner() (llm.Runner, map[string]string, error) {
 		return nil, nil, err
 	}
 	if c == nil {
-		return nil, nil, errors.New("no agent credential: add one in Model credentials, or run hz credentials")
+		return nil, nil, errors.New("no agent credential: add one in Model credentials, or run h0 credentials")
 	}
 	return llm.Check(ws.Runners, c.Provider, c.Values)
 }

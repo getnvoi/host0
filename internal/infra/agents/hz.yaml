@@ -1,5 +1,0 @@
-# The workspace's own agent: a session runs as it unless it names another. Every tool runs without asking.
-name: hz
-description: Works in the session's checkout and calls every hz tool without asking.
-tools:
-  "*": auto

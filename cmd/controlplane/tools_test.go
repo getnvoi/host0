@@ -81,12 +81,12 @@ func TestToolCall(t *testing.T) {
 		{"rm_rf", `{}`, `rm_rf: failed: no such tool`},
 		{"env_set", `{"name":"web","image":"ruby:3"}`, `env_set: {"name":"web","repo":"o/r","branch":"main","image":"ruby:3"`},
 	} {
-		if got := p.tools.Call(ctx, "s1", "hz", c.name, c.input); !strings.HasPrefix(got, c.want) {
+		if got := p.tools.Call(ctx, "s1", "h0", c.name, c.input); !strings.HasPrefix(got, c.want) {
 			t.Errorf("%s %s:\n got %s\nwant %s", c.name, c.input, got, c.want)
 		}
 	}
 	// An operation only the CLI's token reaches refuses an agent.
-	if got := p.tools.Call(ctx, "s1", "hz", "invite", `{"label":"x"}`); !strings.HasPrefix(got, "invite: failed:") {
+	if got := p.tools.Call(ctx, "s1", "h0", "invite", `{"label":"x"}`); !strings.HasPrefix(got, "invite: failed:") {
 		t.Fatal(got)
 	}
 }

@@ -1,6 +1,6 @@
 // The hub (`/v1/...`) and, through it, the plane of the workspace in use (`/v1/workspaces/{ws}/plane/...`). Every
 // request goes out through the shell's fetch (no CORS) with the device token from the Keychain. README.md is the contract.
-import { sse, type Transport } from "@hz/transport";
+import { sse, type Transport } from "@h0/transport";
 import * as native from "@/native";
 
 export class ApiError extends Error {
@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-export const hub = String(import.meta.env.VITE_HZ_HUB ?? "").replace(/\/$/, "");
+export const hub = String(import.meta.env.VITE_H0_HUB ?? "").replace(/\/$/, "");
 
 let token: string | undefined;
 let ws: string | undefined;
@@ -21,12 +21,12 @@ export const signed = () => token !== undefined;
 export const workspace = () => ws;
 export const bearer = () => ({ Authorization: `Bearer ${token ?? ""}` });
 
-// The Keychain entry: service "hz" (src-tauri), account the hub's host.
+// The Keychain entry: service "h0" (src-tauri), account the hub's host.
 const account = () => new URL(hub).host;
 
 // Reads the token kept from the last sign-in.
 export async function boot() {
-  if (!hub) throw new Error("This build names no hub: build it with VITE_HZ_HUB set.");
+  if (!hub) throw new Error("This build names no hub: build it with VITE_H0_HUB set.");
   token = (await native.keychain.get(account())) ?? undefined;
 }
 
@@ -40,7 +40,7 @@ export async function keepToken(next?: string) {
 export function enter(name: string | undefined) {
   ws = name;
   try {
-    if (name) localStorage.setItem("hz.workspace", name);
+    if (name) localStorage.setItem("h0.workspace", name);
   } catch {
     // Kept when storage allows it.
   }
@@ -48,7 +48,7 @@ export function enter(name: string | undefined) {
 
 export function remembered() {
   try {
-    return localStorage.getItem("hz.workspace") ?? undefined;
+    return localStorage.getItem("h0.workspace") ?? undefined;
   } catch {
     return undefined;
   }

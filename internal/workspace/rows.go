@@ -14,7 +14,7 @@ import (
 )
 
 // The agent every session runs as until a workspace has agents of its own.
-const agentName = "hz"
+const agentName = "h0"
 
 func rowOf(tx *gorm.DB, sid string) (db.Session, error) {
 	var r db.Session

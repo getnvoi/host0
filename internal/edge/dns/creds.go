@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Variables hz already reads under another name.
+// Variables h0 already reads under another name.
 var known = map[string]map[string]string{
 	"CLOUDFLAREAPI": {"apitoken": "CLOUDFLARE_API_TOKEN"},
 }

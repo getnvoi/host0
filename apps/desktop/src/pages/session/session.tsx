@@ -6,7 +6,7 @@ import { useParams } from "react-router-dom";
 import {
   ConversationScreen, ConversationSkeleton, ErrorState, load, paths, Terminal, useDelayedBusy, useNavigate, viewPaths, WebFrame,
   type ChangesRecord, type FilesRecord, type Load, type SessionDetail, type TurnRecord,
-} from "@hz/ui";
+} from "@h0/ui";
 import { openUrl } from "../../api/client";
 import { stale, useApi, useReconnecting, useWrite } from "../../api/live";
 import type { Approval, Changes, PreviewStatus, Session } from "../../api/models";

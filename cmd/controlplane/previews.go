@@ -23,7 +23,7 @@ type PreviewLink struct {
 }
 
 func (p *plane) previews(a huma.API) {
-	huma.Register(a, op("preview", "POST", "/previews", "A 12-hour link to a preview, past its gate", hz{By: []string{"preview"}}),
+	huma.Register(a, op("preview", "POST", "/previews", "A 12-hour link to a preview, past its gate", h0{By: []string{"preview"}}),
 		func(_ context.Context, in *struct{ Body PreviewInput }) (*body[PreviewLink], error) {
 			if err := p.previewed(in.Body.Host); err != nil {
 				return nil, problem(err)

@@ -2,7 +2,7 @@
 // the list holds the live and the archived ones together.
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CredentialForm, credentialModel, CredentialsScreen, paths, useNavigate, type CredentialModel, type FieldErrors, type Fetched, type ProviderModel } from "@hz/ui";
+import { CredentialForm, credentialModel, CredentialsScreen, paths, useNavigate, type CredentialModel, type FieldErrors, type Fetched, type ProviderModel } from "@h0/ui";
 import { request } from "../../api/client";
 import { stale, useApi } from "../../api/live";
 import type { LlmConfig, Provider } from "../../api/models";

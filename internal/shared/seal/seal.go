@@ -1,4 +1,4 @@
-// AES-256-GCM under the 32-byte sealing key: "hz-sealed:1:" then base64(nonce|ciphertext), a fresh nonce per seal.
+// AES-256-GCM under the 32-byte sealing key: "h0-sealed:1:" then base64(nonce|ciphertext), a fresh nonce per seal.
 package seal
 
 import (
@@ -13,7 +13,7 @@ import (
 
 const (
 	Size   = 32
-	prefix = "hz-sealed:1:"
+	prefix = "h0-sealed:1:"
 )
 
 func Mint() []byte {

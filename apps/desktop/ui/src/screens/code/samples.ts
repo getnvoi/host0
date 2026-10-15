@@ -185,7 +185,7 @@ const created: EnvironmentDetail = {
 
 const webDevelopment: EnvironmentDetail = {
   id: "e1000000-0000-4000-8000-000000000003", repoId: web.id, name: "development", providerName: "daytona", shape: "8x16", disk: 15,
-  branch: "main", previewPort: 3000, manifest: "hz.yml", database: { engine: "postgres", version: "18", ready: true },
+  branch: "main", previewPort: 3000, manifest: "h0.yml", database: { engine: "postgres", version: "18", ready: true },
   vars: [{ key: "POSTGRES_HOST", value: "$PGHOST", secret: false }],
   commands: [
     { id: "c1000000-0000-4000-8000-000000000008", kind: "setup", name: "install", command: "bin/setup --skip-server", before: [], position: 0 },

@@ -108,7 +108,7 @@ func TestCertificatesRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.Shell = &shell{}
-	if err := certificates(ctx, e); err == nil || !strings.Contains(err.Error(), "~/.hz/certs/nvoi.to") {
+	if err := certificates(ctx, e); err == nil || !strings.Contains(err.Error(), "~/.h0/certs/nvoi.to") {
 		t.Fatalf("certificates that do not open: %v", err)
 	}
 }
@@ -122,8 +122,8 @@ type laptop struct {
 
 func (l *laptop) Key() ([]byte, error)           { return l.key, nil }
 func (l *laptop) SaveKey(k []byte) error         { l.key = k; return nil }
-func (l *laptop) KeyPath() string                { return "~/.hz/key" }
-func (l *laptop) CertsPath(z string) string      { return "~/.hz/certs/" + z }
+func (l *laptop) KeyPath() string                { return "~/.h0/key" }
+func (l *laptop) CertsPath(z string) string      { return "~/.h0/certs/" + z }
 func (l *laptop) SavePlane(string, string) error { return nil }
 
 func (l *laptop) SaveCerts(zone string, key []byte, data map[string][]byte) error {

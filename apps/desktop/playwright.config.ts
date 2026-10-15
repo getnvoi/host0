@@ -1,4 +1,4 @@
-// The desktop app's UI tests: the web bundle (built with HZ_E2E=1, so e2e/native.ts stands in for Tauri) in headless
+// The desktop app's UI tests: the web bundle (built with H0_E2E=1, so e2e/native.ts stands in for Tauri) in headless
 // WebKit, against the stub hub (e2e/hub.ts) answering from e2e/recorded. Results go to .e2e/.
 import { defineConfig, devices } from "@playwright/test";
 
@@ -34,7 +34,7 @@ export default defineConfig({
     {
       command: `bunx vite build --outDir .e2e/app --emptyOutDir --logLevel warn && bunx vite preview --outDir .e2e/app --host 127.0.0.1 --port ${port} --strictPort`,
       url: `http://127.0.0.1:${port}`,
-      env: { HZ_E2E: "1", VITE_HZ_HUB: `http://127.0.0.1:${hubPort}` },
+      env: { H0_E2E: "1", VITE_H0_HUB: `http://127.0.0.1:${hubPort}` },
       reuseExistingServer: false,
       timeout: 180_000,
     },

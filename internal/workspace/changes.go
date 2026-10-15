@@ -27,7 +27,7 @@ func (ws *Workspace) Awake(ctx context.Context, sid string) (Session, Environmen
 
 // Untracked files count as added: they are marked intent-to-add first. The base is printed ahead of the numstat.
 const diffScript = `git add -N -A . && base=origin/"$BASE" && { git rev-parse -q --verify "$base^{commit}" >/dev/null || base=HEAD; } && ` +
-	`printf '%s\0' "$base" && git diff --no-color --no-ext-diff -M --numstat -z "$base" && printf '\0HZ\0' && ` +
+	`printf '%s\0' "$base" && git diff --no-color --no-ext-diff -M --numstat -z "$base" && printf '\0H0\0' && ` +
 	`git diff --no-color --no-ext-diff -M "$base"`
 
 func (ws *Workspace) Changes(ctx context.Context, sid string) (Changes, error) {
@@ -59,7 +59,7 @@ func changes(out []byte) (Changes, bool) {
 	i, found := 1, false
 	for i < len(tokens) {
 		t := tokens[i]
-		if t == "" && i+1 < len(tokens) && tokens[i+1] == "HZ" {
+		if t == "" && i+1 < len(tokens) && tokens[i+1] == "H0" {
 			found = true
 			break
 		}

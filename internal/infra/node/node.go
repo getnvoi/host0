@@ -1,5 +1,5 @@
 // The script that makes a node, and the cloud-init that runs it on a worker. A node registers with the providerID and
-// public addresses hz gives it: the control node's from the server hz made, a worker's from the cloud's Identity.
+// public addresses h0 gives it: the control node's from the server h0 made, a worker's from the cloud's Identity.
 package node
 
 import (
@@ -45,9 +45,9 @@ func Server(providerID, externalIPs string) string {
 	return render("server", "", nil, fmt.Sprintf("provider_id=%q\nexternal_ips=%q\n", providerID, externalIPs))
 }
 
-// The labels a worker joins with; the worker pools select hz.dev/worker.
+// The labels a worker joins with; the worker pools select h0.dev/worker.
 func Labels(substrateVersion string) map[string]string {
-	return map[string]string{"hz.dev/worker": "true", "ate.dev/substrate-version": substrateVersion}
+	return map[string]string{"h0.dev/worker": "true", "ate.dev/substrate-version": substrateVersion}
 }
 
 // identity is the cloud's: a worker's server id does not exist when its cloud-init is written.

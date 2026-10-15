@@ -94,7 +94,7 @@ export const terminalTheme: ITheme = {
 
 const font = '"JetBrains Mono", ui-monospace, monospace';
 const sizes = { least: 10, normal: 13, most: 22 };
-const fontKey = "hz.terminal.font";
+const fontKey = "h0.terminal.font";
 
 function storedSize() {
   try {

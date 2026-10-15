@@ -24,7 +24,7 @@ var DefaultTiers = []Tier{
 	{Name: "large", CPU: "4", Memory: "8Gi", CPURequest: "1"},
 }
 
-func (t Tier) Pool() string { return "hz-" + t.Name }
+func (t Tier) Pool() string { return "h0-" + t.Name }
 
 // The tier named name among all; the default one for "".
 func Pick(all []Tier, name string) (Tier, error) {

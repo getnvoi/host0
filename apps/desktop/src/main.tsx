@@ -1,6 +1,6 @@
 import { Component, StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { ErrorState } from "@hz/ui";
+import { ErrorState } from "@h0/ui";
 import * as native from "@/native";
 import { Shell } from "./shell";
 import { themeStore } from "./theme";
@@ -20,9 +20,9 @@ function drag(e: MouseEvent) {
 }
 
 // A hot reload runs this module again: one listener and one root for the page's whole life.
-const page = window as unknown as { hzRoot?: Root; hzDrag?: (e: MouseEvent) => void };
-if (page.hzDrag) document.removeEventListener("mousedown", page.hzDrag);
-page.hzDrag = drag;
+const page = window as unknown as { h0Root?: Root; h0Drag?: (e: MouseEvent) => void };
+if (page.h0Drag) document.removeEventListener("mousedown", page.h0Drag);
+page.h0Drag = drag;
 document.addEventListener("mousedown", drag);
 
 // A failed render shows what failed instead of a blank window.
@@ -41,9 +41,9 @@ class Boundary extends Component<{ children: ReactNode }, { error?: Error }> {
   }
 }
 
-page.hzRoot ??= createRoot(document.getElementById("app")!);
+page.h0Root ??= createRoot(document.getElementById("app")!);
 void listenForLinks();
-page.hzRoot.render(
+page.h0Root.render(
   <StrictMode>
     <Boundary>
       <LiveProvider>

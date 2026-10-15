@@ -358,7 +358,7 @@ func TestRecoverRunsQueueOfIdleSession(t *testing.T) {
 func TestSayForksAgain(t *testing.T) {
 	p, fb := withBoxd(t)
 	seedRow(t, p, Seed{Env: "web", Template: "t", Tag: "t", State: "ready"})
-	sessionRow(t, p, Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "hz/f1", State: "failed",
+	sessionRow(t, p, Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "h0/f1", State: "failed",
 		Error: "boom", Pending: "first"})
 	if err := p.Say("f1", "second", ""); err != nil {
 		t.Fatal(err)

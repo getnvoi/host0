@@ -20,11 +20,11 @@ type agentTool struct {
 func (p *plane) agents(a huma.API) {
 	ws := p.ws
 	huma.Register(a, op("agent.ls", "GET", "/agents", "The agents sessions run as",
-		hz{Output: "table", Columns: []string{"name", "model", "description"}}),
+		h0{Output: "table", Columns: []string{"name", "model", "description"}}),
 		func(context.Context, *struct{}) (*body[[]workspace.Agent], error) {
 			return answer(ws.Agents())
 		})
-	tools := hz{Output: "table", Field: "tools", Columns: []string{"tool", "level"}}
+	tools := h0{Output: "table", Field: "tools", Columns: []string{"tool", "level"}}
 	huma.Register(a, op("agent.show", "GET", "/agents/{name}", "The agent and the tools it is granted",
 		tools),
 		func(_ context.Context, in *agentName) (*body[workspace.Agent], error) {

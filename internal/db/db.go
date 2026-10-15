@@ -21,7 +21,7 @@ import (
 )
 
 // The file key is HKDF of the sealing key under this info, so it is never the key Sealed columns use.
-const fileInfo = "hz/db/file"
+const fileInfo = "h0/db/file"
 
 // 64 bytes make the xts VFS use AES-256-XTS.
 func fileKey(key []byte) ([]byte, error) { return hkdf.Key(sha256.New, key, nil, fileInfo, 64) }
@@ -49,7 +49,7 @@ func Open(path string, key []byte) (*gorm.DB, error) {
 		for _, p := range pragmas {
 			if err := c.Exec(p); err != nil {
 				if errors.Is(err, sqlite3.NOTADB) {
-					return fmt.Errorf("it does not open with this sealing key, or it is not an hz database: %w", err)
+					return fmt.Errorf("it does not open with this sealing key, or it is not an h0 database: %w", err)
 				}
 				return err
 			}

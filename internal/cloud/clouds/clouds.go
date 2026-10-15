@@ -1,4 +1,4 @@
-// Every cloud hz runs on, by name: the cli installs on one, the plane makes its workers on the same.
+// Every cloud h0 runs on, by name: the cli installs on one, the plane makes its workers on the same.
 package clouds
 
 import (

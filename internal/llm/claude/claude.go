@@ -10,8 +10,8 @@ import (
 	"github.com/getnvoi/host0/internal/llm"
 )
 
-// The MCP server name; the CLI prefixes its tools with mcp__hz__.
-const Server = "hz"
+// The MCP server name; the CLI prefixes its tools with mcp__h0__.
+const Server = "h0"
 
 // The CLI reads a credential only from the variable of its kind: an API key in CLAUDE_CODE_OAUTH_TOKEN is "Not logged in".
 var credential = map[string]string{

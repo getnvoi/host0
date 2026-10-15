@@ -7,7 +7,7 @@ import { useQueries } from "@tanstack/react-query";
 import {
   EnvironmentForm, EnvironmentScreen, EnvironmentsScreen, paths, sandboxOption, useNavigate, type CodeError, type CodeLoad, type DryRun, type EnvironmentDetail, type EnvironmentDraft,
   type Repo, type SandboxOption,
-} from "@hz/ui";
+} from "@h0/ui";
 import { ApiError, get, request, workspace } from "../../api/client";
 import { stale, useApi, useHub } from "../../api/live";
 import type { Environment, EnvironmentSummary, Repositories, Session } from "../../api/models";
@@ -21,7 +21,7 @@ const codeErrorOf = (e: unknown): CodeError => ({ error: message(e), code: e ins
 // A tier as a machine size: "500m" CPU is half a core, "4Gi" four GB.
 const optionOf = (t: Tier): SandboxOption => ({
   label: t.name,
-  provider: "hz",
+  provider: "h0",
   cpu: t.cpu.endsWith("m") ? Number(t.cpu.slice(0, -1)) / 1000 : Number(t.cpu),
   memory: Number(t.memory.replace(/[^\d.]/g, "")),
   onRequest: false,
@@ -39,7 +39,7 @@ export function detailOf(e: Environment, tiers: Tier[]): EnvironmentDetail {
     id: e.name,
     repoId: e.repo,
     name: e.name,
-    providerName: "hz",
+    providerName: "h0",
     shape: shapeOf(e.tier, tiers),
     disk: 0,
     branch: e.branch,
@@ -90,7 +90,7 @@ function useRepos(environments: EnvironmentSummary[]) {
     name,
     owner: name.split("/")[0] ?? "",
     defaultBranch: listed.data?.repositories.find((r) => r.full_name === name)?.default_branch,
-    environments: environments.filter((e) => e.repo === name).map((e) => ({ id: e.name, name: e.name, providerName: "hz" })),
+    environments: environments.filter((e) => e.repo === name).map((e) => ({ id: e.name, name: e.name, providerName: "h0" })),
     createdAt: "",
   }));
   return { listed, repos };

@@ -39,7 +39,7 @@ type Subject struct {
 }
 
 const (
-	key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICI1HYzQUDhIaxmM8+W5HLuG80KAjFg7N8Ilkb1v1WmR hz-conformance"
+	key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICI1HYzQUDhIaxmM8+W5HLuG80KAjFg7N8Ilkb1v1WmR h0-conformance"
 	// The cloud-init a worker gets; a real one holds the cluster's join token.
 	cloudInit = "#cloud-config\nruncmd:\n  - [true]\n"
 )
@@ -52,19 +52,19 @@ type event struct {
 	req *Interaction
 }
 
-// HZ_RECORD=1 records the cassette from a real run, the credentials in s.Secrets; otherwise the cassette replays.
+// H0_RECORD=1 records the cassette from a real run, the credentials in s.Secrets; otherwise the cassette replays.
 func Run(t *testing.T, s Subject) {
-	record := os.Getenv("HZ_RECORD") != ""
+	record := os.Getenv("H0_RECORD") != ""
 	var tape *Cassette
 	if record {
 		if len(s.Secrets) == 0 || s.Secrets[0] == "" {
-			t.Fatal("HZ_RECORD needs the provider's credential")
+			t.Fatal("H0_RECORD needs the provider's credential")
 		}
 		tape = &Cassette{Record: true, Secrets: s.Secrets}
 	} else {
 		var err error
 		if tape, err = Load(s.Cassette); err != nil {
-			t.Fatalf("%v: record it with HZ_RECORD=1", err)
+			t.Fatalf("%v: record it with H0_RECORD=1", err)
 		}
 	}
 	var log []event
@@ -279,7 +279,7 @@ func check(t *testing.T, s Subject, c naming.Cluster, log []event, base map[stri
 	}
 }
 
-// Whether a JSON body holds hz/owner=<prefix>, as a key and value or as one string.
+// Whether a JSON body holds h0/owner=<prefix>, as a key and value or as one string.
 func marked(body string, c naming.Cluster) bool {
 	var v any
 	if json.Unmarshal([]byte(body), &v) != nil {

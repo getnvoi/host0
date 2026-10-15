@@ -12,10 +12,10 @@ import (
 // The page around a preview cannot see into it: the preview is another origin. Every HTML page the preview serves
 // loads this script, which talks to the web UI only.
 //
-// Out, hz:url: the path, the title, and whether the frame can go back or forward, on start, on load, on each
-// history change, and in answer to hz:ping (with its id), which is how the UI learns a page carries the script.
-// In: hz:history (back or forward), hz:navigate (a path) and hz:reload, which a cross-origin parent cannot do.
-const BridgePath = "/__hz/bridge.js"
+// Out, h0:url: the path, the title, and whether the frame can go back or forward, on start, on load, on each
+// history change, and in answer to h0:ping (with its id), which is how the UI learns a page carries the script.
+// In: h0:history (back or forward), h0:navigate (a path) and h0:reload, which a cross-origin parent cannot do.
+const BridgePath = "/__h0/bridge.js"
 
 func bridgeScript(appHost string) string {
 	return fmt.Sprintf(`(function(){
@@ -23,7 +23,7 @@ if (window.top === window.self) return;
 var O = %q;
 function post(reason, id) {
   var n = window.navigation;
-  parent.postMessage({type: "hz:url", reason: reason, id: id, title: document.title,
+  parent.postMessage({type: "h0:url", reason: reason, id: id, title: document.title,
     path: location.pathname + location.search + location.hash,
     back: n ? n.canGoBack : history.length > 1, forward: n ? n.canGoForward : false}, O);
 }
@@ -37,10 +37,10 @@ history.replaceState = function () { replace.apply(this, arguments); post("repla
 addEventListener("message", function (e) {
   if (e.origin !== O || !e.data) return;
   var d = e.data;
-  if (d.type === "hz:history" && typeof d.delta === "number") history.go(d.delta);
-  if (d.type === "hz:navigate" && typeof d.path === "string" && d.path.charAt(0) === "/") location.assign(d.path);
-  if (d.type === "hz:reload") location.reload();
-  if (d.type === "hz:ping") post("ping", d.id);
+  if (d.type === "h0:history" && typeof d.delta === "number") history.go(d.delta);
+  if (d.type === "h0:navigate" && typeof d.path === "string" && d.path.charAt(0) === "/") location.assign(d.path);
+  if (d.type === "h0:reload") location.reload();
+  if (d.type === "h0:ping") post("ping", d.id);
 });
 })();
 `, "https://"+appHost)

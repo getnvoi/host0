@@ -26,8 +26,8 @@ import (
 const instructions = "You work inside a checkout of the repository, your working directory. The app runs from this " +
 	"checkout and reloads on change; the user watches it at %s. Your session's id is %s. On your first turn call " +
 	"session_title. When a change shows on a page, call session_navigate with its path so the user sees it. Commit your " +
-	"work. The hz tools are the hz plane's API; anything that touches GitHub (session_push, session_pr) goes through " +
-	"them: you have no credentials. A hz tool answering 'Queued' is normal: end your turn right after. Answer briefly."
+	"work. The h0 tools are the h0 plane's API; anything that touches GitHub (session_push, session_pr) goes through " +
+	"them: you have no credentials. A h0 tool answering 'Queued' is normal: end your turn right after. Answer briefly."
 
 // Opens the prompt that tells a turn what its tools did.
 const Outcome = "Outcome of the actions you asked for:"
@@ -60,7 +60,7 @@ func (ws *Workspace) Start(name, agent, prompt, by string) (Session, error) {
 		return Session{}, err
 	}
 	sid := id()
-	s := Session{ID: sid, Env: name, Agent: agent, Actor: "wt-" + sid, Branch: "hz/" + sid, Preview: ws.Preview(sid),
+	s := Session{ID: sid, Env: name, Agent: agent, Actor: "wt-" + sid, Branch: "h0/" + sid, Preview: ws.Preview(sid),
 		State: "forking", At: time.Now(), Pending: prompt, By: by}
 	if err := ws.save(&s); err != nil {
 		return s, err
@@ -271,7 +271,7 @@ func (ws *Workspace) take(ctx context.Context, s *Session, prompt string, again 
 		}
 	})
 	run := box.Run{Argv: argv, Dir: App, Env: runner.Env(values)}
-	run.Env["HZ_TOOLS"] = string(tools)
+	run.Env["H0_TOOLS"] = string(tools)
 	return ws.follow(ctx, s, run, 0)
 }
 

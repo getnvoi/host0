@@ -28,16 +28,16 @@ mail                IN A     192.0.2.20
 _acme-challenge     IN TXT   "another-tools-token"
 x-dev               IN A     192.0.2.40
 api-prod            IN A     192.0.2.30
-_hz.api-prod        IN TXT   "hz/owner=hz-prod"
+_h0.api-prod        IN TXT   "h0/owner=h0-prod"
 api-dev             IN A     198.51.100.1
-_hz.api-dev         IN TXT   "hz/owner=hz-dev"
+_h0.api-dev         IN TXT   "h0/owner=h0-dev"
 api-dev             IN TXT   "kept: not an address"
 old-dev-preview     IN AAAA  2001:db8::99
-_hz.old-dev-preview IN TXT   "hz/owner=hz-dev"
+_h0.old-dev-preview IN TXT   "h0/owner=h0-dev"
 taken-dev           IN CNAME elsewhere.example.
 `
 
-const owner = "hz/owner=hz-dev"
+const owner = "h0/owner=h0-dev"
 
 func open(t *testing.T) (*Zone, string) {
 	t.Helper()
@@ -122,7 +122,7 @@ func TestPoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	same(t, records(t, z), with(without(before, "api-dev A 198.51.100.1"), "api-dev A 203.0.113.7",
-		"app-dev A 203.0.113.7", "_hz.app-dev TXT "+owner))
+		"app-dev A 203.0.113.7", "_h0.app-dev TXT "+owner))
 }
 
 func TestPointRefusesTaken(t *testing.T) {
@@ -158,7 +158,7 @@ func TestChallenge(t *testing.T) {
 	if _, err := z.Point("app-dev.nvoi.to", []string{"203.0.113.7"}, owner); err != nil {
 		t.Fatal(err)
 	}
-	made := with(before, "app-dev A 203.0.113.7", "_hz.app-dev TXT "+owner)
+	made := with(before, "app-dev A 203.0.113.7", "_h0.app-dev TXT "+owner)
 	same(t, records(t, z), with(made, "_acme-challenge TXT our-token"))
 
 	// Named relative to a parent zone, as a resolver may hand it.
@@ -192,7 +192,7 @@ func TestEdge(t *testing.T) {
 		t.Fatalf("secret %v", s)
 	}
 	same(t, records(t, z), with(without(before, "api-dev A 198.51.100.1"),
-		"api-dev A 203.0.113.7", "app-dev A 203.0.113.7", "_hz.app-dev TXT "+owner))
+		"api-dev A 203.0.113.7", "app-dev A 203.0.113.7", "_h0.app-dev TXT "+owner))
 	if _, err := e.Serve(ctx, c, "http://plane", hosts); err != nil {
 		t.Fatal(err)
 	}
@@ -204,8 +204,8 @@ func TestEdge(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Only what dev marked goes: x-dev, the other cluster's host and the TXT beside api-dev stay.
-	same(t, records(t, z), with(without(before, "api-dev A 198.51.100.1", "_hz.api-dev TXT "+owner,
-		"old-dev-preview AAAA 2001:db8::99", "_hz.old-dev-preview TXT "+owner), "_acme-challenge TXT our-token"))
+	same(t, records(t, z), with(without(before, "api-dev A 198.51.100.1", "_h0.api-dev TXT "+owner,
+		"old-dev-preview AAAA 2001:db8::99", "_h0.old-dev-preview TXT "+owner), "_acme-challenge TXT our-token"))
 	if err := e.Destroy(ctx, c); err != nil {
 		t.Fatal(err)
 	}
@@ -219,8 +219,8 @@ func TestOwned(t *testing.T) {
 	}
 	// api-prod is another cluster's, x-dev and taken-dev carry no mark.
 	same(t, got, []string{
-		"_hz.api-dev.nvoi.to TXT " + owner,
-		"_hz.old-dev-preview.nvoi.to TXT " + owner,
+		"_h0.api-dev.nvoi.to TXT " + owner,
+		"_h0.old-dev-preview.nvoi.to TXT " + owner,
 		"api-dev.nvoi.to A 198.51.100.1",
 		"old-dev-preview.nvoi.to AAAA 2001:db8::99",
 	})

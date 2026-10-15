@@ -9,8 +9,8 @@ import (
 	"github.com/DNSControl/dnscontrol/v5/models"
 )
 
-// A host's owner TXT sits at _hz.<host>: a name of its own, since not every provider takes a TXT beside an A.
-const ownerLabel = "_hz."
+// A host's owner TXT sits at _h0.<host>: a name of its own, since not every provider takes a TXT beside an A.
+const ownerLabel = "_h0."
 
 // The host's A and AAAA values, its owner TXT values, and a CNAME on it if any.
 func at(existing models.Records, label string) (addrs, owners []string, cname string) {

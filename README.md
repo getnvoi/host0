@@ -1,11 +1,11 @@
-# hz
+# h0
 
 Coding agents on a cluster you own. Each task forks a running copy of your app, gets its own preview URL,
 and asks before it acts outside its sandbox.
 
 ## Requirements
 
-- A Hetzner Cloud project and its token, dedicated to hz.
+- A Hetzner Cloud project and its token, dedicated to h0.
 - A Cloudflare zone and a token scoped to it: Zone DNS Edit, Account Cloudflare Tunnel Edit.
 - On the machine that installs: `go`, `ko`, `git`, and an SSH key.
 
@@ -13,7 +13,7 @@ and asks before it acts outside its sandbox.
 
 ```sh
 export HCLOUD_TOKEN=… CLOUDFLARE_API_TOKEN=…
-hz cluster install dev --zone example.com
+h0 cluster install dev --zone example.com
 ```
 
 One control node (ccx23) running k3s, Agent Substrate, a registry, the Hetzner cloud controller, the
@@ -21,13 +21,13 @@ cluster-autoscaler and a Cloudflare tunnel. Workers (ccx33) come and go with the
 Nothing listens publicly but SSH.
 
 ```sh
-hz cluster destroy dev --zone example.com
+h0 cluster destroy dev --zone example.com
 ```
 
 ## Layout
 
 ```
-cmd/hz               the hz binary
+cmd/h0               the h0 binary
 cmd/controlplane     the plane: the api and the web UI it serves
 cmd/boxd             commands and their durable output in each actor
 cmd/proxy            TLS for the public edge
@@ -37,6 +37,6 @@ apps/ui              the web UI, embedded in the plane
 ```
 
 ```sh
-go build -o bin/hz ./cmd/hz
+go build -o bin/h0 ./cmd/h0
 go test ./...
 ```

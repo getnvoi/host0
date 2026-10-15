@@ -29,7 +29,7 @@ import (
 
 // The plane's database in a fresh file, holding the shape install writes.
 func newDB(t *testing.T) *gorm.DB {
-	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +322,7 @@ func sessionRow(t *testing.T, p *plane, env string, s db.Session) db.Session {
 			t.Fatal(err)
 		}
 	}
-	a := db.Agent{Name: "hz"}
+	a := db.Agent{Name: "h0"}
 	if err := p.DB.Where(&a).FirstOrCreate(&a).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -439,8 +439,8 @@ func TestCredentialsRead(t *testing.T) {
 }
 
 func TestClusterStatus(t *testing.T) {
-	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, ready: map[string]int{"hz-medium": 1}, nodes: []kube.Node{{Name: "w1", Ready: true}}}
-	sb := &fakeSandboxes{workers: []sandbox.Worker{{Pool: "hz-medium", Pod: "p1", Held: []sandbox.Held{{Name: "a", State: "running"}}}}}
+	pools := &fakePools{replicas: map[string]int{"h0-medium": 2}, ready: map[string]int{"h0-medium": 1}, nodes: []kube.Node{{Name: "w1", Ready: true}}}
+	sb := &fakeSandboxes{workers: []sandbox.Worker{{Pool: "h0-medium", Pod: "p1", Held: []sandbox.Held{{Name: "a", State: "running"}}}}}
 	_, h := serve(newDB(t), sb, pools, checking{"app-dev.nvoi.to": errors.New("app-dev.nvoi.to has no record")})
 	res := call(h, "GET", "api-dev.nvoi.to", "/cluster", "", bearer)
 	var c workers.Cluster
@@ -449,7 +449,7 @@ func TestClusterStatus(t *testing.T) {
 		t.Fatalf("status: %d %s", res.Code, res.Body)
 	}
 	for _, pool := range c.Pools {
-		if pool.Name == "hz-medium" && (pool.Replicas != 2 || pool.Ready != 1) {
+		if pool.Name == "h0-medium" && (pool.Replicas != 2 || pool.Ready != 1) {
 			t.Fatalf("pool: %+v", pool)
 		}
 	}

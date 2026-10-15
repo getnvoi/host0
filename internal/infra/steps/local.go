@@ -15,7 +15,7 @@ import (
 )
 
 // The kind cluster's name; its kubectl context is kind-<name>, its node <name>-control-plane.
-const LocalCluster = "hz"
+const LocalCluster = "h0"
 
 // The install on this machine: the cluster install's steps, on a kind cluster in Docker (OrbStack's, Docker Desktop's)
 // instead of Hetzner servers. The plane, its tunnel and its hosts are the same as on a cloud cluster.
@@ -37,7 +37,7 @@ var Local = []infra.Step{
 				return err
 			}
 		}
-		tmp, err := os.MkdirTemp("", "hz-")
+		tmp, err := os.MkdirTemp("", "h0-")
 		if err != nil {
 			return err
 		}
@@ -50,7 +50,7 @@ var Local = []infra.Step{
 		e.Shell = local{context: e.Vars["context"]}
 		e.Vars["control-label"] = ""
 		// The one node takes the worker pools too.
-		return e.Shell.Run(ctx, "k3s kubectl label node "+LocalCluster+"-control-plane hz.dev/worker=true --overwrite", nil, e.Out)
+		return e.Shell.Run(ctx, "k3s kubectl label node "+LocalCluster+"-control-plane h0.dev/worker=true --overwrite", nil, e.Out)
 	}),
 	step("namespaces", func(ctx context.Context, e *infra.Env) error {
 		return apply(ctx, e, "namespace.yaml", nil)

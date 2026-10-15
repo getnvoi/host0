@@ -1,8 +1,8 @@
 // The window, the device token in the Keychain and the browser for links. Requests go through the http plugin,
-// hz:// links through deep-link; everything else is the web app.
+// h0:// links through deep-link; everything else is the web app.
 use keyring::Entry;
 
-const SERVICE: &str = "hz";
+const SERVICE: &str = "h0";
 
 fn entry(account: &str) -> Result<Entry, String> {
     Entry::new(SERVICE, account).map_err(|e| e.to_string())
@@ -51,5 +51,5 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .invoke_handler(tauri::generate_handler![keychain_get, keychain_set, keychain_delete, open_url])
         .run(tauri::generate_context!())
-        .expect("hz desktop failed to start");
+        .expect("h0 desktop failed to start");
 }

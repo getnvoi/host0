@@ -9,7 +9,7 @@ description: Use when a change to the install, the plane, boxd, the preview gate
 
 The only proof that counts is the real path: Hetzner, k3s, Substrate, the Cloudflare tunnel, dummy-rails. Each stage below has a command and a pass condition; a stage passes only on its measured result, never on "it rolled out".
 
-Every command is `./bin/hz`. No curl, no ssh, no kubectl: a stage that needs something hz does not do is a missing command, written first and then used.
+Every command is `./bin/h0`. No curl, no ssh, no kubectl: a stage that needs something h0 does not do is a missing command, written first and then used.
 
 ## Prerequisites
 
@@ -19,8 +19,8 @@ Every command is `./bin/hz`. No curl, no ssh, no kubectl: a stage that needs som
 
 ```sh
 cd ~/Desktop/ncx && set -a && . ./.env && set +a
-install() { ./bin/hz cluster install dev --zone nvoi.to --ssh-key ~/.ssh/nvoi_ed25519 "$@"; }
-plane_up() { for i in $(seq 90); do ./bin/hz me >/dev/null 2>&1 && return; sleep 2; done; return 1; }
+install() { ./bin/h0 cluster install dev --zone nvoi.to --ssh-key ~/.ssh/nvoi_ed25519 "$@"; }
+plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep 2; done; return 1; }
 ```
 
 - Long commands run in the background with a Monitor on their log; report each step as it lands.
@@ -29,20 +29,20 @@ plane_up() { for i in $(seq 90); do ./bin/hz me >/dev/null 2>&1 && return; sleep
 
 | # | Command | Passes when |
 |---|---|---|
-| 1 | `go build -o bin/hz ./cmd/hz`; `go test ./...` | builds, tests pass |
+| 1 | `go build -o bin/h0 ./cmd/h0`; `go test ./...` | builds, tests pass |
 | 2 | `install` | ends with `api at https://api-dev.nvoi.to` |
-| 3 | `./bin/hz credentials && ./bin/hz env apply examples/dummy-rails.yml` | no output, exit 0 |
-| 4 | `./bin/hz env seed dummy` | `seed ready:` link in about 2 min |
-| 5 | Gate: `./bin/hz preview dummy-dev-preview.nvoi.to --check` | `no token 401`, the link sets the cookie, `cookie 200` |
-| 6 | Fork: `./bin/hz session start dummy "Reply ok."` | `session <id> on hz/<id>`; `forked in` under 10 s; ends `idle` |
-| 7 | `./bin/hz session start dummy "<task that ends in a pull request>"` | calls `session_title`, commits, stops at `awaiting_approval` |
-| 8 | `./bin/hz session preview <id>`, then `./bin/hz preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
-| 9 | `./bin/hz approval ls`, `./bin/hz approval show <id>`, then `./bin/hz approval approve <id>` without asking | PR URL printed, session back to `idle` |
+| 3 | `./bin/h0 credentials && ./bin/h0 env apply examples/dummy-rails.yml` | no output, exit 0 |
+| 4 | `./bin/h0 env seed dummy` | `seed ready:` link in about 2 min |
+| 5 | Gate: `./bin/h0 preview dummy-dev-preview.nvoi.to --check` | `no token 401`, the link sets the cookie, `cookie 200` |
+| 6 | Fork: `./bin/h0 session start dummy "Reply ok."` | `session <id> on h0/<id>`; `forked in` under 10 s; ends `idle` |
+| 7 | `./bin/h0 session start dummy --agent gitops "<task that ends in a pull request>"` | calls `session_title` and `session_push` at once, stops at `awaiting_approval` on `session_pr`; the agent sees only gitops's six tools |
+| 8 | `./bin/h0 session preview <id>`, then `./bin/h0 preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
+| 9 | `./bin/h0 approval ls`, `./bin/h0 approval show <id>`, then `./bin/h0 approval approve <id>` without asking | PR URL printed, session back to `idle` |
 | 10 | Every read the spec has, as JSON (below) | each exits 0 and prints JSON |
 | 11 | Idle cycle, below | pause, hold, shrink, suspend, release, resume |
-| 12 | Web UI in Chrome: `./bin/hz open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.nvoi.to`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
+| 12 | Web UI in Chrome: `./bin/h0 open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.nvoi.to`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
 
-Redeploy one step: `install --only "control plane" && plane_up`. `plane_up` gives up after 3 minutes; then read the plane's log: `./bin/hz pods --node <control node>` names its pod, `./bin/hz logs hz-system <pod> --tail 30` prints it.
+Redeploy one step: `install --only "control plane" && plane_up`. `plane_up` gives up after 3 minutes; then read the plane's log: `./bin/h0 pods --node <control node>` names its pod, `./bin/h0 logs h0-system <pod> --tail 30` prints it.
 
 ## Every read, as JSON
 
@@ -52,19 +52,19 @@ Each generated read command takes `-o json` and prints the plane's answer as it 
 for c in "me" "ls" "env ls" "env status dummy" "llm ls" "llm providers" "session ls" "session show $S" \
   "session queue ls $S" "session preview $S" "session changes $S" "session log ls $S" "session terminal ls $S" \
   "approval ls" "cluster shape" "pods" "browsers"; do
-  echo "== hz $c"; ./bin/hz $c -o json >/dev/null || echo "FAILED: hz $c"
+  echo "== h0 $c"; ./bin/h0 $c -o json >/dev/null || echo "FAILED: h0 $c"
 done
 ```
 
-Passes when no line says `FAILED`. A read this list misses is one `hz --help` shows and the spec names under `x-hz` with an output.
+Passes when no line says `FAILED`. A read this list misses is one `h0 --help` shows and the spec names under `x-h0` with an output.
 
 ## Idle cycle
 
 The pause and suspend thresholds are the cluster's `actors: { pause, suspend }` (or `--pause-after`, `--suspend-after`; 10 and 60 minutes by default); set them short in the cluster file for this stage.
 
 ```sh
-./bin/hz preview <session>-dev-preview.nvoi.to --check   # the activity the timers count from
-./bin/hz ls                                              # every 30 s, in a Monitor: pools, workers, the actors they hold
+./bin/h0 preview <session>-dev-preview.nvoi.to --check   # the activity the timers count from
+./bin/h0 ls                                              # every 30 s, in a Monitor: pools, workers, the actors they hold
 ```
 
 Expected, in order: the session's actor paused on its worker with the worker held; its pool shrinks to 0; the actor suspended and the worker released; `--check` again grows the pool and answers 200 (about 6 s from paused, 13 s from suspended).
@@ -78,8 +78,8 @@ Expected, in order: the session's actor paused on its worker with the worker hel
 | 401 from Cloudflare on `*-preview` hosts | a zone Worker route catches the suffix; the install claims `*<suffix>.<zone>/*` with no Worker |
 | seed rerun repeats an old failure | boxd run ids are idempotent; every attempt needs its own id |
 | sessions from before a template change cannot resume | their pool or template is gone; reseed, start new sessions |
-| an empty plane after a redeploy over an older one | the plane's records are `/var/lib/hz/hz.db`; one from before it starts empty: `hz credentials`, `hz env apply`, `hz env seed` again |
+| an empty plane after a redeploy over an older one | the plane's records are `/var/lib/h0/h0.db`; one from before it starts empty: `h0 credentials`, `h0 env apply`, `h0 env seed` again |
 
 ## Cleanup
 
-Only when the user asks, or the cluster is no longer needed: it costs about €0.10 an hour while up. `./bin/hz cluster destroy dev --zone nvoi.to` removes servers, network, firewall, key, tunnel, records and the route claim. Approving in stage 9 opens a real pull request on `benbonnet/dummy-rails`, a throwaway repository kept for this check: approve it, and any other approval a validation run raises, without asking the user.
+Only when the user asks, or the cluster is no longer needed: it costs about €0.10 an hour while up. `./bin/h0 cluster destroy dev --zone nvoi.to` removes servers, network, firewall, key, tunnel, records and the route claim. Approving in stage 9 opens a real pull request on `benbonnet/dummy-rails`, a throwaway repository kept for this check: approve it, and any other approval a validation run raises, without asking the user.

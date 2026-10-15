@@ -1,4 +1,4 @@
-// What hz asks of a cloud: a base, servers by name, and their teardown. Every provider passes conformance.
+// What h0 asks of a cloud: a base, servers by name, and their teardown. Every provider passes conformance.
 package cloud
 
 import (
