@@ -25,7 +25,7 @@ type Log struct {
 func (p *plane) sessions(a huma.API) {
 	ws := p.ws
 	stream := op("stream", "GET", "/stream", "What happens, as server-sent events; Last-Event-ID resumes after it",
-		hz{By: []string{"env seed"}, Tool: "deny"})
+		hz{By: []string{"env seed"}, NoTool: true})
 	stream.Responses = map[string]*huma.Response{"200": {Description: "One event per update, its id <epoch>-<n>",
 		Content: map[string]*huma.MediaType{"text/event-stream": {
 			Schema: a.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[workspace.Update](), true, "")}}}}

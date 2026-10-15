@@ -20,7 +20,9 @@ type hz struct {
 	Columns []string `json:"columns,omitempty"`
 	Field   string   `json:"field,omitempty"`
 	By      []string `json:"by,omitempty"`
-	Tool    string   `json:"tool,omitempty"`
+	Tool    string   `json:"tool,omitempty"` // the level "default" grants it at: auto or approval
+	// Never an agent's tool: no agent can be granted it.
+	NoTool bool `json:"noTool,omitempty"`
 }
 
 // An operation; its id is the hz command, split on dots.

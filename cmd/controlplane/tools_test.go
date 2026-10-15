@@ -13,33 +13,33 @@ import (
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
-// Every operation is a tool, with its default level.
+// Every operation an agent could hold is a tool, with the level default grants it at; the others are none.
 func TestToolsFromOperations(t *testing.T) {
 	p, _ := handler(t)
 	tools := map[string]workspace.Tool{}
 	for _, tl := range p.tools.List() {
 		tools[tl.Name] = tl
 	}
-	n := 0
 	for _, item := range (&plane{}).API(http.NewServeMux()).OpenAPI().Paths {
 		for _, op := range []*huma.Operation{item.Get, item.Post, item.Put, item.Patch, item.Delete} {
 			if op == nil {
 				continue
 			}
-			n++
-			if _, ok := tools[toolName(op.OperationID)]; !ok {
-				t.Errorf("%s is no tool", op.OperationID)
+			if _, ok := tools[toolName(op.OperationID)]; ok != isTool(op) {
+				t.Errorf("%s: a tool %v, should be %v", op.OperationID, ok, isTool(op))
 			}
 		}
 	}
-	if len(tools) != n {
-		t.Fatalf("%d tools for %d operations", len(tools), n)
-	}
 	for name, want := range map[string]string{"env_ls": "auto", "env_put": "approval", "session_title": "auto",
-		"session_navigate": "auto", "session_push": "approval", "session_pr": "approval", "approval_approve": "deny",
-		"agent_tool_set": "deny", "agent_put": "deny", "stream": "deny", "invite": "deny"} {
+		"session_navigate": "auto", "session_push": "approval", "session_pr": "approval"} {
 		if got := tools[name].Default; got != want {
 			t.Errorf("%s: %s, want %s", name, got, want)
+		}
+	}
+	for _, name := range []string{"approval_approve", "approval_deny", "agent_put", "agent_tool_set", "agent_tool_rm",
+		"stream", "invite"} {
+		if _, ok := tools[name]; ok {
+			t.Errorf("%s is a tool", name)
 		}
 	}
 	schema := func(name string) (map[string]any, []string) {

@@ -429,14 +429,11 @@ components:
       properties:
         level:
           type: string
-        rule:
-          type: boolean
         tool:
           type: string
       required:
         - tool
         - level
-        - rule
       type: object
     Host:
       additionalProperties: false
@@ -516,7 +513,6 @@ components:
           enum:
             - auto
             - approval
-            - deny
           type: string
       required:
         - level
@@ -1293,12 +1289,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
-      summary: "The agent's level for every tool: its rule, or the tool's default"
+      summary: The agent and the tools it is granted
       x-hz:
         columns:
           - tool
           - level
-          - rule
         field: tools
         output: table
     put:
@@ -1330,15 +1325,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
-      summary: "Declare the agent: its description, model, instructions and rules, which replace those it has"
+      summary: "Declare the agent: its description, model, instructions and tools, which replace those it has"
       x-hz:
         columns:
           - tool
           - level
-          - rule
         field: tools
+        noTool: true
         output: table
-        tool: deny
   /agents/{name}/tools/{tool}:
     delete:
       operationId: agent.tool.rm
@@ -1370,15 +1364,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
-      summary: "Drop the agent's rule for a tool: its default applies"
+      summary: Take a tool from the agent
       x-hz:
         columns:
           - tool
           - level
-          - rule
         field: tools
+        noTool: true
         output: table
-        tool: deny
     put:
       operationId: agent.tool.set
       parameters:
@@ -1415,15 +1408,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
-      summary: Set the agent's level for a tool
+      summary: Grant the agent a tool, or change the level it has it at
       x-hz:
         columns:
           - tool
           - level
-          - rule
         field: tools
+        noTool: true
         output: table
-        tool: deny
   /approvals:
     get:
       operationId: approval.ls
@@ -1519,7 +1511,7 @@ paths:
       x-hz:
         by:
           - approval approve
-        tool: deny
+        noTool: true
   /approvals/{id}/deny:
     post:
       operationId: approval.deny
@@ -1548,7 +1540,7 @@ paths:
       x-hz:
         by:
           - approval deny
-        tool: deny
+        noTool: true
   /browsers:
     delete:
       operationId: logout.all
@@ -2992,7 +2984,7 @@ paths:
       x-hz:
         by:
           - env seed
-        tool: deny
+        noTool: true
   /usage:
     get:
       operationId: usage

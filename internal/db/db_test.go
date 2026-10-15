@@ -119,7 +119,7 @@ func TestMigrate(t *testing.T) {
 	}
 	var ran []string
 	must(t, db.Raw("SELECT id FROM migrations").Scan(&ran).Error)
-	if !reflect.DeepEqual(ran, []string{"0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010"}) {
+	if !reflect.DeepEqual(ran, []string{"0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010", "0011"}) {
 		t.Fatalf("migrations recorded: %v", ran)
 	}
 

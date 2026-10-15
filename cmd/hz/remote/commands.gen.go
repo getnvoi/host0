@@ -25,10 +25,10 @@ var operations = []operation{
 	},
 	{
 		ID:          "agent.put",
-		Short:       "Declare the agent: its description, model, instructions and rules, which replace those it has",
+		Short:       "Declare the agent: its description, model, instructions and tools, which replace those it has",
 		Method:      "PUT",
 		Route:       "/agents/{name}",
-		HZ:          hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
+		HZ:          hz{Output: "table", Columns: []string{"tool", "level"}, Field: "tools"},
 		Args:        []string{"name"},
 		ContentType: "application/json",
 		Body:        []param{{Name: "description", Kind: "string", Help: ""}, {Name: "instructions", Kind: "string", Help: ""}, {Name: "model", Kind: "string", Help: ""}, {Name: "tools", Kind: "map", Help: ""}},
@@ -38,10 +38,10 @@ var operations = []operation{
 	},
 	{
 		ID:     "agent.show",
-		Short:  "The agent's level for every tool: its rule, or the tool's default",
+		Short:  "The agent and the tools it is granted",
 		Method: "GET",
 		Route:  "/agents/{name}",
-		HZ:     hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
+		HZ:     hz{Output: "table", Columns: []string{"tool", "level"}, Field: "tools"},
 		Args:   []string{"name"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.AgentShow(ctx, args[0], edit)
@@ -49,10 +49,10 @@ var operations = []operation{
 	},
 	{
 		ID:     "agent.tool.rm",
-		Short:  "Drop the agent's rule for a tool: its default applies",
+		Short:  "Take a tool from the agent",
 		Method: "DELETE",
 		Route:  "/agents/{name}/tools/{tool}",
-		HZ:     hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
+		HZ:     hz{Output: "table", Columns: []string{"tool", "level"}, Field: "tools"},
 		Args:   []string{"name", "tool"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.AgentToolRm(ctx, args[0], args[1], edit)
@@ -60,10 +60,10 @@ var operations = []operation{
 	},
 	{
 		ID:          "agent.tool.set",
-		Short:       "Set the agent's level for a tool",
+		Short:       "Grant the agent a tool, or change the level it has it at",
 		Method:      "PUT",
 		Route:       "/agents/{name}/tools/{tool}",
-		HZ:          hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
+		HZ:          hz{Output: "table", Columns: []string{"tool", "level"}, Field: "tools"},
 		Args:        []string{"name", "tool"},
 		ContentType: "application/json",
 		Body:        []param{{Name: "level", Kind: "string", Help: ""}},

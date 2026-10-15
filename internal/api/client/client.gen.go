@@ -23,7 +23,6 @@ import (
 const (
 	LevelLevelApproval LevelLevel = "approval"
 	LevelLevelAuto     LevelLevel = "auto"
-	LevelLevelDeny     LevelLevel = "deny"
 )
 
 // Valid indicates whether the value is a known member of the LevelLevel enum.
@@ -32,8 +31,6 @@ func (e LevelLevel) Valid() bool {
 	case LevelLevelApproval:
 		return true
 	case LevelLevelAuto:
-		return true
-	case LevelLevelDeny:
 		return true
 	default:
 		return false
@@ -226,7 +223,6 @@ type FileChange struct {
 // Grant defines model for Grant.
 type Grant struct {
 	Level string `json:"level"`
-	Rule  bool   `json:"rule"`
 	Tool  string `json:"tool"`
 }
 
@@ -741,38 +737,38 @@ type ClientInterface interface {
 	// Corresponds with GET /agents (the `AgentLs` operationId).
 	AgentLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AgentShow The agent's level for every tool: its rule, or the tool's default
+	// AgentShow The agent and the tools it is granted
 	//
 	// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
 	AgentShow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AgentPutWithBody Declare the agent: its description, model, instructions and rules, which replace those it has
+	// AgentPutWithBody Declare the agent: its description, model, instructions and tools, which replace those it has
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
 	AgentPutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AgentPut Declare the agent: its description, model, instructions and rules, which replace those it has
+	// AgentPut Declare the agent: its description, model, instructions and tools, which replace those it has
 	//
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
 	AgentPut(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AgentToolRm Drop the agent's rule for a tool: its default applies
+	// AgentToolRm Take a tool from the agent
 	//
 	// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
 	AgentToolRm(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AgentToolSetWithBody Set the agent's level for a tool
+	// AgentToolSetWithBody Grant the agent a tool, or change the level it has it at
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
 	AgentToolSetWithBody(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AgentToolSet Set the agent's level for a tool
+	// AgentToolSet Grant the agent a tool, or change the level it has it at
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -1191,7 +1187,7 @@ func (c *Client) AgentLs(ctx context.Context, reqEditors ...RequestEditorFn) (*h
 	return c.Client.Do(req)
 }
 
-// AgentShow The agent's level for every tool: its rule, or the tool's default
+// AgentShow The agent and the tools it is granted
 //
 // Corresponds with GET /agents/{name} (the `AgentShow` operationId).
 func (c *Client) AgentShow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1206,7 +1202,7 @@ func (c *Client) AgentShow(ctx context.Context, name string, reqEditors ...Reque
 	return c.Client.Do(req)
 }
 
-// AgentPutWithBody Declare the agent: its description, model, instructions and rules, which replace those it has
+// AgentPutWithBody Declare the agent: its description, model, instructions and tools, which replace those it has
 //
 // Takes any type of body and a specified content type.
 //
@@ -1223,7 +1219,7 @@ func (c *Client) AgentPutWithBody(ctx context.Context, name string, contentType 
 	return c.Client.Do(req)
 }
 
-// AgentPut Declare the agent: its description, model, instructions and rules, which replace those it has
+// AgentPut Declare the agent: its description, model, instructions and tools, which replace those it has
 //
 // Takes a body of the `application/json` content type.
 //
@@ -1240,7 +1236,7 @@ func (c *Client) AgentPut(ctx context.Context, name string, body AgentPutJSONReq
 	return c.Client.Do(req)
 }
 
-// AgentToolRm Drop the agent's rule for a tool: its default applies
+// AgentToolRm Take a tool from the agent
 //
 // Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
 func (c *Client) AgentToolRm(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1255,7 +1251,7 @@ func (c *Client) AgentToolRm(ctx context.Context, name string, tool string, reqE
 	return c.Client.Do(req)
 }
 
-// AgentToolSetWithBody Set the agent's level for a tool
+// AgentToolSetWithBody Grant the agent a tool, or change the level it has it at
 //
 // Takes any type of body and a specified content type.
 //
@@ -1272,7 +1268,7 @@ func (c *Client) AgentToolSetWithBody(ctx context.Context, name string, tool str
 	return c.Client.Do(req)
 }
 
-// AgentToolSet Set the agent's level for a tool
+// AgentToolSet Grant the agent a tool, or change the level it has it at
 //
 // Takes a body of the `application/json` content type.
 //
@@ -4753,42 +4749,42 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /agents (the `AgentLs` operationId).
 	AgentLsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AgentLsResponse, error)
 
-	// AgentShowWithResponse The agent's level for every tool: its rule, or the tool's default
+	// AgentShowWithResponse The agent and the tools it is granted
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
 	AgentShowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentShowResponse, error)
 
-	// AgentPutWithBodyWithResponse Declare the agent: its description, model, instructions and rules, which replace those it has
+	// AgentPutWithBodyWithResponse Declare the agent: its description, model, instructions and tools, which replace those it has
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
 	AgentPutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentPutResponse, error)
 
-	// AgentPutWithResponse Declare the agent: its description, model, instructions and rules, which replace those it has
+	// AgentPutWithResponse Declare the agent: its description, model, instructions and tools, which replace those it has
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
 	AgentPutWithResponse(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentPutResponse, error)
 
-	// AgentToolRmWithResponse Drop the agent's rule for a tool: its default applies
+	// AgentToolRmWithResponse Take a tool from the agent
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
 	AgentToolRmWithResponse(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*AgentToolRmResponse, error)
 
-	// AgentToolSetWithBodyWithResponse Set the agent's level for a tool
+	// AgentToolSetWithBodyWithResponse Grant the agent a tool, or change the level it has it at
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
 	AgentToolSetWithBodyWithResponse(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error)
 
-	// AgentToolSetWithResponse Set the agent's level for a tool
+	// AgentToolSetWithResponse Grant the agent a tool, or change the level it has it at
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -7999,7 +7995,7 @@ func (c *ClientWithResponses) AgentLsWithResponse(ctx context.Context, reqEditor
 	return ParseAgentLsResponse(rsp)
 }
 
-// AgentShowWithResponse The agent's level for every tool: its rule, or the tool's default
+// AgentShowWithResponse The agent and the tools it is granted
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -8012,7 +8008,7 @@ func (c *ClientWithResponses) AgentShowWithResponse(ctx context.Context, name st
 	return ParseAgentShowResponse(rsp)
 }
 
-// AgentPutWithBodyWithResponse Declare the agent: its description, model, instructions and rules, which replace those it has
+// AgentPutWithBodyWithResponse Declare the agent: its description, model, instructions and tools, which replace those it has
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -8025,7 +8021,7 @@ func (c *ClientWithResponses) AgentPutWithBodyWithResponse(ctx context.Context, 
 	return ParseAgentPutResponse(rsp)
 }
 
-// AgentPutWithResponse Declare the agent: its description, model, instructions and rules, which replace those it has
+// AgentPutWithResponse Declare the agent: its description, model, instructions and tools, which replace those it has
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -8038,7 +8034,7 @@ func (c *ClientWithResponses) AgentPutWithResponse(ctx context.Context, name str
 	return ParseAgentPutResponse(rsp)
 }
 
-// AgentToolRmWithResponse Drop the agent's rule for a tool: its default applies
+// AgentToolRmWithResponse Take a tool from the agent
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -8051,7 +8047,7 @@ func (c *ClientWithResponses) AgentToolRmWithResponse(ctx context.Context, name 
 	return ParseAgentToolRmResponse(rsp)
 }
 
-// AgentToolSetWithBodyWithResponse Set the agent's level for a tool
+// AgentToolSetWithBodyWithResponse Grant the agent a tool, or change the level it has it at
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -8064,7 +8060,7 @@ func (c *ClientWithResponses) AgentToolSetWithBodyWithResponse(ctx context.Conte
 	return ParseAgentToolSetResponse(rsp)
 }
 
-// AgentToolSetWithResponse Set the agent's level for a tool
+// AgentToolSetWithResponse Grant the agent a tool, or change the level it has it at
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

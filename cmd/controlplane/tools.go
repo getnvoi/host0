@@ -50,7 +50,7 @@ func (t *toolbox) load(a huma.API, mux http.Handler) {
 	for path, item := range o.Paths {
 		for method, op := range map[string]*huma.Operation{"GET": item.Get, "POST": item.Post, "PUT": item.Put,
 			"PATCH": item.Patch, "DELETE": item.Delete} {
-			if op == nil {
+			if op == nil || !isTool(op) {
 				continue
 			}
 			name := toolName(op.OperationID)
@@ -126,12 +126,18 @@ func bodies(op *huma.Operation) map[string]*huma.MediaType {
 	return out
 }
 
-// An operation's level for an agent with no rule: its x-hz tool, else auto for a read and approval for a write. One
-// only the CLI's token reaches is denied: an agent never holds that token.
-func level(method string, op *huma.Operation) string {
+// Whether the operation is a tool at all: not one only the CLI's token reaches, which an agent never holds, and not
+// one marked as never an agent's.
+func isTool(op *huma.Operation) bool {
 	if len(op.Security) == 1 && op.Security[0]["bearer"] != nil {
-		return "deny"
+		return false
 	}
+	x, _ := op.Extensions["x-hz"].(hz)
+	return !x.NoTool
+}
+
+// The level "default" grants the operation at: its x-hz tool, else auto for a read and approval for a write.
+func level(method string, op *huma.Operation) string {
 	if x, ok := op.Extensions["x-hz"].(hz); ok && x.Tool != "" {
 		return x.Tool
 	}

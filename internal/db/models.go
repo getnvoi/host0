@@ -35,7 +35,7 @@ type ToolPolicy struct {
 	ID      uint
 	AgentID uint   `gorm:"not null;uniqueIndex:idx_tool_policies_agent_tool"`
 	Tool    string `gorm:"not null;uniqueIndex:idx_tool_policies_agent_tool"`
-	Level   string `gorm:"not null"` // auto, approval or deny
+	Level   string `gorm:"not null"` // auto or approval; a tool with no row does not exist for the agent
 }
 
 type LLMConfig struct {

@@ -9,7 +9,8 @@ import (
 	"github.com/getnvoi/host0/internal/llm"
 )
 
-func TestRules(t *testing.T) {
+// An agent has the tools it is granted and no other.
+func TestGrants(t *testing.T) {
 	p := newWorkspace(t, nil)
 	level := func(tool string) string {
 		t.Helper()
@@ -19,35 +20,27 @@ func TestRules(t *testing.T) {
 		}
 		return l
 	}
-	if level("session_title") != "auto" || level("session_push") != "approval" || level("rm_rf") != "deny" {
-		t.Fatal("defaults")
+	if level("session_title") != "" || level("rm_rf") != "" {
+		t.Fatal("a tool nobody granted")
 	}
-	a, err := p.SetRule(agentName, "session_push", "deny")
-	if err != nil || level("session_push") != "deny" {
-		t.Fatalf("set: %v", err)
-	}
-	if g := grant(a, "session_push"); !g.Rule || g.Level != "deny" {
-		t.Fatalf("grant %+v", g)
+	a, err := p.Grant(agentName, "session_push", "auto")
+	if err != nil || level("session_push") != "auto" || len(a.Tools) != 1 || grant(a, "session_push").Level != "auto" {
+		t.Fatalf("grant %+v %v", a, err)
 	}
 	given, err := p.given(agentName)
-	if err != nil || len(given) != 3 {
+	if err != nil || len(given) != 1 || given[0]["name"] != "session_push" {
 		t.Fatalf("given %v %v", given, err)
 	}
-	for _, g := range given {
-		if g["name"] == "session_push" {
-			t.Fatal("a denied tool is given")
-		}
+	if a, err = p.Revoke(agentName, "session_push"); err != nil || level("session_push") != "" || len(a.Tools) != 0 {
+		t.Fatalf("revoke %+v %v", a, err)
 	}
-	if a, err = p.DropRule(agentName, "session_push"); err != nil || level("session_push") != "approval" || grant(a, "session_push").Rule {
-		t.Fatalf("drop: %v", err)
+	if _, err := p.Grant(agentName, "session_push", "deny"); !errors.As(err, new(Invalid)) {
+		t.Fatalf("deny is no level: %v", err)
 	}
-	if _, err := p.SetRule(agentName, "session_push", "maybe"); !errors.As(err, new(Invalid)) {
-		t.Fatalf("bad level: %v", err)
-	}
-	if _, err := p.SetRule(agentName, "rm_rf", "auto"); !errors.As(err, new(NotFound)) {
+	if _, err := p.Grant(agentName, "rm_rf", "auto"); !errors.As(err, new(NotFound)) {
 		t.Fatalf("no tool: %v", err)
 	}
-	if _, err := p.SetRule("other", "session_push", "auto"); !errors.As(err, new(NotFound)) {
+	if _, err := p.Grant("other", "session_push", "auto"); !errors.As(err, new(NotFound)) {
 		t.Fatalf("no agent: %v", err)
 	}
 }
@@ -61,10 +54,10 @@ func grant(a Agent, tool string) Grant {
 	return Grant{}
 }
 
-// A turn's calls go by its agent's levels: auto at once, approval parked, deny refused.
+// A turn's calls go by its agent's grants: auto at once, approval parked, a tool it lacks unknown.
 func TestTurnFollowsLevels(t *testing.T) {
 	p, fb := withBoxd(t)
-	if _, err := p.SetRule(agentName, "session_push", "deny"); err != nil {
+	if _, err := p.PutAgent(agentName, AgentInput{Tools: map[string]string{"session_title": "auto", "session_pr": "approval"}}); err != nil {
 		t.Fatal(err)
 	}
 	use := func(id, name string) string {
@@ -83,7 +76,7 @@ func TestTurnFollowsLevels(t *testing.T) {
 			break
 		}
 	}
-	want := []string{"session_title: done", "session_push: refused by policy", "rm_rf: refused by policy"}
+	want := []string{"session_title: done", "session_push: no such tool", "rm_rf: no such tool"}
 	if s.State != "awaiting_approval" || len(s.Outcomes) != 3 || s.Outcomes[0] != want[0] || s.Outcomes[1] != want[1] ||
 		s.Outcomes[2] != want[2] {
 		t.Fatalf("%s %q", s.State, s.Outcomes)
@@ -94,8 +87,7 @@ func TestTurnFollowsLevels(t *testing.T) {
 	}
 }
 
-// "*" covers every tool and a tool named beside it overrides it; a list alone allows only itself; declaring again is a
-// no-op.
+// "*" grants every tool and a tool named beside it overrides it; declaring the same agent again changes nothing.
 func TestPutAgent(t *testing.T) {
 	p := newWorkspace(t, nil)
 	in := AgentInput{Description: "all", Model: "opus", Instructions: "Be brief.",
@@ -105,27 +97,32 @@ func TestPutAgent(t *testing.T) {
 		t.Fatal(err)
 	}
 	if a.Model != "opus" || grant(a, "session_push").Level != "auto" || grant(a, "session_pr").Level != "approval" ||
-		!grant(a, "session_title").Rule {
+		grant(a, "session_title").Level != "auto" {
 		t.Fatalf("put %+v", a)
 	}
 	again, err := p.PutAgent("ops", in)
 	if err != nil || !reflect.DeepEqual(a, again) {
 		t.Fatalf("again %+v %v", again, err)
 	}
-	// Rules the file no longer names go: the tool's default applies.
+	// Tools the file no longer grants go.
 	a, err = p.PutAgent("ops", AgentInput{Description: "none"})
-	if err != nil || grant(a, "session_push").Level != "approval" || grant(a, "session_push").Rule {
+	if err != nil || len(a.Tools) != 0 {
 		t.Fatalf("emptied %+v %v", a, err)
 	}
-	// A list without "*" allows only what it names.
+	// A list grants only what it names; default is each tool's own level.
 	a, err = p.PutAgent("ops", AgentInput{Tools: map[string]string{"session_title": "auto"}})
-	if err != nil || grant(a, "session_title").Level != "auto" || grant(a, "session_push").Level != "deny" {
+	if err != nil || len(a.Tools) != 1 || grant(a, "session_title").Level != "auto" {
 		t.Fatalf("listed %+v %v", a, err)
+	}
+	a, err = p.PutAgent("ops", AgentInput{Tools: map[string]string{"*": "default"}})
+	if err != nil || grant(a, "session_title").Level != "auto" || grant(a, "session_push").Level != "approval" {
+		t.Fatalf("defaults %+v %v", a, err)
 	}
 	for _, bad := range []struct {
 		name string
 		in   AgentInput
 	}{{"Ops", AgentInput{}}, {"ops", AgentInput{Tools: map[string]string{"*": "maybe"}}},
+		{"ops", AgentInput{Tools: map[string]string{"session_push": "deny"}}},
 		{"ops", AgentInput{Tools: map[string]string{"rm_rf": "auto"}}}} {
 		if _, err := p.PutAgent(bad.name, bad.in); !errors.As(err, new(Invalid)) {
 			t.Errorf("%s %+v: %v", bad.name, bad.in, err)
