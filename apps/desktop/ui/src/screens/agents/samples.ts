@@ -7,7 +7,7 @@ import {
 const devInstructions =
   "You work inside a checkout of the repository, your working directory. On your first turn, call set_title with a short name for the task. " +
   "When you change what a page looks like, call create_screenshot on it so the user sees it. Anything that touches GitHub (push, pull request) " +
-  "goes through the hz tools: you have no credentials. An hz tool answering 'Queued' is normal: end your turn right after. Answer briefly.";
+  "goes through the h0 tools: you have no credentials. An h0 tool answering 'Queued' is normal: end your turn right after. Answer briefly.";
 
 const defaults: Record<string, string> = {
   set_title: "auto",
@@ -239,7 +239,7 @@ const runs: RunModel[] = [
 
 const startingRun: RunModel = { id: "r0", title: "Nightly", status: "running", branch: "dummy-rails-9d02aa", worktreeState: "starting", createdAt: "Wed 1 Oct, 09:00" };
 
-const token: TaskToken = { token: "nvt_4mW8qPz2Xc9LhT6yRb1NvK3sJd7Fa5Ge", hookUrl: "https://hz.example.com/hooks/tasks/01a0ec3b-e954-7b6d-bdf9-8374b1be4e00" };
+const token: TaskToken = { token: "nvt_4mW8qPz2Xc9LhT6yRb1NvK3sJd7Fa5Ge", hookUrl: "https://h0.example.com/hooks/tasks/01a0ec3b-e954-7b6d-bdf9-8374b1be4e00" };
 
 const credentials = [
   credentialModel({ id: "c1", provider: "claude_code", label: "Work", model: "sonnet", settings: { kind: "oauth", model: "sonnet" }, main: true, createdAt: "2026-01-01T00:00:00Z" }),

@@ -41,7 +41,7 @@ const tabs: TabInfo[] = [
   { title: "northwind.example.com", glyph: "globe" },
 ];
 
-const badges: ComposerBadges = { agent: "Claude Code", repos: ["dummy-rails"], branch: "hz/health-endpoint", machine: { word: "Running", tone: "green" } };
+const badges: ComposerBadges = { agent: "Claude Code", repos: ["dummy-rails"], branch: "h0/health-endpoint", machine: { word: "Running", tone: "green" } };
 
 const people: Person[] = [{ initials: "TW", fill: slate }, { initials: "BB" }, { initials: "MA", fill: olive }];
 
@@ -72,7 +72,7 @@ const parts: Part[] = [
     summary: "Pushed the branch, asked to open a pull request",
     time: "3s",
     actions: [
-      { tool: "push", target: "hz/health-endpoint", outcome: { kind: "decision", word: "Pushed", tone: "green", by: "auto" } },
+      { tool: "push", target: "h0/health-endpoint", outcome: { kind: "decision", word: "Pushed", tone: "green", by: "auto" } },
       { tool: "pr", target: "Add /health endpoint", outcome: { kind: "decision", word: "Waiting", tone: "yellow" }, state: "waiting" },
     ],
   },
@@ -87,7 +87,7 @@ const conversation: ConversationModel = {
   workspace: "Northwind",
   initials: "BB",
   title: "Health endpoint",
-  branch: "hz/health-endpoint",
+  branch: "h0/health-endpoint",
   state: ["Needs your approval", "yellow"],
   changes: 4,
   parts,
@@ -141,7 +141,7 @@ const environments: EnvironmentModel[] = [
     shape: "4x8",
     disk: 40,
     previewPort: 3000,
-    manifest: "hz.yml",
+    manifest: "h0.yml",
     database: { engine: "postgres", version: "16" },
     vars: [{ key: "RAILS_ENV", value: "staging" }, { key: "RAILS_MASTER_KEY", secret: true }, { key: "SENTRY_DSN", secret: true }],
     commands: [
@@ -158,7 +158,7 @@ const environments: EnvironmentModel[] = [
     shape: "4x8",
     disk: 30,
     previewPort: 3000,
-    manifest: "hz.yml",
+    manifest: "h0.yml",
     database: { engine: "postgres", version: "17" },
     vars: [{ key: "DATABASE_URL", secret: true }],
     commands: [
@@ -174,7 +174,7 @@ const environments: EnvironmentModel[] = [
     shape: "2x4",
     disk: 20,
     previewPort: 3000,
-    manifest: "hz.yml",
+    manifest: "h0.yml",
     vars: [],
     commands: [{ kind: "preview", name: "web", command: "bin/dev", port: 3000 }],
   },

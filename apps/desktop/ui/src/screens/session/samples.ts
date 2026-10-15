@@ -76,7 +76,7 @@ const served: Record<string, [string, string?]> = {
   provision__checkout: ["Setting up your checkout", "name"], provision__setup: ["Running setup", "name"],
 };
 function named(tool: string | null | undefined, input: string): Pick<EventRecord, "label" | "command"> {
-  const [label, key] = served[(tool ?? "").replace("mcp__hz__", "")] ?? [tool ?? ""];
+  const [label, key] = served[(tool ?? "").replace("mcp__h0__", "")] ?? [tool ?? ""];
   const value = key ? (JSON.parse(input || "{}") as Record<string, unknown>)[key] : undefined;
   return { label, command: value === undefined ? "" : String(value) };
 }
@@ -89,7 +89,7 @@ const said = (content: string, time: string): EventRecord => ({ id: id(), kind: 
 const status = (time: string): EventRecord => ({ id: id(), kind: "status", content: "init", createdAt: time });
 const turn = (t: Omit<TurnRecord, "events"> & { events?: EventRecord[] }): TurnRecord => ({ events: [], ...t });
 
-const mcp = "mcp__hz__";
+const mcp = "mcp__h0__";
 
 const askAccess = `{"questions":[{"question":"Who can reach /health?","header":"Access","multiSelect":false,"options":[{"label":"Public","description":"Load balancers probe it without a token"},{"label":"Signed in","description":"Only members"}]}]}`;
 const askRetries = `{"questions":[{"question":"How many times should a failed webhook be retried?","header":"Retries","multiSelect":false,"options":[{"label":"3 times","description":"Over about ten minutes"},{"label":"8 times","description":"Over a day, as Stripe does"}]}]}`;
@@ -321,7 +321,7 @@ const browsed = detail({ ...health, title: "Members page spacing", status: "idle
 const sub = (kind: string, content: string, time: string, o: Partial<EventRecord>): EventRecord =>
   ({ id: id(), kind, content, createdAt: time, ...(kind === "tool_use" ? named(o.tool, content) : {}), ...o });
 
-// An app made in hz, its agent working through two sub-agents: the head ships instead of opening a pull request.
+// An app made in h0, its agent working through two sub-agents: the head ships instead of opening a pull request.
 const delegating = detail(
   session("app", "Translate the app", "running", "r-web", "e-web-dev", worktree("app", "r-web", "e-web-dev", "web-7e01bc", "running", { pr: { changed: 5, ship: true } }), at(10, 46)),
   repos[1],
@@ -569,7 +569,7 @@ const machine: MachineRecord = {
   processes: [
     proc(903, 902, "deploy", "npm", "npm test -- --runInBand", 96.4, 612),
     proc(701, 700, "deploy", "ruby", "bin/rails server -p 3000", 4.2, 402, "preview"),
-    proc(902, 901, "deploy", "node", "/opt/hz/node/bin/node /opt/hz/node/bin/claude -p Add a health endpoint", 22.5, 296, "turn"),
+    proc(902, 901, "deploy", "node", "/opt/h0/node/bin/node /opt/h0/node/bin/claude -p Add a health endpoint", 22.5, 296, "turn"),
     proc(4121, 1, "deploy", "node", "node scripts/watch.js --port 4000", 1.8, 188),
     proc(4200, 1, "browser", "chromium", "/mnt/data/playwright/chromium-1187/chrome-linux/chrome --headless", 0.6, 142),
     proc(4300, 1, "postgres", "postgres", "postgres: 16/main: checkpointer", 0.1, 64),

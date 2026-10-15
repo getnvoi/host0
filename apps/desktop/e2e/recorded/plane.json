@@ -67,7 +67,7 @@
     "name": "shop",
     "repo": "northwind/shop",
     "branch": "main",
-    "image": "ghcr.io/getnvoi/hz-ruby:3.3",
+    "image": "ghcr.io/getnvoi/h0-ruby:3.3",
     "env": { "RAILS_ENV": "development" },
     "setup": ["bundle install", "bin/rails db:prepare"],
     "services": [{ "name": "web", "command": "bin/rails server -b 0.0.0.0 -p 3000", "port": 3000 }],
@@ -85,7 +85,7 @@
   "session": {
     "id": "k7f2qa",
     "env": "shop",
-    "branch": "hz/k7f2qa",
+    "branch": "h0/k7f2qa",
     "preview": "k7f2qa.northwind.example.com",
     "state": "awaiting_approval",
     "title": "Health endpoint",
@@ -101,8 +101,8 @@
       { "kind": "message", "content": "The endpoint is written. I want to push the branch so you can open a pull request.", "at": "2026-10-15T09:12:00Z" }
     ]
   },
-  "approval": { "id": "ap1", "session": "k7f2qa", "tool": "git_push", "input": "git push origin hz/k7f2qa", "state": "pending" },
-  "streamed": { "kind": "message", "content": "Pushed hz/k7f2qa. The pull request can be opened from GitHub.", "at": "2026-10-15T09:13:00Z" },
+  "approval": { "id": "ap1", "session": "k7f2qa", "tool": "git_push", "input": "git push origin h0/k7f2qa", "state": "pending" },
+  "streamed": { "kind": "message", "content": "Pushed h0/k7f2qa. The pull request can be opened from GitHub.", "at": "2026-10-15T09:13:00Z" },
   "opened": { "kind": "prompt", "content": "Outcome of the actions you asked for:\ncreate_pull_request: opened https://github.com/northwind/shop/pull/7", "at": "2026-10-15T09:14:00Z" },
   "changes": {
     "base": "main",

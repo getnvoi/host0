@@ -1,7 +1,7 @@
 // The sessions list, or the board, on the plane. A row swaps the tab for its session; a session started here opens
 // in a tab of its own.
 import { useState } from "react";
-import { load, NewSessionDialog, paths, SessionsScreen, setup, type Load, type SessionRecord, type SetupRecord } from "@hz/ui";
+import { load, NewSessionDialog, paths, SessionsScreen, setup, type Load, type SessionRecord, type SetupRecord } from "@h0/ui";
 import { workspace } from "../../api/client";
 import { stale, useApi, useWrite } from "../../api/live";
 import type { EnvironmentSummary, LlmConfig, Provider, Session, Summary } from "../../api/models";

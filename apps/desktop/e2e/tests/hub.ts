@@ -14,6 +14,6 @@ export async function writes(request: APIRequestContext): Promise<{ method: stri
 export async function signedIn(page: Page) {
   await page.addInitScript((host) => {
     localStorage.setItem(`e2e.keychain ${host}`, "e2e-device-token");
-    localStorage.setItem("hz.workspace", "northwind");
+    localStorage.setItem("h0.workspace", "northwind");
   }, new URL(hub).host);
 }

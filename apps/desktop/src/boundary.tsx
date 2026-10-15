@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from "react";
-import { ErrorState } from "@hz/ui";
+import { ErrorState } from "@h0/ui";
 
 // A page that throws while it renders shows its error here; the shell and the other tabs keep working.
 export class PageBoundary extends Component<{ children: ReactNode; path?: string }, { error: Error | null }> {

@@ -1481,7 +1481,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "hz"
+name = "h0"
 version = "0.1.0"
 dependencies = [
  "keyring",

@@ -7,18 +7,18 @@ test("onboarding from sign-in to the first session", async ({ page, request }) =
   await scenario(request, "fresh");
   await page.goto("/");
 
-  // 1. Sign in: the app opens the hub's GitHub page; the browser's leg ends on hz://auth, which the app follows.
+  // 1. Sign in: the app opens the hub's GitHub page; the browser's leg ends on h0://auth, which the app follows.
   await expect(page.getByRole("button", { name: "Continue with GitHub" }).locator("svg.lucide-github")).toBeVisible();
   await page.getByRole("button", { name: "Continue with GitHub" }).click();
   await expect(page.getByText("Waiting for GitHub…")).toBeVisible();
-  const opened = await page.waitForFunction(() => (window as unknown as { hzOpened?: string[] }).hzOpened?.[0]);
+  const opened = await page.waitForFunction(() => (window as unknown as { h0Opened?: string[] }).h0Opened?.[0]);
   const authorize = String(await opened.jsonValue());
   expect(authorize).toContain(`${hub}/v1/auth/github?challenge=`);
   const back = await request.get(authorize, { maxRedirects: 0 });
   expect(back.status()).toBe(302);
   const link = back.headers()["location"];
-  expect(link).toMatch(/^hz:\/\/auth\?code=/);
-  await page.evaluate((url) => (window as unknown as { hzDeepLink: (u: string) => void }).hzDeepLink(url), link);
+  expect(link).toMatch(/^h0:\/\/auth\?code=/);
+  await page.evaluate((url) => (window as unknown as { h0DeepLink: (u: string) => void }).h0DeepLink(url), link);
 
   // 2. A workspace: name, plan, location, the starting credit shown.
   await expect(page.getByText("€20.00 of credit to start")).toBeVisible();
@@ -26,7 +26,7 @@ test("onboarding from sign-in to the first session", async ({ page, request }) =
   await page.getByRole("button", { name: "Create workspace" }).click();
 
   // 3. Boot: the run's lines stream until the plane answers.
-  await expect(page.getByText("[3/12] Server hz-northwind-prod-master-1 (cx33, fsn1)")).toBeVisible();
+  await expect(page.getByText("[3/12] Server h0-northwind-prod-master-1 (cx33, fsn1)")).toBeVisible();
 
   // 4. The agents' keys: an Anthropic key saved as api_key.
   await expect(page.getByText("Bring your agents").first()).toBeVisible();
@@ -57,9 +57,9 @@ test("a Claude setup-token is saved as oauth", async ({ page, request }) => {
   await scenario(request, "fresh");
   await page.goto("/");
   await page.getByRole("button", { name: "Continue with GitHub" }).click();
-  const opened = await page.waitForFunction(() => (window as unknown as { hzOpened?: string[] }).hzOpened?.[0]);
+  const opened = await page.waitForFunction(() => (window as unknown as { h0Opened?: string[] }).h0Opened?.[0]);
   const back = await request.get(String(await opened.jsonValue()), { maxRedirects: 0 });
-  await page.evaluate((url) => (window as unknown as { hzDeepLink: (u: string) => void }).hzDeepLink(url), back.headers()["location"]);
+  await page.evaluate((url) => (window as unknown as { h0DeepLink: (u: string) => void }).h0DeepLink(url), back.headers()["location"]);
   await page.getByPlaceholder("northwind").fill("northwind");
   await page.getByRole("button", { name: "Create workspace" }).click();
   await page.getByPlaceholder("sk-ant-…").fill("sk-ant-oat01-e2e");

@@ -72,7 +72,7 @@ export async function* sse(
 // requires of a browser: no cross-site form can set it.
 export const browser: Transport = {
   base: "/api",
-  headers: () => ({ "X-Requested-With": "hz" }),
+  headers: () => ({ "X-Requested-With": "h0" }),
   stream: (path, lastEventId, signal) => sse(fetch, `/api${path}`, {}, lastEventId, signal),
   socketURL: async (path) => `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api${path}`,
   // Served as this page is: https on a cluster, http on a port for a local one.

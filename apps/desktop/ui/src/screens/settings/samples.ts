@@ -72,10 +72,10 @@ function usage(days = 30): UsageReport {
       { repo: preview.repo, cents: total(preview.id), environments: 1 },
     ],
     machines: [
-      { setup: false, branch: "hz/health-endpoint", environment: staging, session: { id: "s-health", title: "Health endpoint" }, cents: 2_184 * scale, running: 26.3 * scale },
-      { setup: false, branch: "hz/billing-webhooks", environment: webStaging, session: { id: "s-webhooks", title: "Billing webhooks" }, cents: 1_642 * scale, running: 9.9 * scale },
+      { setup: false, branch: "h0/health-endpoint", environment: staging, session: { id: "s-health", title: "Health endpoint" }, cents: 2_184 * scale, running: 26.3 * scale },
+      { setup: false, branch: "h0/billing-webhooks", environment: webStaging, session: { id: "s-webhooks", title: "Billing webhooks" }, cents: 1_642 * scale, running: 9.9 * scale },
       { setup: true, environment: webStaging, cents: 870 * scale, running: 5.2 * scale },
-      { setup: false, branch: "hz/rotate-preview-secrets", environment: production, cents: 412 * scale, running: 9.9 * scale },
+      { setup: false, branch: "h0/rotate-preview-secrets", environment: production, cents: 412 * scale, running: 9.9 * scale },
       { setup: true, environment: preview, cents: 96, running: 0.4 },
     ],
     storage: [

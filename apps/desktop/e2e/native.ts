@@ -1,6 +1,6 @@
 // src/native.ts for the e2e build, export for export: the Keychain in localStorage, the browser's fetch, and links
 // opened or followed through window hooks the tests drive.
-type Hooks = { hzOpened?: string[]; hzDeepLink?: (url: string) => void };
+type Hooks = { h0Opened?: string[]; h0DeepLink?: (url: string) => void };
 const page = window as unknown as Hooks;
 
 const key = (account: string) => `e2e.keychain ${account}`;
@@ -12,12 +12,12 @@ export const keychain = {
 };
 
 export const openURL = async (url: string) => {
-  (page.hzOpened ??= []).push(url);
+  (page.h0Opened ??= []).push(url);
 };
 
 export async function onDeepLink(fn: (url: string) => void): Promise<() => void> {
-  page.hzDeepLink = fn;
-  return () => void (page.hzDeepLink = undefined);
+  page.h0DeepLink = fn;
+  return () => void (page.h0DeepLink = undefined);
 }
 
 export const fetch: typeof globalThis.fetch = (input, init) => globalThis.fetch(input, init);

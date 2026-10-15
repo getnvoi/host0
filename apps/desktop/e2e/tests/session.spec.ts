@@ -15,7 +15,7 @@ test("a session: list, conversation, a streamed event, an approval", async ({ pa
 
   // An event the plane streams shows without a reload.
   await request.post(`${hub}/__push`);
-  await expect(page.getByText("Pushed hz/k7f2qa. The pull request can be opened from GitHub.")).toBeVisible();
+  await expect(page.getByText("Pushed h0/k7f2qa. The pull request can be opened from GitHub.")).toBeVisible();
 
   // The call waiting on a person: Allow sends the approval.
   await page.getByRole("button", { name: /^Allow/ }).first().click();
@@ -39,5 +39,5 @@ test("a session's pull request: create asks the agent, an opened one is linked",
   await request.post(`${hub}/__push`, { data: { event: "opened" } });
   await page.getByTestId("button:Pull request").click();
   await page.getByRole("menuitem", { name: /Open the pull request/ }).click();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { hzOpened?: string[] }).hzOpened ?? [])).toContain("https://github.com/northwind/shop/pull/7");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { h0Opened?: string[] }).h0Opened ?? [])).toContain("https://github.com/northwind/shop/pull/7");
 });

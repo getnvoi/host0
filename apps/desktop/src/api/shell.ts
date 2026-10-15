@@ -2,7 +2,7 @@
 // frame after a connect is the scrollback, a text frame {"type":"exit","code"} ends the shell, and a close at 4000
 // and up says why the shell cannot run. The design system's Terminal draws what this carries.
 import { useMemo } from "react";
-import type { TerminalEvent, TerminalShell, TerminalSize, TerminalState, TerminalTransport } from "@hz/ui";
+import type { TerminalEvent, TerminalShell, TerminalSize, TerminalState, TerminalTransport } from "@h0/ui";
 import { request, transport } from "./client";
 
 // Tries to reopen a dropped socket before the shell reads as failed.

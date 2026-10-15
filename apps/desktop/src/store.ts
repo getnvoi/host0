@@ -1,5 +1,5 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
-import { describe, objectTitle, place, same } from "@hz/ui";
+import { describe, objectTitle, place, same } from "@h0/ui";
 
 // A tab shows a path (a page of the app).
 export type Tab = { id: string; title: string; glyph: string; path?: string; url?: string };
@@ -20,9 +20,9 @@ type State = { tabs: Tab[]; active?: string; overlay?: Overlay; recent: Recent[]
 export const recentShown = 4;
 const recentKept = 12;
 
-const saved = "hz.tabs";
-const savedRecent = "hz.recent";
-const savedDrafts = "hz.drafts";
+const saved = "h0.tabs";
+const savedRecent = "h0.recent";
+const savedDrafts = "h0.drafts";
 
 // What a place is, whatever its view: an object's path, or a web address.
 const placeOf = (r: { path?: string; url?: string }) => (r.path ? (place(r.path) ?? r.path) : r.url);
