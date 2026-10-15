@@ -174,7 +174,7 @@ func (ws *Workspace) fork(ctx context.Context, s *Session, seed Seed) error {
 		return err
 	}
 	ctx = sandbox.WithProgress(ctx, func(line string) {
-		ws.put(s, func() { add(s, llm.Event{Kind: "notice", Content: line}) })
+		ws.put(s, func() { ws.add(s, llm.Event{Kind: "notice", Content: line}) })
 	})
 	if err := ws.Workers.Wake(ctx, s.Actor, tier); err != nil {
 		return err
@@ -191,14 +191,15 @@ func (ws *Workspace) fork(ctx context.Context, s *Session, seed Seed) error {
 	}
 	ws.put(s, func() {
 		s.State, s.Forked = "running", true
-		add(s, llm.Event{Kind: "notice", Content: fmt.Sprintf("forked in %s", time.Since(s.At).Round(100*time.Millisecond))})
+		ws.add(s, llm.Event{Kind: "notice", Content: fmt.Sprintf("forked in %s", time.Since(s.At).Round(100*time.Millisecond))})
 	})
 	return nil
 }
 
 func (ws *Workspace) fail(s *Session, err error) {
-	log.Printf("session %s: %v", s.ID, err)
-	ws.put(s, func() { s.State, s.Error = "failed", err.Error() })
+	said := ws.Mask(err.Error())
+	log.Printf("session %s: %s", s.ID, said)
+	ws.put(s, func() { s.State, s.Error = "failed", said })
 }
 
 // Runs prompt, then every prompt that follows it, until the session comes to rest.
@@ -267,7 +268,7 @@ func (ws *Workspace) take(ctx context.Context, s *Session, prompt string, again 
 		if !again {
 			s.Turns++
 			s.Mark = len(s.Events)
-			add(s, llm.Event{Kind: "prompt", Content: prompt})
+			ws.add(s, llm.Event{Kind: "prompt", Content: prompt})
 		}
 	})
 	run := box.Run{Argv: argv, Dir: App, Env: runner.Env(values)}
@@ -288,6 +289,11 @@ var linger = 10 * time.Second
 // Runs or follows the current turn, then settles its tools: auto at once, approval parked until decided. The first
 // seen events its output yields are stored already. Returns the prompt to run next.
 func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen int) string {
+	// A turn masks with the credentials held as it starts, this session's own token among them.
+	if err := ws.Remask(); err != nil {
+		ws.fail(s, err)
+		return ""
+	}
 	env, _, err := ws.env(s.Env)
 	if err != nil {
 		ws.fail(s, err)
@@ -308,8 +314,15 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen i
 	rid := fmt.Sprintf("turn-%d", s.Turns)
 	var answered sync.Once
 	var ended atomic.Bool
+	// What the agent asked of each tool; the stored events show it masked.
+	asked := map[string]string{}
 	code, err := ws.box(s.Actor).Exec(ctx, rid, run, 0, func(line string) {
 		evs := runner.Events(line)
+		for _, ev := range evs {
+			if ev.Kind == "tool_use" && ev.ToolID != "" {
+				asked[ev.ToolID] = ev.Content
+			}
+		}
 		if seen > 0 {
 			drop := min(seen, len(evs))
 			evs, seen = evs[drop:], seen-drop
@@ -319,7 +332,7 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen i
 			return
 		}
 		unlock := lock(s.ID)
-		add(s, evs...)
+		ws.add(s, evs...)
 		// The next turn resumes this conversation, so its id is saved at once.
 		fresh := id != "" && id != s.Transcript
 		if fresh {
@@ -348,12 +361,12 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen i
 		code = 0
 	}
 	if _, stopped := stops.LoadAndDelete(stopKey(s.ID, s.Turns)); stopped {
-		ws.put(s, func() { add(s, llm.Event{Kind: "stopped"}) })
+		ws.put(s, func() { ws.add(s, llm.Event{Kind: "stopped"}) })
 		return ws.drain(s)
 	}
 	if code != 0 {
 		ws.put(s, func() {
-			add(s, llm.Event{Kind: "notice", Content: fmt.Sprintf("%s exited %d", runner.Label(), code)})
+			ws.add(s, llm.Event{Kind: "notice", Content: fmt.Sprintf("%s exited %d", runner.Label(), code)})
 		})
 	}
 	var outcomes []string
@@ -368,11 +381,15 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen i
 			ws.fail(s, err)
 			return ""
 		}
+		input := ev.Content
+		if raw, ok := asked[ev.ToolID]; ok {
+			input = raw
+		}
 		switch level {
 		case "auto":
-			outcomes = append(outcomes, ws.act(s, name, ev.Content))
+			outcomes = append(outcomes, ws.act(s, name, input))
 		case "approval":
-			asks = append(asks, Approval{ID: id(), Session: s.ID, Turn: s.Turns, Tool: name, ToolID: ev.ToolID, Input: ev.Content,
+			asks = append(asks, Approval{ID: id(), Session: s.ID, Turn: s.Turns, Tool: name, ToolID: ev.ToolID, Input: input,
 				State: "pending", At: time.Now()})
 		default:
 			outcomes = append(outcomes, name+": failed: no such tool")
@@ -393,7 +410,7 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen i
 		// the tools it did call came to.
 		n, _ := retries.Load(s.ID)
 		ws.put(s, func() {
-			add(s, llm.Event{Kind: "notice", Content: fmt.Sprintf("%s could not reach its API; trying again (%d of %d).", runner.Label(), n, retryLimit)})
+			ws.add(s, llm.Event{Kind: "notice", Content: fmt.Sprintf("%s could not reach its API; trying again (%d of %d).", runner.Label(), n, retryLimit)})
 		})
 		select {
 		case <-time.After(time.Duration(n.(int)) * retryPause):
@@ -486,11 +503,14 @@ func (ws *Workspace) kick(sid string) {
 	ws.run(context.Background(), &s, prompt)
 }
 
-// Appends events stamped with the time they arrived.
-func add(s *Session, evs ...llm.Event) {
+// Appends events stamped with the time they arrived, each credential held masked.
+func (ws *Workspace) add(s *Session, evs ...llm.Event) {
 	now := time.Now()
 	for _, ev := range evs {
-		ev.At = now
+		ev.At, ev.Content = now, ws.Mask(ev.Content)
+		if len(ev.Meta) > 0 {
+			ev.Meta = json.RawMessage(ws.Mask(string(ev.Meta)))
+		}
 		s.Events = append(s.Events, ev)
 	}
 }

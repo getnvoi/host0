@@ -13,6 +13,7 @@ import (
 
 	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/llm"
+	"github.com/getnvoi/host0/internal/shared/mask"
 )
 
 // Guards the llm rows: which one is main is decided across all of them.
@@ -88,7 +89,7 @@ func (ws *Workspace) saveConfig(c LLMConfig) error {
 		return err
 	}
 	r.Name, r.Provider, r.Kind, r.Values, r.Main, r.ArchivedAt = c.Name, c.Provider, c.Values["kind"], c.Values, c.Main, c.Archived
-	return ws.DB.Save(&r).Error
+	return ws.remasked(ws.DB.Save(&r).Error)
 }
 
 // values as Check fills them, once one request with them has answered.
@@ -98,6 +99,8 @@ func (ws *Workspace) verify(ctx context.Context, provider string, values map[str
 		return nil, Invalid{err}
 	}
 	if err := r.Verify(ctx, values); err != nil {
+		// The provider may say back what it was given; those values are not held yet, so the masker does not know them.
+		err = maskWith(mask.New(secretValues(ws.Runners, provider, values)...), err)
 		if errors.As(err, new(llm.Unreachable)) {
 			return nil, err
 		}
@@ -216,7 +219,7 @@ func (ws *Workspace) RemoveConfig(name string) error {
 	if _, err := ws.config(name); err != nil {
 		return err
 	}
-	if err := ws.DB.Where("name = ?", name).Delete(&db.LLMConfig{}).Error; err != nil {
+	if err := ws.remasked(ws.DB.Where("name = ?", name).Delete(&db.LLMConfig{}).Error); err != nil {
 		return err
 	}
 	return ws.handOver()

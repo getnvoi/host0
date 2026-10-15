@@ -30,6 +30,7 @@ var migrations = []*gormigrate.Migration{
 	{ID: "0009", Migrate: migrate0009},
 	{ID: "0010", Migrate: migrate0010},
 	{ID: "0011", Migrate: migrate0011},
+	{ID: "0012", Migrate: migrate0012},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -232,6 +233,17 @@ func migrate0010(tx *gorm.DB) error {
 func migrate0011(tx *gorm.DB) error {
 	return tx.Exec("DELETE FROM tool_policies WHERE level NOT IN ('auto', 'approval')").Error
 }
+
+// An approval's input as the tool runs it, sealed, when the input shown is masked.
+func migrate0012(tx *gorm.DB) error {
+	return tx.Migrator().AddColumn(&m12Approval{}, "Call")
+}
+
+type m12Approval struct {
+	Call string `gorm:"type:text"`
+}
+
+func (m12Approval) TableName() string { return "approvals" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {

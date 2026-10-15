@@ -59,6 +59,7 @@ func (p *plane) API(mux *http.ServeMux) huma.API {
 			Description: "A browser signed in with a link, under /api on the app host; a write carries X-Requested-With: h0."},
 	}
 	cfg.Security = []map[string][]string{{"bearer": {}}, {"cookie": {}}}
+	cfg.Transformers = append(cfg.Transformers, func(_ huma.Context, _ string, v any) (any, error) { return p.masked(v), nil })
 	a := humago.New(mux, cfg)
 	a.UseMiddleware(func(ctx huma.Context, next func(huma.Context)) {
 		o := ctx.Operation()

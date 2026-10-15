@@ -36,7 +36,7 @@ type File struct {
 }
 
 // The columns that carry serializer:sealed in models.go; a test holds the two equal.
-var sealedColumns = [][2]string{{"llm_configs", "values"}, {"credentials", "value"}, {"secrets", "value"}}
+var sealedColumns = [][2]string{{"llm_configs", "values"}, {"credentials", "value"}, {"secrets", "value"}, {"approvals", "call"}}
 
 // The SQL text of every table is in the schema page, so this one marker exists once a table does.
 const schemaMarker = "CREATE TABLE"

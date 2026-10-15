@@ -190,14 +190,15 @@ type Approval struct {
 	Turn        int    `gorm:"not null"`
 	Tool        string `gorm:"not null"`
 	ToolID      string
-	Input       json.RawMessage `gorm:"type:text;serializer:json"`
+	Input       json.RawMessage `gorm:"type:text;serializer:json"` // masked
 	State       string          `gorm:"not null"`
 	Outcome     json.RawMessage `gorm:"type:text;serializer:json"`
 	DecidedByID *uint           `gorm:"index"`
 	DecidedBy   *Member         `gorm:"constraint:OnDelete:RESTRICT"`
 	DecidedAt   *time.Time
 	AskedAt     time.Time
-	Allow       bool `gorm:"not null;default:false"` // the decision, kept while it is carried out
+	Allow       bool   `gorm:"not null;default:false"`      // the decision, kept while it is carried out
+	Call        string `gorm:"type:text;serializer:sealed"` // the input the tool runs on, when Input masks it
 }
 
 type Artifact struct {

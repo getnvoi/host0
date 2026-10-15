@@ -82,11 +82,13 @@ func (ws *Workspace) saveApproval(a Approval) error {
 	if err := ws.putApproval(a); err != nil {
 		return err
 	}
+	a.Input, a.Outcome = ws.Mask(a.Input), ws.Mask(a.Outcome)
 	ws.Bus.Publish(Update{Kind: "approval", Approval: &a})
 	return nil
 }
 
 func (ws *Workspace) saveSeed(s *Seed) error {
+	s.Step, s.Line, s.Error = ws.Mask(s.Step), ws.Mask(s.Line), ws.Mask(s.Error)
 	if err := ws.putSeed(s); err != nil {
 		return err
 	}
