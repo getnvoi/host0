@@ -137,7 +137,7 @@ internal/cloud/       contract: Cloud; conformance/, hetzner/, scaleway/, clouds
 internal/box/         client: boxd, and the terminal relay
 internal/kube/        client: the cluster's own API
 internal/api/         client: the plane's OpenAPI spec and its generated client; h0gen/ writes h0's commands
-internal/shared/      naming, seal
+internal/shared/      naming, seal, mask
 apps/ui/              the web UI, built into cmd/controlplane/web/dist
 ```
 
