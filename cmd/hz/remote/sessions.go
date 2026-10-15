@@ -28,7 +28,8 @@ func init() {
 }
 
 func sessionStart() *cobra.Command {
-	return &cobra.Command{
+	var agent string
+	cmd := &cobra.Command{
 		Use:   "start <env> <prompt>",
 		Short: "Fork the environment's seed, run the prompt in it and follow the session",
 		Args:  cobra.ExactArgs(2),
@@ -37,7 +38,7 @@ func sessionStart() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			body, err := jsonBody(map[string]string{"env": args[0], "prompt": args[1]})
+			body, err := jsonBody(workspace.SessionInput{Env: args[0], Prompt: args[1], Agent: agent})
 			if err != nil {
 				return err
 			}
@@ -45,10 +46,12 @@ func sessionStart() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(c.OutOrStdout(), "session %s on %s, preview %s\n", s.ID, s.Branch, link(s.Preview))
+			fmt.Fprintf(c.OutOrStdout(), "session %s on %s as %s, preview %s\n", s.ID, s.Branch, s.Agent, link(s.Preview))
 			return watch(c.Context(), c.OutOrStdout(), pl, s.ID, false)
 		},
 	}
+	cmd.Flags().StringVar(&agent, "agent", "", "the agent the session runs as; hz when empty")
+	return cmd
 }
 
 func sessionSay() *cobra.Command {
