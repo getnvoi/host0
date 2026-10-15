@@ -435,6 +435,13 @@ type Pushed struct {
 	Branch string `json:"branch"`
 }
 
+// Repository defines model for Repository.
+type Repository struct {
+	DefaultBranch string `json:"default_branch"`
+	FullName      string `json:"full_name"`
+	Private       bool   `json:"private"`
+}
+
 // Rest defines model for Rest.
 type Rest = sandbox.Rest
 
@@ -997,6 +1004,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /environments/{name}/seed (the `EnvSeed` operationId).
 	EnvSeed(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GithubRepositories The repositories the GitHub App's installations reach with the workspace's GitHub token
+	//
+	// Corresponds with GET /github/repositories (the `GithubRepositories` operationId).
+	GithubRepositories(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// LlmLs The agent credentials: live first, then archived; secrets left out
 	//
@@ -1793,6 +1805,21 @@ func (c *Client) EnvStatus(ctx context.Context, name string, reqEditors ...Reque
 // Corresponds with POST /environments/{name}/seed (the `EnvSeed` operationId).
 func (c *Client) EnvSeed(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewEnvSeedRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GithubRepositories The repositories the GitHub App's installations reach with the workspace's GitHub token
+//
+// Corresponds with GET /github/repositories (the `GithubRepositories` operationId).
+func (c *Client) GithubRepositories(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGithubRepositoriesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -3582,6 +3609,33 @@ func NewEnvSeedRequest(server string, name string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGithubRepositoriesRequest constructs an http.Request for the GithubRepositories method
+func NewGithubRepositoriesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/github/repositories")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewLlmLsRequest constructs an http.Request for the LlmLs method
 func NewLlmLsRequest(server string) (*http.Request, error) {
 	var err error
@@ -5237,6 +5291,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /environments/{name}/seed (the `EnvSeed` operationId).
 	EnvSeedWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvSeedResponse, error)
 
+	// GithubRepositoriesWithResponse The repositories the GitHub App's installations reach with the workspace's GitHub token
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /github/repositories (the `GithubRepositories` operationId).
+	GithubRepositoriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GithubRepositoriesResponse, error)
+
 	// LlmLsWithResponse The agent credentials: live first, then archived; secrets left out
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -6876,6 +6937,54 @@ func (r EnvSeedResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r EnvSeedResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GithubRepositoriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Repository
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GithubRepositoriesResponse) GetJSON200() *[]Repository {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r GithubRepositoriesResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r GithubRepositoriesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GithubRepositoriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GithubRepositoriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GithubRepositoriesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -8845,6 +8954,19 @@ func (c *ClientWithResponses) EnvSeedWithResponse(ctx context.Context, name stri
 	return ParseEnvSeedResponse(rsp)
 }
 
+// GithubRepositoriesWithResponse The repositories the GitHub App's installations reach with the workspace's GitHub token
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /github/repositories (the `GithubRepositories` operationId).
+func (c *ClientWithResponses) GithubRepositoriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GithubRepositoriesResponse, error) {
+	rsp, err := c.GithubRepositories(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGithubRepositoriesResponse(rsp)
+}
+
 // LlmLsWithResponse The agent credentials: live first, then archived; secrets left out
 //
 // Returns a wrapper object for the known response body format(s).
@@ -10320,6 +10442,39 @@ func ParseEnvSeedResponse(rsp *http.Response) (*EnvSeedResponse, error) {
 	switch {
 	case rsp.StatusCode == 202:
 		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGithubRepositoriesResponse parses an HTTP response from a GithubRepositoriesWithResponse call
+func ParseGithubRepositoriesResponse(rsp *http.Response) (*GithubRepositoriesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GithubRepositoriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Repository
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel

@@ -10,4 +10,12 @@ type Forge interface {
 	Bundle(ctx context.Context, token, repo, branch, out string, line func(string)) error
 	// Points branch of repo at the HEAD the bundle at path holds, replacing what it pointed at.
 	Push(ctx context.Context, token, repo, bundle, branch string) error
+	// The repositories the GitHub App's installations visible to token reach.
+	Repositories(ctx context.Context, token string) ([]Repository, error)
+}
+
+type Repository struct {
+	FullName      string `json:"full_name"`
+	DefaultBranch string `json:"default_branch"`
+	Private       bool   `json:"private"`
 }

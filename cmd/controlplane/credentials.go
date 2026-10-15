@@ -6,6 +6,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/getnvoi/host0/internal/llm"
+	"github.com/getnvoi/host0/internal/scm"
 	"github.com/getnvoi/host0/internal/workspace"
 )
 
@@ -32,6 +33,12 @@ func (p *plane) credentials(a huma.API) {
 			Name string `path:"name" doc:"github"`
 		}) (*struct{}, error) {
 			return nil, problem(ws.RemoveCredential(in.Name))
+		})
+	huma.Register(a, op("github.repositories", "GET", "/github/repositories",
+		"The repositories the GitHub App's installations reach with the workspace's GitHub token",
+		h0{Output: "table", Columns: []string{"full_name", "default_branch", "private"}}),
+		func(ctx context.Context, _ *struct{}) (*body[[]scm.Repository], error) {
+			return answer(ws.Repositories(ctx))
 		})
 	huma.Register(a, op("llm.providers", "GET", "/llm/providers", "The agent CLIs a credential can be for, and their fields",
 		h0{Output: "table", Columns: []string{"key", "label"}, By: []string{"credentials"}}),

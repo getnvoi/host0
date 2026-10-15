@@ -292,6 +292,16 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:     "github.repositories",
+		Short:  "The repositories the GitHub App's installations reach with the workspace's GitHub token",
+		Method: "GET",
+		Route:  "/github/repositories",
+		H0:     h0{Output: "table", Columns: []string{"full_name", "default_branch", "private"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.GithubRepositories(ctx, edit)
+		},
+	},
+	{
 		ID:          "invite",
 		Short:       "A one-time link that signs a browser in to the web UI",
 		Method:      "POST",
