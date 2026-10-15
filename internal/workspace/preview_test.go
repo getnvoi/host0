@@ -2,8 +2,10 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/getnvoi/host0/internal/box"
@@ -41,5 +43,28 @@ func TestPreviewStatus(t *testing.T) {
 	}
 	if _, err := p.PreviewStatus(context.Background(), "nope"); err == nil {
 		t.Fatal("unknown session answered")
+	}
+}
+
+// A route is done once its host is published; one that is not fails the route with the reason.
+func TestRouteWaitsForPublished(t *testing.T) {
+	p := newWorkspace(t, nil)
+	var asked []string
+	p.Published = func(_ context.Context, host string) error {
+		asked = append(asked, host)
+		if host == "late-dev-preview.x" {
+			return errors.New("late-dev-preview.x is not published in 5m0s")
+		}
+		return nil
+	}
+	if err := p.route(context.Background(), "s1-dev-preview.x", sandbox.Route{Actor: "wt-s1", Port: 3000}); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.route(context.Background(), "late-dev-preview.x", sandbox.Route{Actor: "wt-s2", Port: 3000}); err == nil ||
+		!strings.Contains(err.Error(), "not published") {
+		t.Fatalf("unpublished: %v", err)
+	}
+	if len(asked) != 2 {
+		t.Fatalf("asked %v", asked)
 	}
 }

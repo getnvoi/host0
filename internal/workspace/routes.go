@@ -32,7 +32,13 @@ func (ws *Workspace) route(ctx context.Context, host string, rt sandbox.Route) e
 		Create(&db.Route{Host: host, Actor: rt.Actor, Port: rt.Port, Tier: rt.Tier}).Error; err != nil {
 		return fmt.Errorf("route %s: %w", host, err)
 	}
-	return ws.Edge.Route(ctx, host)
+	if err := ws.Edge.Route(ctx, host); err != nil {
+		return err
+	}
+	if ws.Published == nil {
+		return nil
+	}
+	return ws.Published(ctx, host)
 }
 
 // Routes host nowhere; a host already routed nowhere is no error.

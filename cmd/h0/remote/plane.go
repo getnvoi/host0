@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/getnvoi/host0/internal/api/client"
+	"github.com/getnvoi/host0/internal/shared/publicdns"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
 )
@@ -181,27 +182,6 @@ func target(arg string) (host, link string) {
 	return arg, ""
 }
 
-// What public resolvers answer for host, beside a lookup this machine could not make.
-func resolvers(host string) string {
-	var says []string
-	for _, addr := range publicResolvers {
-		r := &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
-			return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, addr)
-		}}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		ips, err := r.LookupHost(ctx, host)
-		cancel()
-		if err != nil {
-			says = append(says, fmt.Sprintf("%s: %v", addr, err))
-			continue
-		}
-		says = append(says, fmt.Sprintf("%s: %s", addr, strings.Join(ips, " ")))
-	}
-	return "public resolvers answer " + strings.Join(says, "; ")
-}
-
-var publicResolvers = []string{"1.1.1.1:53", "8.8.8.8:53"}
-
 // nil is http.DefaultTransport; tests trust their own server with theirs.
 var transport http.RoundTripper
 
@@ -231,7 +211,7 @@ func visit(host, link string, out io.Writer) error {
 	root := "https://" + host + "/"
 	res, _, err := get(root, "")
 	if dnsErr := new(net.DNSError); errors.As(err, &dnsErr) && dnsErr.IsNotFound {
-		return fmt.Errorf("%w; %s", err, resolvers(host))
+		return fmt.Errorf("%w; public resolvers answer %s", err, publicdns.Say(publicdns.Lookup(context.Background(), host)))
 	}
 	if err != nil {
 		return err

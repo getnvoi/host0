@@ -30,6 +30,7 @@ import (
 	"github.com/getnvoi/host0/internal/infra/source"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/shared/naming"
+	"github.com/getnvoi/host0/internal/shared/publicdns"
 	"github.com/getnvoi/host0/internal/shared/seal"
 )
 
@@ -559,6 +560,9 @@ func kubeContext(e *infra.Env) string {
 // Waits until the plane answers through the edge several times in a row: new records reach Cloudflare's edge servers
 // one by one, and one that has not yet answers with an error of its own (1000, a 403 page).
 func reachable(ctx context.Context, url string, out io.Writer) error {
+	if err := publicdns.Published(ctx, strings.TrimPrefix(url, "https://"), 5*time.Minute); err != nil {
+		return err
+	}
 	client := &http.Client{Timeout: 10 * time.Second}
 	deadline := time.Now().Add(5 * time.Minute)
 	last := ""

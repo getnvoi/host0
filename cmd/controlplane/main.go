@@ -31,6 +31,7 @@ import (
 	"github.com/getnvoi/host0/internal/sandbox/substrate"
 	"github.com/getnvoi/host0/internal/scm/github"
 	"github.com/getnvoi/host0/internal/shared/naming"
+	"github.com/getnvoi/host0/internal/shared/publicdns"
 	"github.com/getnvoi/host0/internal/stream"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
@@ -95,6 +96,7 @@ func main() {
 	p.DBPath = dbPath
 	p.sc.Cloud, p.sc.WorkerInit = cl, init
 	p.ws.Pin, p.ws.BoxImage = substrate.PinDockerHub, must("H0_BOXD_IMAGE")
+	p.ws.Published = func(ctx context.Context, host string) error { return publicdns.Published(ctx, host, 5*time.Minute) }
 	api, app := p.Host("api"), p.Host("app")
 	for _, h := range []string{api, app} {
 		go route(p.Edge, h)

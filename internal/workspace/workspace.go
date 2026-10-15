@@ -41,6 +41,8 @@ type Workspace struct {
 	Sandboxes sandbox.Sandboxes
 	DB        *gorm.DB
 	Edge      edge.Router
+	// Waits until a routed host answers from public resolvers, so a link handed out is one that resolves; nil skips.
+	Published func(ctx context.Context, host string) error
 	Workers   Workers
 	Tools     Tools
 	Bus       Bus
