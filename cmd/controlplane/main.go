@@ -38,6 +38,9 @@ import (
 
 var _ workers.Pools = (*kube.Client)(nil)
 
+// The plane's database; nothing else lives in its directory.
+const dbPath = "/var/lib/h0/h0.db"
+
 func must(name string) string {
 	v := os.Getenv(name)
 	if v == "" {
@@ -75,7 +78,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("sealing key: %v", err)
 	}
-	gdb, err := db.Open("/var/lib/h0/h0.db", key)
+	gdb, err := db.Open(dbPath, key)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -89,6 +92,7 @@ func main() {
 	}
 	p := wire(gdb, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("H0_PREVIEW_SUFFIX"), must("H0_BOX_TOKEN"))
 	p.Pods = pools
+	p.DBPath = dbPath
 	p.sc.Cloud, p.sc.WorkerInit = cl, init
 	p.ws.Pin, p.ws.BoxImage = substrate.PinDockerHub, must("H0_BOXD_IMAGE")
 	api, app := p.Host("api"), p.Host("app")
@@ -121,7 +125,9 @@ func writeSpec(args []string) error {
 
 // The plane: one workspace and the scaler under it, sign-in, the preview gate and the stream.
 type plane struct {
-	DB        *gorm.DB
+	DB *gorm.DB
+	// The file DB is open on, which h0 cluster db reads raw.
+	DBPath    string
 	Sandboxes sandbox.Sandboxes
 	Pools     workers.Pools
 	// Reads any pod and its log, for h0 pods and h0 logs.

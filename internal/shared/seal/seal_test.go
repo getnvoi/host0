@@ -14,7 +14,7 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(s, []byte("ghp_secret")) || !strings.HasPrefix(string(s), prefix) {
+	if bytes.Contains(s, []byte("ghp_secret")) || !strings.HasPrefix(string(s), Prefix) {
 		t.Fatalf("sealed form %q", s)
 	}
 	p, err := Open(k, s)
@@ -27,8 +27,8 @@ func TestFreshNonce(t *testing.T) {
 	k := Mint()
 	a, _ := Seal(k, []byte("same"))
 	b, _ := Seal(k, []byte("same"))
-	ra, _ := base64.StdEncoding.DecodeString(string(a[len(prefix):]))
-	rb, _ := base64.StdEncoding.DecodeString(string(b[len(prefix):]))
+	ra, _ := base64.StdEncoding.DecodeString(string(a[len(Prefix):]))
+	rb, _ := base64.StdEncoding.DecodeString(string(b[len(Prefix):]))
 	if bytes.Equal(ra[:12], rb[:12]) || bytes.Equal(a, b) {
 		t.Fatal("two seals share a nonce")
 	}
@@ -37,9 +37,9 @@ func TestFreshNonce(t *testing.T) {
 func TestTamper(t *testing.T) {
 	k := Mint()
 	s, _ := Seal(k, []byte("value"))
-	raw, _ := base64.StdEncoding.DecodeString(string(s[len(prefix):]))
+	raw, _ := base64.StdEncoding.DecodeString(string(s[len(Prefix):]))
 	raw[len(raw)-1] ^= 1
-	bad := append([]byte(prefix), base64.StdEncoding.EncodeToString(raw)...)
+	bad := append([]byte(Prefix), base64.StdEncoding.EncodeToString(raw)...)
 	if _, err := Open(k, bad); !errors.Is(err, ErrOpen) {
 		t.Fatalf("tampered value opened: %v", err)
 	}

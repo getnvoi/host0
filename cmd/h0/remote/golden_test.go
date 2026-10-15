@@ -15,6 +15,7 @@ import (
 
 	"github.com/getnvoi/host0/cmd/h0/state"
 	"github.com/getnvoi/host0/internal/box"
+	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/workspace"
 )
@@ -148,6 +149,9 @@ var goldens = []golden{
 	{"cluster-shape", []string{"cluster", "shape"}, "GET /cluster/shape", map[string]any{
 		"workers": map[string]any{"type": "cx33", "location": "nbg1", "max": 2, "idle": 600000000000},
 		"tiers":   []map[string]any{{"name": "medium", "cpu": "2", "memory": "4Gi", "cpuRequest": "500m", "default": true}}}},
+	{"cluster-db", []string{"cluster", "db"}, "GET /cluster/db", db.AtRest{Dir: "/var/lib/h0", OK: true, Markers: 9,
+		Plain: []string{}, Foreign: []string{}, Sealed: 3, Unsealed: []string{}, Files: []db.File{
+			{Name: "h0.db", Size: 4096}, {Name: "h0.db-shm", Size: 32768}, {Name: "h0.db-wal", Size: 86552}}}},
 }
 
 var archived = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)

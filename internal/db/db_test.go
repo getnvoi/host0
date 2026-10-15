@@ -58,6 +58,11 @@ func session(t *testing.T, db *gorm.DB) (Agent, Environment, Session) {
 	return a, e, s
 }
 
+// Every model with a table of its own.
+var models = []any{&Member{}, &LLMConfig{}, &Agent{}, &ToolPolicy{}, &Environment{}, &EnvVar{}, &Secret{},
+	&SetupStep{}, &Service{}, &Seed{}, &Session{}, &Event{}, &QueuedMessage{}, &Approval{}, &Artifact{},
+	&ArtifactVersion{}, &Note{}, &Route{}, &SignIn{}, &Shape{}, &UsageHour{}, &Credential{}}
+
 type column struct {
 	Name, Type string
 	NotNull    bool
@@ -198,9 +203,7 @@ func TestModelsMatchMigration(t *testing.T) {
 	auto, err := Open(filepath.Join(dir, "b.db"), seal.Mint())
 	must(t, err)
 	t.Cleanup(func() { closeDB(t, auto) })
-	must(t, auto.AutoMigrate(&Member{}, &LLMConfig{}, &Agent{}, &ToolPolicy{}, &Environment{}, &EnvVar{}, &Secret{},
-		&SetupStep{}, &Service{}, &Seed{}, &Session{}, &Event{}, &QueuedMessage{}, &Approval{}, &Artifact{},
-		&ArtifactVersion{}, &Note{}, &Route{}, &SignIn{}, &Shape{}, &UsageHour{}, &Credential{}))
+	must(t, auto.AutoMigrate(models...))
 	want, got := describe(t, migrated), describe(t, auto)
 	for n := range want {
 		if !reflect.DeepEqual(want[n], got[n]) {

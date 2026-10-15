@@ -13,7 +13,7 @@ import (
 
 const (
 	Size   = 32
-	prefix = "h0-sealed:1:"
+	Prefix = "h0-sealed:1:"
 )
 
 func Mint() []byte {
@@ -43,9 +43,9 @@ func Seal(key, plain []byte) ([]byte, error) {
 		return nil, err
 	}
 	raw := g.Seal(nonce, nonce, plain, nil)
-	out := make([]byte, len(prefix)+base64.StdEncoding.EncodedLen(len(raw)))
-	copy(out, prefix)
-	base64.StdEncoding.Encode(out[len(prefix):], raw)
+	out := make([]byte, len(Prefix)+base64.StdEncoding.EncodedLen(len(raw)))
+	copy(out, Prefix)
+	base64.StdEncoding.Encode(out[len(Prefix):], raw)
 	return out, nil
 }
 
@@ -56,10 +56,10 @@ func Open(key, sealed []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.HasPrefix(sealed, []byte(prefix)) {
-		return nil, errors.New("not sealed: no " + prefix + " prefix")
+	if !bytes.HasPrefix(sealed, []byte(Prefix)) {
+		return nil, errors.New("not sealed: no " + Prefix + " prefix")
 	}
-	raw, err := base64.StdEncoding.DecodeString(string(sealed[len(prefix):]))
+	raw, err := base64.StdEncoding.DecodeString(string(sealed[len(Prefix):]))
 	if err != nil {
 		return nil, fmt.Errorf("sealed value is not base64: %w", err)
 	}

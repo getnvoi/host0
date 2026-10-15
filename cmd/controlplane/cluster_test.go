@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/kube"
 	"github.com/getnvoi/host0/internal/sandbox"
+	"github.com/getnvoi/host0/internal/shared/seal"
 )
 
 func TestShape(t *testing.T) {
@@ -87,6 +89,47 @@ func TestPods(t *testing.T) {
 	}
 	if res := call(h, "GET", "api-dev.nvoi.to", "/cluster/pods/h0/plane-1/log?tail=0", "", bearer); res.Code != 400 {
 		t.Fatalf("tail 0: %d %s", res.Code, res.Body)
+	}
+}
+
+// The plane measures its own file, for the CLI and for a browser alike.
+func TestClusterDB(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "h0.db")
+	gdb, err := db.Open(path, seal.Mint())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if s, err := gdb.DB(); err == nil {
+			s.Close()
+		}
+	})
+	if err := db.Migrate(gdb); err != nil {
+		t.Fatal(err)
+	}
+	p, h := serve(gdb, nil, nil, nil)
+	t.Cleanup(p.ws.Wait)
+	if res := call(h, "GET", "api-dev.nvoi.to", "/cluster/db", "", bearer); res.Code != 422 || detail(res) != errNoDB.Error() {
+		t.Fatalf("no file: %d %s", res.Code, detail(res))
+	}
+	p.DBPath = path
+	e := db.Environment{Name: "checkout-service", Repo: "acme/checkout", Branch: "main",
+		Secrets: []db.Secret{{Key: "TOKEN", Value: "ghp_x"}}}
+	if err := gdb.Create(&e).Error; err != nil {
+		t.Fatal(err)
+	}
+	jar := map[string]string{"Cookie": "h0_session=" + signIn(t, h, "laptop").Value}
+	for _, c := range []struct {
+		host, target string
+		head         map[string]string
+	}{{"api-dev.nvoi.to", "/cluster/db", bearer}, {"app-dev.nvoi.to", "/api/cluster/db", jar}} {
+		res := call(h, "GET", c.host, c.target, "", c.head)
+		var got db.AtRest
+		json.Unmarshal(res.Body.Bytes(), &got)
+		// The schema, the prefix, the sealed secret, the name and the repo.
+		if res.Code != 200 || !got.OK || got.Sealed != 1 || got.Markers != 5 || got.Found != 0 {
+			t.Fatalf("%s: %d %s", c.host, res.Code, res.Body)
+		}
 	}
 }
 
