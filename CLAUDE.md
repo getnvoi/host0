@@ -165,6 +165,18 @@ allow-list, with its reason.
 **A contract with several providers carries its conformance suite.** Each provider under `cloud/` passes
 `cloud/conformance` against a cassette recorded from a real run.
 
+## Self-hosting is a mode, not a leftover
+
+A cluster installed with `hz cluster install` on the operator's own cloud account, managed with `hz` and the web
+UI, works with no hub. The hub is one more client of the plane's API and one more caller of `infra`; it never
+becomes something the plane needs.
+
+- The plane imports nothing of the hub and calls it for nothing: no sign-in, licence check or heartbeat.
+- What the hub adds (accounts, billing, server-side provisioning) sits beside the plane, not inside it.
+- A feature built for the hub that the plane needs gets a self-hosted path in the same change.
+- The end-to-end check (`.claude/skills/verifying-cluster-end-to-end`) runs self-hosted, and passes before a hub
+  change merges.
+
 ## Two kinds of command, and no command is both
 
 **Local** — `install` and `destroy`. They do the work themselves because there
