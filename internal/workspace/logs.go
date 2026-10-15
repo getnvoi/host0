@@ -9,7 +9,7 @@ import (
 )
 
 // Where each service's output is kept, beside its stdout.
-const Logs = "/workspace/.hz/logs"
+const Logs = "/workspace/.h0/logs"
 
 // The setup script's log, then one per service, in the environment's order.
 func (ws *Workspace) Logs(sid string) ([]Log, error) {

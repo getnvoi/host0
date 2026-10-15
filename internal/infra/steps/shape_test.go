@@ -66,7 +66,7 @@ func TestDeclareAgents(t *testing.T) {
 	if err := declareAgents(context.Background(), &infra.Env{Out: io.Discard}, c); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(asked, `PUT /agents/hz Bearer tok {"description":"Works in the session's checkout and calls every hz tool without asking.","tools":{"*":"auto"}}`) {
+	if !slices.Contains(asked, `PUT /agents/h0 Bearer tok {"description":"Works in the session's checkout and calls every h0 tool without asking.","tools":{"*":"auto"}}`) {
 		t.Fatalf("%q", asked)
 	}
 }

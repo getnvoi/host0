@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: hz-system
+  name: h0-system
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: hz
+  name: h0

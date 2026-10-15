@@ -95,7 +95,7 @@ func newWorkspace(t *testing.T, sb sandbox.Sandboxes) *Workspace {
 // A database in a fresh file, migrated.
 func newDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	if err != nil {
 		t.Fatal(err)
 	}

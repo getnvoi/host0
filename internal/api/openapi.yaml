@@ -913,7 +913,7 @@ components:
       additionalProperties: false
       properties:
         agent:
-          description: The agent it runs as; hz when none is named
+          description: The agent it runs as; h0 when none is named
           type: string
         env:
           description: The environment whose seed it forks
@@ -1226,16 +1226,16 @@ components:
       type: object
   securitySchemes:
     bearer:
-      description: The token hz cluster install mints, on the api host.
+      description: The token h0 cluster install mints, on the api host.
       scheme: bearer
       type: http
     cookie:
-      description: "A browser signed in with a link, under /api on the app host; a write carries X-Requested-With: hz."
+      description: "A browser signed in with a link, under /api on the app host; a write carries X-Requested-With: h0."
       in: cookie
-      name: hz_session
+      name: h0_session
       type: apiKey
 info:
-  title: hz plane
+  title: h0 plane
   version: "1"
 openapi: 3.0.3
 paths:
@@ -1259,7 +1259,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The agents sessions run as
-      x-hz:
+      x-h0:
         columns:
           - name
           - model
@@ -1290,7 +1290,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The agent and the tools it is granted
-      x-hz:
+      x-h0:
         columns:
           - tool
           - level
@@ -1326,7 +1326,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: "Declare the agent: its description, model, instructions and tools, which replace those it has"
-      x-hz:
+      x-h0:
         columns:
           - tool
           - level
@@ -1365,7 +1365,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Take a tool from the agent
-      x-hz:
+      x-h0:
         columns:
           - tool
           - level
@@ -1409,7 +1409,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Grant the agent a tool, or change the level it has it at
-      x-hz:
+      x-h0:
         columns:
           - tool
           - level
@@ -1444,7 +1444,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Actions waiting for a decision
-      x-hz:
+      x-h0:
         by:
           - session follow
           - approval approve
@@ -1480,7 +1480,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: One approval in full, decided or not
-      x-hz:
+      x-h0:
         by:
           - approval show
   /approvals/{id}/approve:
@@ -1508,7 +1508,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Carry the action out; the outcome turn follows, and the stream tells how it went
-      x-hz:
+      x-h0:
         by:
           - approval approve
         noTool: true
@@ -1537,7 +1537,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Refuse the action; the outcome turn follows, and the stream tells how it went
-      x-hz:
+      x-h0:
         by:
           - approval deny
         noTool: true
@@ -1560,7 +1560,7 @@ paths:
       security:
         - bearer: []
       summary: Sign out every browser
-      x-hz:
+      x-h0:
         by:
           - logout
     get:
@@ -1584,7 +1584,7 @@ paths:
       security:
         - bearer: []
       summary: Browsers signed in to the web UI
-      x-hz:
+      x-h0:
         columns:
           - label
           - at
@@ -1617,7 +1617,7 @@ paths:
       security:
         - bearer: []
       summary: Sign out the browsers under label
-      x-hz:
+      x-h0:
         by:
           - logout
   /cluster:
@@ -1637,7 +1637,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: "The cluster now: its nodes, worker pools, workers and the plane's hosts"
-      x-hz:
+      x-h0:
         by:
           - ls
   /cluster/pods:
@@ -1668,7 +1668,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Every pod in the cluster, or one node's
-      x-hz:
+      x-h0:
         columns:
           - namespace
           - name
@@ -1679,12 +1679,12 @@ paths:
     get:
       operationId: logs
       parameters:
-        - description: The pod's namespace, as hz pods prints it
+        - description: The pod's namespace, as h0 pods prints it
           in: path
           name: namespace
           required: true
           schema:
-            description: The pod's namespace, as hz pods prints it
+            description: The pod's namespace, as h0 pods prints it
             type: string
         - description: The pod's name
           in: path
@@ -1724,7 +1724,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The end of a cluster pod's log
-      x-hz:
+      x-h0:
         field: log
         output: raw
   /cluster/shape:
@@ -1743,8 +1743,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
-      summary: The workers and tiers hz cluster install declared
-      x-hz:
+      summary: The workers and tiers h0 cluster install declared
+      x-h0:
         output: fields
     put:
       operationId: cluster.shape.put
@@ -1766,7 +1766,7 @@ paths:
       security:
         - bearer: []
       summary: Declare the workers and tiers
-      x-hz:
+      x-h0:
         by:
           - cluster install
   /credentials:
@@ -1786,7 +1786,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Which credentials hold a value, never the values
-      x-hz:
+      x-h0:
         by:
           - credentials ls
     put:
@@ -1807,7 +1807,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Replace the workspace's credentials; one given empty is removed
-      x-hz:
+      x-h0:
         by:
           - credentials
   /credentials/{name}:
@@ -1830,8 +1830,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
-      summary: "Remove a credential: github (agent credentials: hz llm rm)"
-      x-hz:
+      summary: "Remove a credential: github (agent credentials: h0 llm rm)"
+      x-h0:
         output: none
   /environments:
     get:
@@ -1853,7 +1853,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Every environment, and whether a session can fork from it now
-      x-hz:
+      x-h0:
         columns:
           - name
           - repo
@@ -1882,7 +1882,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Remove the environment and its seed; refused while a session uses it
-      x-hz:
+      x-h0:
         output: none
     get:
       operationId: env.get
@@ -1908,7 +1908,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The environment, its secrets' values left out
-      x-hz:
+      x-h0:
         by:
           - env get
           - env var rm
@@ -1949,8 +1949,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
-      summary: Change the environment's fields; hz env seed rebuilds its seed
-      x-hz:
+      summary: Change the environment's fields; h0 env seed rebuilds its seed
+      x-h0:
         by:
           - env var set
           - env var rm
@@ -1988,7 +1988,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Declare the environment whole; a secret given empty keeps its value
-      x-hz:
+      x-h0:
         by:
           - env apply
           - env create
@@ -2017,7 +2017,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: "The environment's seed build: the one under way, or the last to end"
-      x-hz:
+      x-h0:
         by:
           - env seed
         columns:
@@ -2050,7 +2050,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: "Build the environment's seed: clone, set up, start its services, snapshot and tag it"
-      x-hz:
+      x-h0:
         by:
           - env seed
   /llm/configs:
@@ -2073,7 +2073,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: "The agent credentials: live first, then archived; secrets left out"
-      x-hz:
+      x-h0:
         by:
           - credentials
           - credentials ls
@@ -2107,7 +2107,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Add an agent credential; the first live one is in use
-      x-hz:
+      x-h0:
         by:
           - credentials
   /llm/configs/{name}:
@@ -2138,7 +2138,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Archive the credential; --remove deletes it
-      x-hz:
+      x-h0:
         output: none
     put:
       operationId: llm.set
@@ -2170,7 +2170,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Change a credential's values; a secret left empty keeps the stored one
-      x-hz:
+      x-h0:
         by:
           - credentials
   /llm/configs/{name}/main:
@@ -2194,7 +2194,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Run turns on this credential
-      x-hz:
+      x-h0:
         by:
           - credentials
         output: none
@@ -2219,7 +2219,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Bring an archived credential back
-      x-hz:
+      x-h0:
         output: none
   /llm/providers:
     get:
@@ -2241,7 +2241,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The agent CLIs a credential can be for, and their fields
-      x-hz:
+      x-h0:
         by:
           - credentials
         columns:
@@ -2273,7 +2273,7 @@ paths:
       security:
         - bearer: []
       summary: A one-time link that signs a browser in to the web UI
-      x-hz:
+      x-h0:
         by:
           - open
           - invite
@@ -2294,7 +2294,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The cluster and zone this plane serves
-      x-hz:
+      x-h0:
         output: fields
   /previews:
     post:
@@ -2319,7 +2319,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: A 12-hour link to a preview, past its gate
-      x-hz:
+      x-h0:
         by:
           - preview
   /seeds/{name}/suspend:
@@ -2347,7 +2347,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Suspend the actor the environment's preview routes to, freeing its worker
-      x-hz:
+      x-h0:
         output: fields
   /sessions:
     get:
@@ -2377,7 +2377,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Sessions, the most recently active first
-      x-hz:
+      x-h0:
         columns:
           - id
           - env
@@ -2409,7 +2409,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Fork the environment's seed and run the prompt in it
-      x-hz:
+      x-h0:
         by:
           - session start
   /sessions/{id}:
@@ -2433,7 +2433,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Remove the session and its sandbox; refused while it runs
-      x-hz:
+      x-h0:
         output: none
     get:
       operationId: session.show
@@ -2459,7 +2459,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The session and everything it printed
-      x-hz:
+      x-h0:
         by:
           - session follow
           - session start
@@ -2501,7 +2501,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: What the session changed against its environment's branch
-      x-hz:
+      x-h0:
         columns:
           - status
           - added
@@ -2538,7 +2538,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: "The session's logs: its setup and each service"
-      x-hz:
+      x-h0:
         columns:
           - name
           - kind
@@ -2592,7 +2592,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: A log's bytes from offset; X-Offset is where the next read starts
-      x-hz:
+      x-h0:
         by:
           - session log show
   /sessions/{id}/navigate:
@@ -2626,7 +2626,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Show a page of the session's app in its preview
-      x-hz:
+      x-h0:
         output: fields
         tool: auto
   /sessions/{id}/preview:
@@ -2654,7 +2654,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Whether the session's app answers, waking it first
-      x-hz:
+      x-h0:
         output: fields
   /sessions/{id}/pull-request:
     post:
@@ -2687,7 +2687,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Push the session's branch and open a pull request onto its environment's branch
-      x-hz:
+      x-h0:
         output: fields
   /sessions/{id}/push:
     post:
@@ -2714,7 +2714,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Push the session's committed work to its branch on GitHub
-      x-hz:
+      x-h0:
         output: fields
   /sessions/{id}/queue:
     get:
@@ -2744,7 +2744,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Messages waiting for the session's turn to end
-      x-hz:
+      x-h0:
         by:
           - session queue rm
         output: table
@@ -2783,7 +2783,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Withdraw queued message i, counted from 0
-      x-hz:
+      x-h0:
         by:
           - session queue rm
   /sessions/{id}/stop:
@@ -2807,7 +2807,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Stop the running turn
-      x-hz:
+      x-h0:
         output: none
   /sessions/{id}/suspend:
     post:
@@ -2830,7 +2830,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Snapshot the session and free its worker; a preview request or a turn resumes it
-      x-hz:
+      x-h0:
         output: none
   /sessions/{id}/terminals:
     get:
@@ -2860,7 +2860,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: The session's terminals
-      x-hz:
+      x-h0:
         columns:
           - id
           - command
@@ -2895,7 +2895,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: End a terminal
-      x-hz:
+      x-h0:
         output: none
   /sessions/{id}/title:
     put:
@@ -2924,7 +2924,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Name the session's task in a few words
-      x-hz:
+      x-h0:
         output: none
         tool: auto
   /sessions/{id}/turns:
@@ -2954,7 +2954,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Send the session a message
-      x-hz:
+      x-h0:
         by:
           - session say
   /stream:
@@ -2981,7 +2981,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: What happens, as server-sent events; Last-Event-ID resumes after it
-      x-hz:
+      x-h0:
         by:
           - env seed
         noTool: true
@@ -3021,7 +3021,7 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Sessions, compute, pull requests and tokens over the last days
-      x-hz:
+      x-h0:
         by:
           - usage
 security:

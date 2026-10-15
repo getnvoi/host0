@@ -110,7 +110,7 @@ func describe(t *testing.T, db *gorm.DB) map[string]table {
 }
 
 func TestMigrate(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "hz.db")
+	path := filepath.Join(t.TempDir(), "h0.db")
 	db := open(t, path, seal.Mint())
 	before := describe(t, db)
 	must(t, Migrate(db))
@@ -213,7 +213,7 @@ func TestModelsMatchMigration(t *testing.T) {
 }
 
 func TestSealedRoundTrip(t *testing.T) {
-	db := open(t, filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	db := open(t, filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	_, e, _ := session(t, db)
 	c := LLMConfig{Name: "main", Provider: "anthropic", Values: map[string]string{"api_key": "sk-ant-1"}, Main: true}
 	must(t, db.Create(&c).Error)
@@ -234,14 +234,14 @@ func TestSealedRoundTrip(t *testing.T) {
 
 // A plain dump, through SQL with the file key, shows the sealed form of a secret and never the secret.
 func TestSealedInDump(t *testing.T) {
-	db := open(t, filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	db := open(t, filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	_, e, _ := session(t, db)
 	must(t, db.Create(&Secret{EnvironmentID: e.ID, Key: "TOKEN", Value: "ghp_x"}).Error)
 	must(t, db.Create(&LLMConfig{Name: "main", Provider: "anthropic", Values: map[string]string{"api_key": "sk-ant-1"}}).Error)
 	var dump []string
 	must(t, db.Raw("SELECT value FROM secrets UNION ALL SELECT \"values\" FROM llm_configs").Scan(&dump).Error)
 	for _, v := range dump {
-		if !strings.HasPrefix(v, "hz-sealed:1:") || strings.Contains(v, "ghp_x") || strings.Contains(v, "sk-ant-1") {
+		if !strings.HasPrefix(v, "h0-sealed:1:") || strings.Contains(v, "ghp_x") || strings.Contains(v, "sk-ant-1") {
 			t.Errorf("dumped %q", v)
 		}
 	}
@@ -249,7 +249,7 @@ func TestSealedInDump(t *testing.T) {
 
 // A sealed value that does not open names its table and column, and reads as nothing.
 func TestSealedForeignValue(t *testing.T) {
-	db := open(t, filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	db := open(t, filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	_, e, _ := session(t, db)
 	sec := Secret{EnvironmentID: e.ID, Key: "TOKEN", Value: "ghp_x"}
 	must(t, db.Create(&sec).Error)
@@ -267,7 +267,7 @@ func TestSealedForeignValue(t *testing.T) {
 }
 
 func TestEncryptedAtRest(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "hz.db")
+	path := filepath.Join(t.TempDir(), "h0.db")
 	db := open(t, path, seal.Mint())
 	_, _, s := session(t, db)
 	const marker = "CONVERSATION_MARKER_9c1e"
@@ -294,7 +294,7 @@ func TestEncryptedAtRest(t *testing.T) {
 }
 
 func TestFTS5(t *testing.T) {
-	db := open(t, filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	db := open(t, filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	var opts []string
 	must(t, db.Raw("PRAGMA compile_options").Scan(&opts).Error)
 	var mods []string
@@ -337,7 +337,7 @@ func TestFTS5(t *testing.T) {
 }
 
 func TestWrongKey(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "hz.db")
+	path := filepath.Join(t.TempDir(), "h0.db")
 	db, err := Open(path, seal.Mint())
 	must(t, err)
 	must(t, Migrate(db))
@@ -354,7 +354,7 @@ func TestWrongKey(t *testing.T) {
 }
 
 func TestUnique(t *testing.T) {
-	db := open(t, filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	db := open(t, filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	a, e, s := session(t, db)
 	for _, c := range []struct {
 		first, second any
@@ -383,7 +383,7 @@ func count(t *testing.T, db *gorm.DB, model any) int64 {
 }
 
 func TestCascade(t *testing.T) {
-	db := open(t, filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	db := open(t, filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	a, e, s := session(t, db)
 	must(t, db.Create(&ToolPolicy{AgentID: a.ID, Tool: "Bash", Level: "auto"}).Error)
 	art := Artifact{SessionID: s.ID, Name: "report"}
@@ -416,7 +416,7 @@ func TestCascade(t *testing.T) {
 }
 
 func TestSessionSoftDeleteKeepsEvents(t *testing.T) {
-	db := open(t, filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	db := open(t, filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	_, _, s := session(t, db)
 	must(t, db.Create(&Event{SessionID: s.ID, Position: 0, Kind: "prompt", Content: "hi", At: time.Now()}).Error)
 	must(t, db.Delete(&s).Error)
@@ -432,7 +432,7 @@ func TestSessionSoftDeleteKeepsEvents(t *testing.T) {
 }
 
 func TestEventAppendOnly(t *testing.T) {
-	db := open(t, filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	db := open(t, filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	_, _, s := session(t, db)
 	ev := Event{SessionID: s.ID, Position: 0, Kind: "prompt", Content: "hi", At: time.Now()}
 	must(t, db.Create(&ev).Error)

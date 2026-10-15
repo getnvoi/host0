@@ -2,8 +2,8 @@ package cloud
 
 import "github.com/getnvoi/host0/internal/shared/naming"
 
-// Every resource hz creates carries OwnerKey=Cluster.Prefix(), as a label or as the tag Cluster.Owner().
-const OwnerKey = "hz/owner"
+// Every resource h0 creates carries OwnerKey=Cluster.Prefix(), as a label or as the tag Cluster.Owner().
+const OwnerKey = "h0/owner"
 
 func Owner(c naming.Cluster) map[string]string { return map[string]string{OwnerKey: c.Prefix()} }
 

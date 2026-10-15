@@ -1,0 +1,14 @@
+> GET /cluster
+cluster dev, zone nvoi.to
+
+NODE  ROLES  READY  AGE  ADDRESSES  PROVIDER ID
+
+POOL       REPLICAS  READY  
+h0-medium  2         1      
+
+WORKER  POOL       ACTORS             
+w-1     h0-medium  wt-1a2b (running)  
+
+HOST             EDGE      
+api-dev.nvoi.to  routed    
+app-dev.nvoi.to  routed    

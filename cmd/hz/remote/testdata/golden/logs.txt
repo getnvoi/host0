@@ -1,3 +1,0 @@
-> GET /cluster/pods/hz/plane-7c9/log?tail=2
-listening on :8080
-serving api-dev.nvoi.to

@@ -16,7 +16,7 @@ import (
 
 func TestShape(t *testing.T) {
 	_, h := handler(t)
-	jar := map[string]string{"Cookie": "hz_session=" + signIn(t, h, "laptop").Value, "X-Requested-With": "hz"}
+	jar := map[string]string{"Cookie": "h0_session=" + signIn(t, h, "laptop").Value, "X-Requested-With": "h0"}
 	shape := `{"workers":{"type":"cx33","location":"nbg1","max":4,"idle":60000000000},"tiers":[{"name":"small","cpu":"1","memory":"2Gi","cpuRequest":"250m","default":true}],"actors":{"pause":600000000000,"suspend":3600000000000}}`
 	if res := call(h, "PUT", "app-dev.nvoi.to", "/api/cluster/shape", shape, jar); res.Code != 404 {
 		t.Fatalf("a browser wrote the shape: %d %s", res.Code, res.Body)
@@ -57,7 +57,7 @@ func tiers(t *testing.T) string {
 type pods struct{ tail int }
 
 func (pods) List(_ context.Context, node string) ([]kube.Pod, error) {
-	all := []kube.Pod{{Namespace: "hz", Name: "plane-1", Node: "c1", Phase: "Running"}, {Namespace: "wt-1", Name: "w", Node: "w1"}}
+	all := []kube.Pod{{Namespace: "h0", Name: "plane-1", Node: "c1", Phase: "Running"}, {Namespace: "wt-1", Name: "w", Node: "w1"}}
 	if node == "" {
 		return all, nil
 	}
@@ -81,11 +81,11 @@ func TestPods(t *testing.T) {
 	if json.Unmarshal(res.Body.Bytes(), &got); res.Code != 200 || len(got) != 1 || got[0].Namespace != "wt-1" {
 		t.Fatalf("pods: %d %s", res.Code, res.Body)
 	}
-	res = call(h, "GET", "api-dev.nvoi.to", "/cluster/pods/hz/plane-1/log?container=plane", "", bearer)
-	if res.Code != 200 || !strings.Contains(res.Body.String(), `"log":"hz/plane-1/plane\n"`) || ps.tail != 200 {
+	res = call(h, "GET", "api-dev.nvoi.to", "/cluster/pods/h0/plane-1/log?container=plane", "", bearer)
+	if res.Code != 200 || !strings.Contains(res.Body.String(), `"log":"h0/plane-1/plane\n"`) || ps.tail != 200 {
 		t.Fatalf("log: %d %s, tail %d", res.Code, res.Body, ps.tail)
 	}
-	if res := call(h, "GET", "api-dev.nvoi.to", "/cluster/pods/hz/plane-1/log?tail=0", "", bearer); res.Code != 400 {
+	if res := call(h, "GET", "api-dev.nvoi.to", "/cluster/pods/h0/plane-1/log?tail=0", "", bearer); res.Code != 400 {
 		t.Fatalf("tail 0: %d %s", res.Code, res.Body)
 	}
 }
@@ -121,7 +121,7 @@ func TestPreviews(t *testing.T) {
 
 	// Past the gate, a host routed nowhere is not found.
 	u, _ := url.Parse(p.gate.URL(nowhere, time.Minute))
-	if res := call(h, "GET", nowhere, "/", "", map[string]string{"x-hz-token": u.Query().Get("token")}); res.Code != 404 {
+	if res := call(h, "GET", nowhere, "/", "", map[string]string{"x-h0-token": u.Query().Get("token")}); res.Code != 404 {
 		t.Fatalf("unrouted host: %d %s", res.Code, res.Body)
 	}
 }

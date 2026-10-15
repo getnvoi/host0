@@ -15,7 +15,7 @@ func TestAll(t *testing.T) {
 	for _, f := range all {
 		names[f.Name] = f
 	}
-	if names["hz"].Tools["*"] != "auto" || names["careful"].Tools["*"] != "default" || names["gitops"].Tools["*"] != "" ||
+	if names["h0"].Tools["*"] != "auto" || names["careful"].Tools["*"] != "default" || names["gitops"].Tools["*"] != "" ||
 		names["gitops"].Tools["session_pr"] != "approval" {
 		t.Fatalf("agents %+v", all)
 	}

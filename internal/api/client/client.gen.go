@@ -435,7 +435,7 @@ type Session struct {
 
 // SessionInput defines model for SessionInput.
 type SessionInput struct {
-	// Agent The agent it runs as; hz when none is named
+	// Agent The agent it runs as; h0 when none is named
 	Agent *string `json:"agent,omitempty"`
 
 	// Env The environment whose seed it forks
@@ -825,7 +825,7 @@ type ClientInterface interface {
 	// Corresponds with GET /cluster/pods/{namespace}/{pod}/log (the `Logs` operationId).
 	Logs(ctx context.Context, namespace string, pod string, params *LogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ClusterShape The workers and tiers hz cluster install declared
+	// ClusterShape The workers and tiers h0 cluster install declared
 	//
 	// Corresponds with GET /cluster/shape (the `ClusterShape` operationId).
 	ClusterShape(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -863,7 +863,7 @@ type ClientInterface interface {
 	// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
 	CredentialsPut(ctx context.Context, body CredentialsPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CredentialsRm Remove a credential: github (agent credentials: hz llm rm)
+	// CredentialsRm Remove a credential: github (agent credentials: h0 llm rm)
 	//
 	// Corresponds with DELETE /credentials/{name} (the `CredentialsRm` operationId).
 	CredentialsRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -883,14 +883,14 @@ type ClientInterface interface {
 	// Corresponds with GET /environments/{name} (the `EnvGet` operationId).
 	EnvGet(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EnvSetWithBody Change the environment's fields; hz env seed rebuilds its seed
+	// EnvSetWithBody Change the environment's fields; h0 env seed rebuilds its seed
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
 	EnvSetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; hz env seed rebuilds its seed
+	// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; h0 env seed rebuilds its seed
 	//
 	// Takes a body of the `application/merge-patch+json` content type.
 	//
@@ -1435,7 +1435,7 @@ func (c *Client) Logs(ctx context.Context, namespace string, pod string, params 
 	return c.Client.Do(req)
 }
 
-// ClusterShape The workers and tiers hz cluster install declared
+// ClusterShape The workers and tiers h0 cluster install declared
 //
 // Corresponds with GET /cluster/shape (the `ClusterShape` operationId).
 func (c *Client) ClusterShape(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1533,7 +1533,7 @@ func (c *Client) CredentialsPut(ctx context.Context, body CredentialsPutJSONRequ
 	return c.Client.Do(req)
 }
 
-// CredentialsRm Remove a credential: github (agent credentials: hz llm rm)
+// CredentialsRm Remove a credential: github (agent credentials: h0 llm rm)
 //
 // Corresponds with DELETE /credentials/{name} (the `CredentialsRm` operationId).
 func (c *Client) CredentialsRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1593,7 +1593,7 @@ func (c *Client) EnvGet(ctx context.Context, name string, reqEditors ...RequestE
 	return c.Client.Do(req)
 }
 
-// EnvSetWithBody Change the environment's fields; hz env seed rebuilds its seed
+// EnvSetWithBody Change the environment's fields; h0 env seed rebuilds its seed
 //
 // Takes any type of body and a specified content type.
 //
@@ -1610,7 +1610,7 @@ func (c *Client) EnvSetWithBody(ctx context.Context, name string, contentType st
 	return c.Client.Do(req)
 }
 
-// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; hz env seed rebuilds its seed
+// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; h0 env seed rebuilds its seed
 //
 // Takes a body of the `application/merge-patch+json` content type.
 //
@@ -4861,7 +4861,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /cluster/pods/{namespace}/{pod}/log (the `Logs` operationId).
 	LogsWithResponse(ctx context.Context, namespace string, pod string, params *LogsParams, reqEditors ...RequestEditorFn) (*LogsResponse, error)
 
-	// ClusterShapeWithResponse The workers and tiers hz cluster install declared
+	// ClusterShapeWithResponse The workers and tiers h0 cluster install declared
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -4903,7 +4903,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
 	CredentialsPutWithResponse(ctx context.Context, body CredentialsPutJSONRequestBody, reqEditors ...RequestEditorFn) (*CredentialsPutResponse, error)
 
-	// CredentialsRmWithResponse Remove a credential: github (agent credentials: hz llm rm)
+	// CredentialsRmWithResponse Remove a credential: github (agent credentials: h0 llm rm)
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -4931,14 +4931,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /environments/{name} (the `EnvGet` operationId).
 	EnvGetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvGetResponse, error)
 
-	// EnvSetWithBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+	// EnvSetWithBodyWithResponse Change the environment's fields; h0 env seed rebuilds its seed
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
 	EnvSetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnvSetResponse, error)
 
-	// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+	// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; h0 env seed rebuilds its seed
 	//
 	// Takes a body of the `application/merge-patch+json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -8203,7 +8203,7 @@ func (c *ClientWithResponses) LogsWithResponse(ctx context.Context, namespace st
 	return ParseLogsResponse(rsp)
 }
 
-// ClusterShapeWithResponse The workers and tiers hz cluster install declared
+// ClusterShapeWithResponse The workers and tiers h0 cluster install declared
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -8281,7 +8281,7 @@ func (c *ClientWithResponses) CredentialsPutWithResponse(ctx context.Context, bo
 	return ParseCredentialsPutResponse(rsp)
 }
 
-// CredentialsRmWithResponse Remove a credential: github (agent credentials: hz llm rm)
+// CredentialsRmWithResponse Remove a credential: github (agent credentials: h0 llm rm)
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -8333,7 +8333,7 @@ func (c *ClientWithResponses) EnvGetWithResponse(ctx context.Context, name strin
 	return ParseEnvGetResponse(rsp)
 }
 
-// EnvSetWithBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+// EnvSetWithBodyWithResponse Change the environment's fields; h0 env seed rebuilds its seed
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -8346,7 +8346,7 @@ func (c *ClientWithResponses) EnvSetWithBodyWithResponse(ctx context.Context, na
 	return ParseEnvSetResponse(rsp)
 }
 
-// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; h0 env seed rebuilds its seed
 //
 // Takes a body of the `application/merge-patch+json` content type, and returns a wrapper object for the known response body format(s).
 //

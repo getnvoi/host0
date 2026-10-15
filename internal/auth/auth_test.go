@@ -17,7 +17,7 @@ import (
 // Auth on a database in a fresh file, migrated.
 func newAuth(t *testing.T) *Auth {
 	t.Helper()
-	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	if err != nil {
 		t.Fatal(err)
 	}

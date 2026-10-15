@@ -19,8 +19,8 @@ iface=$(ip -4 -o addr show to {{.Subnet}} | awk '{print $2}' | head -1)
 case "$provider_id" in *://?*) ;; *) echo "no provider id: got \"$provider_id\"" >&2; exit 1 ;; esac
 [ -n "${external_ips%%,*}" ] || { echo "no public IPv4: got \"$external_ips\"" >&2; exit 1; }
 
-echo "net.ipv4.conf.all.proxy_arp=1" > /etc/sysctl.d/90-hz.conf
-sysctl -q -p /etc/sysctl.d/90-hz.conf
+echo "net.ipv4.conf.all.proxy_arp=1" > /etc/sysctl.d/90-h0.conf
+sysctl -q -p /etc/sysctl.d/90-h0.conf
 
 mkdir -p /etc/rancher/k3s
 cat > /etc/rancher/k3s/registries.yaml <<EOF

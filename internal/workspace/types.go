@@ -131,7 +131,7 @@ type Session struct {
 // A new session: a fork of the environment's seed. An empty prompt forks and rests.
 type SessionInput struct {
 	Env    string `json:"env" doc:"The environment whose seed it forks"`
-	Agent  string `json:"agent,omitempty" doc:"The agent it runs as; hz when none is named"`
+	Agent  string `json:"agent,omitempty" doc:"The agent it runs as; h0 when none is named"`
 	Prompt string `json:"prompt,omitempty" doc:"Its first message"`
 }
 

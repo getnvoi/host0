@@ -30,18 +30,18 @@ func must(name string) string {
 
 func main() {
 	var creds map[string]string
-	if err := json.Unmarshal([]byte(must("HZ_DNS_CREDS")), &creds); err != nil {
-		log.Fatalf("HZ_DNS_CREDS: %v", err)
+	if err := json.Unmarshal([]byte(must("H0_DNS_CREDS")), &creds); err != nil {
+		log.Fatalf("H0_DNS_CREDS: %v", err)
 	}
-	zone, err := dns.Open(must("HZ_DNS_PROVIDER"), creds, must("HZ_ZONE"))
+	zone, err := dns.Open(must("H0_DNS_PROVIDER"), creds, must("H0_ZONE"))
 	if err != nil {
 		log.Fatal(err)
 	}
-	upstream, err := url.Parse(must("HZ_UPSTREAM"))
+	upstream, err := url.Parse(must("H0_UPSTREAM"))
 	if err != nil {
-		log.Fatalf("HZ_UPSTREAM: %v", err)
+		log.Fatalf("H0_UPSTREAM: %v", err)
 	}
-	dir := must("HZ_STORAGE")
+	dir := must("H0_STORAGE")
 	j := &journal{zone: zone, path: filepath.Join(dir, "challenges.json")}
 	if err := j.recover(context.Background()); err != nil {
 		log.Fatalf("challenges a previous run left: %v", err)

@@ -132,13 +132,13 @@ func isTool(op *huma.Operation) bool {
 	if len(op.Security) == 1 && op.Security[0]["bearer"] != nil {
 		return false
 	}
-	x, _ := op.Extensions["x-hz"].(hz)
+	x, _ := op.Extensions["x-h0"].(h0)
 	return !x.NoTool
 }
 
-// The level "default" grants the operation at: its x-hz tool, else auto for a read and approval for a write.
+// The level "default" grants the operation at: its x-h0 tool, else auto for a read and approval for a write.
 func level(method string, op *huma.Operation) string {
-	if x, ok := op.Extensions["x-hz"].(hz); ok && x.Tool != "" {
+	if x, ok := op.Extensions["x-h0"].(h0); ok && x.Tool != "" {
 		return x.Tool
 	}
 	if method == "GET" {

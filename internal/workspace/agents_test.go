@@ -61,7 +61,7 @@ func TestTurnFollowsLevels(t *testing.T) {
 		t.Fatal(err)
 	}
 	use := func(id, name string) string {
-		return `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__hz__` + name + `","id":"` + id +
+		return `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__h0__` + name + `","id":"` + id +
 			`","input":{"id":"lv1"}}]}}` + "\n"
 	}
 	fb.logs["turn-1"] = true

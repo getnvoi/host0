@@ -41,7 +41,7 @@ func (f *fakeSandboxes) Suspend(_ context.Context, a string) error {
 // A database in a fresh file, migrated, holding no shape.
 func emptyDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,30 +133,30 @@ func (f *fakePools) Cost(_ context.Context, pod string, c int) error { f.costs[p
 func TestShrink(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{workers: []sandbox.Worker{
-		{Pool: "hz-medium", Pod: "busy", Held: []sandbox.Held{{Name: "a", State: "running"}}},
-		{Pool: "hz-medium", Pod: "idle"},
+		{Pool: "h0-medium", Pod: "busy", Held: []sandbox.Held{{Name: "a", State: "running"}}},
+		{Pool: "h0-medium", Pod: "idle"},
 	}}
-	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
+	pools := &fakePools{replicas: map[string]int{"h0-medium": 2}, costs: map[string]int{}}
 	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t)}
 	ctx := context.Background()
 
 	p.shrink(ctx)
-	if pools.replicas["hz-medium"] != 2 {
+	if pools.replicas["h0-medium"] != 2 {
 		t.Fatal("shrank on the first tick a worker was free")
 	}
 	p.shrink(ctx)
-	if pools.replicas["hz-medium"] != 1 || pools.costs["idle"] != -1000 {
-		t.Fatalf("second tick: replicas %d costs %v", pools.replicas["hz-medium"], pools.costs)
+	if pools.replicas["h0-medium"] != 1 || pools.costs["idle"] != -1000 {
+		t.Fatalf("second tick: replicas %d costs %v", pools.replicas["h0-medium"], pools.costs)
 	}
 	if _, touched := pools.costs["busy"]; touched {
 		t.Fatal("a busy worker was costed")
 	}
 
-	sc.grown["hz-medium"] = time.Now()
-	pools.replicas["hz-medium"] = 2
+	sc.grown["h0-medium"] = time.Now()
+	pools.replicas["h0-medium"] = 2
 	p.shrink(ctx)
 	p.shrink(ctx)
-	if pools.replicas["hz-medium"] != 2 {
+	if pools.replicas["h0-medium"] != 2 {
 		t.Fatal("shrank right after a grow")
 	}
 }
@@ -164,14 +164,14 @@ func TestShrink(t *testing.T) {
 func TestWakeGrows(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1}
-	pools := &fakePools{replicas: map[string]int{"hz-large": 0}, costs: map[string]int{}}
+	pools := &fakePools{replicas: map[string]int{"h0-large": 0}, costs: map[string]int{}}
 	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t)}
 	large, _ := sandbox.Pick(sandbox.DefaultTiers, "large")
 	if err := p.Wake(context.Background(), "a", large); err != nil {
 		t.Fatal(err)
 	}
-	if pools.replicas["hz-large"] != 1 {
-		t.Fatalf("large not grown from zero: %d", pools.replicas["hz-large"])
+	if pools.replicas["h0-large"] != 1 {
+		t.Fatalf("large not grown from zero: %d", pools.replicas["h0-large"])
 	}
 }
 
@@ -193,13 +193,13 @@ func TestRest(t *testing.T) {
 func TestWakeEvictsBeforeGrowing(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1, states: map[string]string{"old": "paused", "new": "suspended"}}
-	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, costs: map[string]int{}}
+	pools := &fakePools{replicas: map[string]int{"h0-medium": 1}, costs: map[string]int{}}
 	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t, sandbox.Route{Actor: "old", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "new", Port: 3000, Tier: "medium"})}
 	medium, _ := sandbox.Pick(sandbox.DefaultTiers, "medium")
 	if err := p.Wake(context.Background(), "new", medium); err != nil {
 		t.Fatal(err)
 	}
-	if sb.states["old"] != "suspended" || pools.replicas["hz-medium"] != 1 {
+	if sb.states["old"] != "suspended" || pools.replicas["h0-medium"] != 1 {
 		t.Fatalf("expected the paused actor evicted and no growth: %v %v", sb.states, pools.replicas)
 	}
 }
@@ -207,55 +207,55 @@ func TestWakeEvictsBeforeGrowing(t *testing.T) {
 func TestEvictSkipsBusy(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{full: 1, states: map[string]string{"old": "paused", "new": "suspended"}}
-	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, costs: map[string]int{}}
+	pools := &fakePools{replicas: map[string]int{"h0-medium": 1}, costs: map[string]int{}}
 	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t, sandbox.Route{Actor: "old", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "new", Port: 3000, Tier: "medium"})}
 	sc.open["old"] = 1
 	medium, _ := sandbox.Pick(sandbox.DefaultTiers, "medium")
 	if err := p.Wake(context.Background(), "new", medium); err != nil {
 		t.Fatal(err)
 	}
-	if sb.states["old"] != "paused" || pools.replicas["hz-medium"] != 2 {
+	if sb.states["old"] != "paused" || pools.replicas["h0-medium"] != 2 {
 		t.Fatalf("a busy actor was evicted: %v %v", sb.states, pools.replicas)
 	}
 }
 
 func TestGrowWaitsForStartingWorker(t *testing.T) {
 	sc = newScaler()
-	pools := &fakePools{replicas: map[string]int{"hz-medium": 1}, ready: map[string]int{"hz-medium": 0}}
+	pools := &fakePools{replicas: map[string]int{"h0-medium": 1}, ready: map[string]int{"h0-medium": 0}}
 	p := &Scaler{Pools: pools}
-	sc.grown["hz-medium"] = time.Now().Add(-time.Minute)
-	p.grow(context.Background(), "hz-medium")
-	if pools.replicas["hz-medium"] != 1 {
-		t.Fatalf("grew to %d while a worker was starting", pools.replicas["hz-medium"])
+	sc.grown["h0-medium"] = time.Now().Add(-time.Minute)
+	p.grow(context.Background(), "h0-medium")
+	if pools.replicas["h0-medium"] != 1 {
+		t.Fatalf("grew to %d while a worker was starting", pools.replicas["h0-medium"])
 	}
-	sc.grown["hz-medium"] = time.Now().Add(-growWait)
-	p.grow(context.Background(), "hz-medium")
-	if pools.replicas["hz-medium"] != 2 {
-		t.Fatalf("did not grow past a stuck worker: %d", pools.replicas["hz-medium"])
+	sc.grown["h0-medium"] = time.Now().Add(-growWait)
+	p.grow(context.Background(), "h0-medium")
+	if pools.replicas["h0-medium"] != 2 {
+		t.Fatalf("did not grow past a stuck worker: %d", pools.replicas["h0-medium"])
 	}
-	pools.ready["hz-medium"] = 2
-	sc.grown["hz-medium"] = time.Now().Add(-time.Minute)
-	p.grow(context.Background(), "hz-medium")
-	if pools.replicas["hz-medium"] != 3 {
-		t.Fatalf("did not grow a ready pool: %d", pools.replicas["hz-medium"])
+	pools.ready["h0-medium"] = 2
+	sc.grown["h0-medium"] = time.Now().Add(-time.Minute)
+	p.grow(context.Background(), "h0-medium")
+	if pools.replicas["h0-medium"] != 3 {
+		t.Fatalf("did not grow a ready pool: %d", pools.replicas["h0-medium"])
 	}
 }
 
 // A pod marked for a shrink and taken before it went loses its mark, so the ReplicaSet does not pick it later.
 func TestShrinkUnmarksTaken(t *testing.T) {
 	sc = newScaler()
-	sb := &fakeSandboxes{workers: []sandbox.Worker{{Pool: "hz-medium", Pod: "a"}, {Pool: "hz-medium", Pod: "b"}}}
-	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, costs: map[string]int{}}
+	sb := &fakeSandboxes{workers: []sandbox.Worker{{Pool: "h0-medium", Pod: "a"}, {Pool: "h0-medium", Pod: "b"}}}
+	pools := &fakePools{replicas: map[string]int{"h0-medium": 2}, costs: map[string]int{}}
 	p := &Scaler{Sandboxes: sb, Pools: pools, DB: newDB(t)}
 	ctx := context.Background()
 	p.shrink(ctx)
 	p.shrink(ctx)
-	if pools.replicas["hz-medium"] != 0 || pools.costs["a"] != -1000 || pools.costs["b"] != -1000 {
-		t.Fatalf("replicas %d costs %v", pools.replicas["hz-medium"], pools.costs)
+	if pools.replicas["h0-medium"] != 0 || pools.costs["a"] != -1000 || pools.costs["b"] != -1000 {
+		t.Fatalf("replicas %d costs %v", pools.replicas["h0-medium"], pools.costs)
 	}
 	// "b" was resumed onto before the ReplicaSet removed it.
-	sb.workers = []sandbox.Worker{{Pool: "hz-medium", Pod: "b", Held: []sandbox.Held{{Name: "a", State: "running"}}}}
-	pools.replicas["hz-medium"] = 1
+	sb.workers = []sandbox.Worker{{Pool: "h0-medium", Pod: "b", Held: []sandbox.Held{{Name: "a", State: "running"}}}}
+	pools.replicas["h0-medium"] = 1
 	p.shrink(ctx)
 	if pools.costs["b"] != 0 {
 		t.Fatalf("a taken pod kept its mark: %v", pools.costs)
@@ -283,12 +283,12 @@ func TestResumeTellsWoken(t *testing.T) {
 func TestReap(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{workers: []sandbox.Worker{
-		{Pool: "hz-medium", Pod: "routed", Held: []sandbox.Held{{Name: "shop-b30f1ae1ab", State: "suspending"}}},
-		{Pool: "hz-medium", Pod: "forking", Held: []sandbox.Held{{Name: "wt-s1", State: "resuming"}}},
-		{Pool: "hz-medium", Pod: "building", Held: []sandbox.Held{{Name: "web-1111111111", State: "running"}}},
-		{Pool: "hz-medium", Pod: "golden", Held: []sandbox.Held{{Space: "ate-golden", Name: "97ce8213", State: "running"}}},
-		{Pool: "hz-medium", Pod: "failed", Held: []sandbox.Held{{Name: "shop-853d8ecc03", State: "running"}}},
-		{Pool: "hz-medium", Pod: "stale", Held: []sandbox.Held{{Name: "gone", State: ""}}},
+		{Pool: "h0-medium", Pod: "routed", Held: []sandbox.Held{{Name: "shop-b30f1ae1ab", State: "suspending"}}},
+		{Pool: "h0-medium", Pod: "forking", Held: []sandbox.Held{{Name: "wt-s1", State: "resuming"}}},
+		{Pool: "h0-medium", Pod: "building", Held: []sandbox.Held{{Name: "web-1111111111", State: "running"}}},
+		{Pool: "h0-medium", Pod: "golden", Held: []sandbox.Held{{Space: "ate-golden", Name: "97ce8213", State: "running"}}},
+		{Pool: "h0-medium", Pod: "failed", Held: []sandbox.Held{{Name: "shop-853d8ecc03", State: "running"}}},
+		{Pool: "h0-medium", Pod: "stale", Held: []sandbox.Held{{Name: "gone", State: ""}}},
 	}}
 	st := newDB(t, sandbox.Route{Actor: "shop-b30f1ae1ab", Tier: "medium"})
 	named := func() map[string]bool { return map[string]bool{"wt-s1": true, "web-1111111111": true} }

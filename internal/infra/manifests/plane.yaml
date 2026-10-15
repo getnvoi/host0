@@ -1,44 +1,44 @@
 # The control plane. It reaches Substrate's API with its service account token, as AX's controller does.
 apiVersion: v1
 kind: ServiceAccount
-metadata: { name: plane, namespace: hz-system }
+metadata: { name: plane, namespace: h0-system }
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
-metadata: { name: plane, namespace: hz }
+metadata: { name: plane, namespace: h0 }
 rules:
   - { apiGroups: [ate.dev], resources: [workerpools], verbs: [get, patch] }
   - { apiGroups: [""], resources: [pods], verbs: [get, list, patch] }
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
-metadata: { name: plane, namespace: hz }
+metadata: { name: plane, namespace: h0 }
 roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: plane }
-subjects: [{ kind: ServiceAccount, name: plane, namespace: hz-system }]
+subjects: [{ kind: ServiceAccount, name: plane, namespace: h0-system }]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
-metadata: { name: hz-plane }
+metadata: { name: h0-plane }
 rules:
   - { apiGroups: [""], resources: [nodes], verbs: [get, list, patch, delete] }
   - { apiGroups: [""], resources: [pods, pods/log], verbs: [get, list] }
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
-metadata: { name: hz-plane }
-roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: hz-plane }
-subjects: [{ kind: ServiceAccount, name: plane, namespace: hz-system }]
+metadata: { name: h0-plane }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: h0-plane }
+subjects: [{ kind: ServiceAccount, name: plane, namespace: h0-system }]
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: plane, namespace: hz-system }
+metadata: { name: plane, namespace: h0-system }
 spec:
   selector: { app: plane }
   ports: [{ port: 80, targetPort: 8080 }]
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: plane, namespace: hz-system }
+metadata: { name: plane, namespace: h0-system }
 spec:
   replicas: 1
   strategy: { type: Recreate }
@@ -46,7 +46,7 @@ spec:
   template:
     metadata:
       labels: { app: plane }
-      annotations: { hz.dev/secret: "[[.Secret]]" }
+      annotations: { h0.dev/secret: "[[.Secret]]" }
     spec:
       serviceAccountName: plane
       securityContext: { runAsUser: 0 }
@@ -55,30 +55,30 @@ spec:
         - name: plane
           image: ko://github.com/getnvoi/host0/cmd/controlplane
           env:
-            - { name: HZ_CLUSTER, value: "[[.Cluster]]" }
-            - { name: HZ_ZONE, value: "[[.Zone]]" }
-            - { name: HZ_PREVIEW_SUFFIX, value: "[[.Suffix]]" }
-            - { name: HZ_BOXD_IMAGE, value: ko://github.com/getnvoi/host0/cmd/boxd }
-            - { name: HZ_TOKEN_SHA256, valueFrom: { secretKeyRef: { name: plane, key: token-sha256 } } }
-            - { name: HZ_BOX_TOKEN, valueFrom: { secretKeyRef: { name: plane, key: box-token } } }
-            - { name: HZ_EDGE, value: "[[.Edge]]" }
+            - { name: H0_CLUSTER, value: "[[.Cluster]]" }
+            - { name: H0_ZONE, value: "[[.Zone]]" }
+            - { name: H0_PREVIEW_SUFFIX, value: "[[.Suffix]]" }
+            - { name: H0_BOXD_IMAGE, value: ko://github.com/getnvoi/host0/cmd/boxd }
+            - { name: H0_TOKEN_SHA256, valueFrom: { secretKeyRef: { name: plane, key: token-sha256 } } }
+            - { name: H0_BOX_TOKEN, valueFrom: { secretKeyRef: { name: plane, key: box-token } } }
+            - { name: H0_EDGE, value: "[[.Edge]]" }
             [[- if eq .Edge "cloudflared" ]]
             - { name: CLOUDFLARE_API_TOKEN, valueFrom: { secretKeyRef: { name: cloudflare, key: token } } }
             - { name: TUNNEL_TOKEN, valueFrom: { secretKeyRef: { name: cloudflared, key: token } } }
             [[- else ]]
-            - { name: HZ_NODE, valueFrom: { fieldRef: { fieldPath: spec.nodeName } } }
-            - { name: HZ_DNS_PROVIDER, valueFrom: { secretKeyRef: { name: dns, key: provider } } }
-            - { name: HZ_DNS_CREDS, valueFrom: { secretKeyRef: { name: dns, key: creds } } }
+            - { name: H0_NODE, valueFrom: { fieldRef: { fieldPath: spec.nodeName } } }
+            - { name: H0_DNS_PROVIDER, valueFrom: { secretKeyRef: { name: dns, key: provider } } }
+            - { name: H0_DNS_CREDS, valueFrom: { secretKeyRef: { name: dns, key: creds } } }
             [[- end ]]
           volumeMounts:
-            - { name: data, mountPath: /var/lib/hz }
-            - { name: seal, mountPath: /etc/hz/seal, subPath: seal, readOnly: true }
-            - { name: cloud, mountPath: /etc/hz/cloud, readOnly: true }
+            - { name: data, mountPath: /var/lib/h0 }
+            - { name: seal, mountPath: /etc/h0/seal, subPath: seal, readOnly: true }
+            - { name: cloud, mountPath: /etc/h0/cloud, readOnly: true }
             - { name: ate-token, mountPath: /var/run/secrets/ateapi, readOnly: true }
             - { name: servicedns-ca, mountPath: /run/servicedns-ca, readOnly: true }
       volumes:
         - name: data
-          hostPath: { path: /var/lib/hz/plane, type: DirectoryOrCreate }
+          hostPath: { path: /var/lib/h0/plane, type: DirectoryOrCreate }
         - name: seal
           secret: { secretName: plane, defaultMode: 0400, items: [{ key: seal, path: seal }] }
         - name: cloud

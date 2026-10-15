@@ -42,7 +42,7 @@ type pool struct {
 func pools(e *infra.Env) []pool {
 	var ps []pool
 	for _, t := range e.Config.Tiers {
-		ps = append(ps, pool{Tier: t, Name: t.Pool(), Namespace: "hz"})
+		ps = append(ps, pool{Tier: t, Name: t.Pool(), Namespace: "h0"})
 	}
 	return ps
 }
@@ -103,7 +103,7 @@ var Install = []infra.Step{
 		if err != nil {
 			return err
 		}
-		dir, err := os.MkdirTemp("", "hz-")
+		dir, err := os.MkdirTemp("", "h0-")
 		if err != nil {
 			return err
 		}
@@ -136,7 +136,7 @@ var Install = []infra.Step{
 	}),
 	step("worker pools", func(ctx context.Context, e *infra.Env) error {
 		// replicas is the plane's: a pool is written back with what it has now, and a new one starts at zero.
-		current, err := output(ctx, e, `k3s kubectl -n hz get workerpool -o jsonpath='{range .items[*]}{.metadata.name}={.spec.replicas}{"\n"}{end}'`)
+		current, err := output(ctx, e, `k3s kubectl -n h0 get workerpool -o jsonpath='{range .items[*]}{.metadata.name}={.spec.replicas}{"\n"}{end}'`)
 		if err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ var Install = []infra.Step{
 		for _, p := range pools(e) {
 			names = append(names, p.Name)
 		}
-		return kube.Run(ctx, e.Shell, "-n hz delete workerpool --ignore-not-found -l 'workload,workload notin ("+strings.Join(names, ",")+")'", e.Out)
+		return kube.Run(ctx, e.Shell, "-n h0 delete workerpool --ignore-not-found -l 'workload,workload notin ("+strings.Join(names, ",")+")'", e.Out)
 	}),
 	step("certificates", certificates),
 	step("edge", func(ctx context.Context, e *infra.Env) error {
@@ -276,7 +276,7 @@ var Install = []infra.Step{
 			return err
 		}
 		e.Say("api at %s", url)
-		e.Say("web UI at %s: sign in with hz open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
+		e.Say("web UI at %s: sign in with h0 open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
 		return e.Laptop.SavePlane(url, token)
 	}),
 }
@@ -392,7 +392,7 @@ func secretData(ctx context.Context, e *infra.Env, name string) (map[string][]by
 // The edge that keeps its certificates in naming.Certs.
 const proxy = "proxy"
 
-// Creates naming.Certs for the proxy, empty, or from ~/.hz/certs/<zone> when that file exists. A cluster's own
+// Creates naming.Certs for the proxy, empty, or from ~/.h0/certs/<zone> when that file exists. A cluster's own
 // certificates are never replaced.
 func certificates(ctx context.Context, e *infra.Env) error {
 	if e.Edge.Deployment() != proxy {
@@ -419,7 +419,7 @@ func certificates(ctx context.Context, e *infra.Env) error {
 	return kube.Apply(ctx, e.Shell, cloud.Secret(naming.Namespace, naming.Certs, data), e.Out)
 }
 
-// Writes the proxy's certificate secret to ~/.hz/certs/<zone>, sealed with ~/.hz/key, for the next install of the
+// Writes the proxy's certificate secret to ~/.h0/certs/<zone>, sealed with ~/.h0/key, for the next install of the
 // zone to restore. Run before the servers go.
 func KeepCerts(ctx context.Context, e *infra.Env) error {
 	if e.Edge.Deployment() != proxy {
@@ -461,7 +461,7 @@ func KeepCerts(ctx context.Context, e *infra.Env) error {
 	return nil
 }
 
-// The sealing key, from ~/.hz/key and the cluster's: equal, or the one that exists restores the other, or a new one.
+// The sealing key, from ~/.h0/key and the cluster's: equal, or the one that exists restores the other, or a new one.
 func sealKey(local, cluster []byte, path string) ([]byte, error) {
 	if cluster != nil && len(cluster) != seal.Size {
 		return nil, fmt.Errorf("the plane secret's seal is %d bytes, not %d", len(cluster), seal.Size)

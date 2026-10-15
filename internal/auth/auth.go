@@ -23,7 +23,7 @@ import (
 type Auth struct{ DB *gorm.DB }
 
 const (
-	sessionCookie = "hz_session"
+	sessionCookie = "h0_session"
 	linkTTL       = 60 * time.Second
 	sessionTTL    = 30 * 24 * time.Hour
 )
@@ -129,7 +129,7 @@ func (a *Auth) SignOut(label string) (int, error) {
 		return 0, res.Error
 	}
 	if label != "" && res.RowsAffected == 0 {
-		return 0, NotFound{fmt.Errorf("no browser is signed in as %s: hz browsers lists them", label)}
+		return 0, NotFound{fmt.Errorf("no browser is signed in as %s: h0 browsers lists them", label)}
 	}
 	return int(res.RowsAffected), nil
 }
@@ -153,7 +153,7 @@ func (a *Auth) SignedIn(next http.Handler) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if r.Method != http.MethodGet && r.Header.Get("X-Requested-With") != "hz" {
+		if r.Method != http.MethodGet && r.Header.Get("X-Requested-With") != "h0" {
 			http.Error(w, "missing X-Requested-With", http.StatusForbidden)
 			return
 		}
