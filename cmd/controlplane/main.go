@@ -69,6 +69,7 @@ func main() {
 		TokenFile: "/var/run/secrets/ateapi/token",
 		Router:    "atenet-router.ate-system.svc.cluster.local:8081",
 		Atespace:  "hz",
+		// The bucket in the cluster's own S3 store (rustfs in ate-system); substrate names every bucket gs://.
 		Snapshots: "gs://ate-snapshots/hz/",
 	})
 	if err != nil {

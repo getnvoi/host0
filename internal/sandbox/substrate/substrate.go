@@ -140,13 +140,17 @@ func (c *Client) Create(ctx context.Context, name, template, tag string) error {
 	if _, err := c.api.CreateActor(ctx, &pb.CreateActorRequest{Actor: a}); err != nil && !exists(err) {
 		return fmt.Errorf("create actor %s: %w", name, err)
 	}
-	// Actors reach nothing outside without a policy. Every destination for now; per-environment hosts come later.
+	// Actors reach nothing outside without a policy: every public address, nothing inside the cluster.
 	policy := &pb.EgressPolicy{}
 	if err := decode(map[string]any{"metadata": map[string]string{"atespace": c.cfg.Atespace, "name": "default"},
-		"rules": []map[string]any{{"all": map[string]any{}}}}, policy); err != nil {
+		"rules": []map[string]any{{"cidrs": map[string]any{"cidrs": public()}}}}, policy); err != nil {
 		return err
 	}
-	if _, err := c.api.CreateActorEgressPolicy(ctx, &pb.CreateActorEgressPolicyRequest{Actor: c.ref(name), EgressPolicy: policy}); err != nil && !exists(err) {
+	_, err := c.api.CreateActorEgressPolicy(ctx, &pb.CreateActorEgressPolicyRequest{Actor: c.ref(name), EgressPolicy: policy})
+	if exists(err) {
+		_, err = c.api.UpdateActorEgressPolicy(ctx, &pb.UpdateActorEgressPolicyRequest{Actor: c.ref(name), EgressPolicy: policy})
+	}
+	if err != nil {
 		return fmt.Errorf("egress policy %s: %w", name, err)
 	}
 	return nil
