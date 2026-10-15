@@ -38,7 +38,7 @@ type Agent struct {
 }
 
 // An agent as its file declares it. Tools maps a tool to its level; "*" gives every tool there is now that level,
-// and a tool named beside it overrides it. A tool left out keeps its default.
+// and a tool named beside it overrides it. Without "*", a tool left out is denied; with no tools, all keep defaults.
 type AgentInput struct {
 	Description  string            `json:"description,omitempty" yaml:"description"`
 	Model        string            `json:"model,omitempty" yaml:"model"`
@@ -209,12 +209,16 @@ func (ws *Workspace) PutAgent(name string, in AgentInput) (Agent, error) {
 		return Agent{}, Invalid{fmt.Errorf("agent name %q: lowercase letters, digits and -, from a letter", name)}
 	}
 	set := map[string]string{}
-	if l, ok := in.Tools["*"]; ok {
-		if err := validLevel(l); err != nil {
+	all, listed := in.Tools["*"]
+	if !listed && len(in.Tools) > 0 {
+		all, listed = "deny", true
+	}
+	if listed {
+		if err := validLevel(all); err != nil {
 			return Agent{}, err
 		}
 		for _, t := range ws.Tools.List() {
-			set[t.Name] = l
+			set[t.Name] = all
 		}
 	}
 	for tool, l := range in.Tools {

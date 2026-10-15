@@ -13,7 +13,8 @@ import (
 //go:embed *.yaml
 var files embed.FS
 
-// An agent file. Tools maps a tool to its level: auto, approval or deny; "*" is every tool.
+// An agent file. Tools maps a tool to its level: auto, approval or deny; "*" is every tool. Without "*", the tools
+// listed are the agent's only ones; with no tools, each keeps its default.
 type File struct {
 	Name         string            `yaml:"name" json:"-"`
 	Description  string            `yaml:"description" json:"description,omitempty"`

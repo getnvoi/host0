@@ -2,7 +2,6 @@
 name: gitops
 description: Changes the session's checkout, pushes its branch and asks before opening a pull request.
 tools:
-  "*": deny
   session_title: auto
   session_show: auto
   session_changes: auto

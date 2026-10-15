@@ -94,7 +94,8 @@ func TestTurnFollowsLevels(t *testing.T) {
 	}
 }
 
-// An agent file's "*" covers every tool, a tool named beside it overrides it, and declaring it again changes nothing.
+// "*" covers every tool and a tool named beside it overrides it; a list alone allows only itself; declaring again is a
+// no-op.
 func TestPutAgent(t *testing.T) {
 	p := newWorkspace(t, nil)
 	in := AgentInput{Description: "all", Model: "opus", Instructions: "Be brief.",
@@ -115,6 +116,11 @@ func TestPutAgent(t *testing.T) {
 	a, err = p.PutAgent("ops", AgentInput{Description: "none"})
 	if err != nil || grant(a, "session_push").Level != "approval" || grant(a, "session_push").Rule {
 		t.Fatalf("emptied %+v %v", a, err)
+	}
+	// A list without "*" allows only what it names.
+	a, err = p.PutAgent("ops", AgentInput{Tools: map[string]string{"session_title": "auto"}})
+	if err != nil || grant(a, "session_title").Level != "auto" || grant(a, "session_push").Level != "deny" {
+		t.Fatalf("listed %+v %v", a, err)
 	}
 	for _, bad := range []struct {
 		name string
