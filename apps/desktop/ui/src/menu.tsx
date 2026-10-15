@@ -353,7 +353,7 @@ export function Dropdown({ entries, edge: side = "leading", above, width, match,
   const [controlWidth, setControlWidth] = useState(0);
   // The room left between the control and the window's edge: a longer menu scrolls inside it.
   const [room, setRoom] = useState<number>();
-  const { refs, floatingStyles, context, isPositioned } = useFloating({
+  const { refs, floatingStyles, context, isPositioned, update } = useFloating({
     open,
     onOpenChange: setOpen,
     placement,
@@ -375,6 +375,10 @@ export function Dropdown({ entries, edge: side = "leading", above, width, match,
     ],
   });
   const { getReferenceProps, getFloatingProps } = useInteractions([useClick(context), useDismiss(context)]);
+  // Opening measures again: a panel last measured while closed is not positioned, so it would stay hidden.
+  useEffect(() => {
+    if (open) update();
+  }, [open, update]);
   // Whether a key opened it (Enter, Space or an arrow on the control), noted as it opens.
   const keyed = useRef(false);
   const was = useRef(open);

@@ -21,17 +21,20 @@ export function matching<T>(items: T[], query: string, name: (item: T) => string
 // A model a credential's provider offers (`llm/providers` → `models`), or a select's option.
 export type ModelOption = { id: string; label: string };
 
-// One of the tools an agent sets a level for (`agents/tools`), in its category. `asks` tools have no auto level;
-// `outbound` tools send data out; `level` is the one a new agent starts with.
-export type AgentToolModel = { name: string; label: string; category: string; asks: boolean; outbound: boolean; level: string };
+// How a granted tool runs: at once, or after a person approves the call. A tool not granted does not exist for the agent.
+export type GrantLevel = "auto" | "approval";
+
+// One of the tools an agent may be granted (`agents/tools`), in its category. `asks` tools have no auto level;
+// `outbound` tools send data out; `level` is the one a grant at `default` picks.
+export type AgentToolModel = { name: string; label: string; category: string; asks: boolean; outbound: boolean; level: GrantLevel };
 
 // The categories of a list of tools, in the order they come.
 export const toolCategories = (tools: AgentToolModel[]) => [...new Set(tools.map((t) => t.category))];
 
-// The levels a tool takes.
-export const toolLevels = (t: AgentToolModel) => (t.asks ? ["approval", "deny"] : ["auto", "approval", "deny"]);
+// The levels a tool may be granted at.
+export const toolLevels = (t: AgentToolModel): GrantLevel[] => (t.asks ? ["approval"] : ["auto", "approval"]);
 
-// An agent (`agents`): name, slug, tagline, model, instructions, a level per tool, its skills.
+// An agent (`agents`): name, slug, tagline, model, instructions, the tools it is granted, its skills.
 export type AgentModel = {
   id: string;
   name: string;
@@ -42,8 +45,8 @@ export type AgentModel = {
   // The model credential its new sessions run on (`llm_config_id`); none for the workspace's main one.
   llmConfigId?: string;
   instructions: string;
-  // Tool name → `auto`, `approval` or `deny`.
-  tools: Record<string, string>;
+  // The tools it is granted, by name; a tool absent here is not one of its tools.
+  tools: Record<string, GrantLevel>;
   // `AgentResource#locked`: what always waits on a person whatever the levels say, by category, at its one level.
   locked: LockedTools[];
   // `AgentResource#unenforceable`: the built-in levels the agent's runner cannot enforce, each with why.
@@ -64,14 +67,17 @@ export function agentModel(a: Partial<AgentModel> & { id: string; name: string }
 }
 
 export const agentModels = {
-  level(a: AgentModel, t: AgentToolModel) {
-    const level = a.tools[t.name] ?? t.level;
-    return t.asks && level !== "deny" ? "approval" : level;
+  // The level the agent holds the tool at; none when it is not granted.
+  level(a: AgentModel, t: AgentToolModel): GrantLevel | undefined {
+    const level = a.tools[t.name];
+    return level && t.asks ? "approval" : level;
   },
+  // The level a grant at `default` gives: the tool's own.
+  grant: (t: AgentToolModel): GrantLevel => (t.asks ? "approval" : t.level),
   // Why the agent's runner cannot enforce this tool at this level, if it cannot.
   refusal: (a: AgentModel, tool: string, level: string) => a.unenforceable.find((u) => u.tool === tool && u.level === level)?.reason,
-  // Tools not denied, as `Agent#granted`.
-  granted: (a: AgentModel, tools: AgentToolModel[]) => tools.filter((t) => agentModels.level(a, t) !== "deny").length,
+  // How many of the tools the agent is granted.
+  granted: (a: AgentModel, tools: AgentToolModel[]) => tools.filter((t) => agentModels.level(a, t)).length,
   // Outbound tools at auto, as `Agent#unguarded`.
   unguarded: (a: AgentModel, tools: AgentToolModel[]) => tools.filter((t) => t.outbound && agentModels.level(a, t) === "auto"),
 };
