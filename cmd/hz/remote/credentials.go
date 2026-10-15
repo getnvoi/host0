@@ -2,10 +2,13 @@ package remote
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -26,7 +29,7 @@ func credentials() *cobra.Command {
 	var set, secret []string
 	cmd := &cobra.Command{
 		Use:   "credentials",
-		Short: "Hand the plane a GitHub token (default: gh auth token) and the agent's credential (default: claude setup-token, or OPENAI_API_KEY for codex)",
+		Short: "Hand the plane a GitHub token (default: gh auth token) and the agent's credential (default: claude setup-token; for codex OPENAI_API_KEY, else ~/.codex/auth.json)",
 		Example: `  hz credentials --set kind=api_key --secret token=ANTHROPIC_API_KEY
   hz credentials --set kind=bearer --set base_url=https://api.z.ai/api/anthropic --secret token=ZAI_API_KEY
   hz credentials --llm codex
@@ -68,9 +71,11 @@ func credentials() *cobra.Command {
 					}
 					l.Values["kind"], l.Values["token"] = "oauth", token
 				case "codex":
-					if l.Values["token"] = os.Getenv("OPENAI_API_KEY"); l.Values["token"] == "" {
-						return fmt.Errorf("OPENAI_API_KEY is not set in this shell; or --secret token=VARIABLE")
+					token, err := codexToken()
+					if err != nil {
+						return err
 					}
+					l.Values["token"] = token
 				}
 			}
 			pl, err := api()
@@ -177,6 +182,22 @@ func credentialsLs() *cobra.Command {
 }
 
 // CLAUDE_CODE_OAUTH_TOKEN, or a new one from claude setup-token, which opens a browser and prints the token last.
+// OPENAI_API_KEY, else a copy of this machine's ChatGPT sign-in.
+func codexToken() (string, error) {
+	if t := os.Getenv("OPENAI_API_KEY"); t != "" {
+		return t, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	auth, err := os.ReadFile(filepath.Join(home, ".codex", "auth.json"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("no OPENAI_API_KEY in this shell and no ~/.codex/auth.json (codex login); or --secret token=VARIABLE")
+	}
+	return string(auth), err
+}
+
 func claudeToken() (string, error) {
 	if t := os.Getenv("CLAUDE_CODE_OAUTH_TOKEN"); t != "" {
 		return t, nil
