@@ -1,6 +1,6 @@
 // The plane's sessions as the screens take them. The plane keeps a session's events in one list, a `prompt` opening
 // each turn; the screens read turns, each with its events, and a waiting approval as a call in the last one.
-import type { AgentRecord, EnvironmentChoice, EventRecord, RepoRecord, SessionRecord, TurnRecord } from "@hz/ui";
+import type { AgentRecord, EnvironmentChoice, EventRecord, PullRequestRecord, RepoRecord, SessionRecord, TurnRecord } from "@hz/ui";
 import { request } from "./client";
 import type { Approval, Changes, EnvironmentSummary, Event, LlmConfig, Provider, Session, State, Summary } from "./models";
 
@@ -27,6 +27,14 @@ export function sessionOf(s: Summary | Session, environments: EnvironmentSummary
     createdAt: s.at,
     updatedAt: s.last,
   };
+}
+
+// The pull request the agent opened: the plane writes each decided call's outcome into the prompt after it, and
+// create_pull_request's reads `create_pull_request: opened <url>`. `changed`: the files `sessions/{id}/changes` lists.
+export function pullRequestOf(s: Session, changed: number): PullRequestRecord {
+  let url: string | undefined;
+  for (const e of s.events) if (e.kind === "prompt") for (const m of (e.content ?? "").matchAll(/^create_pull_request: opened (\S+)$/gm)) url = m[1];
+  return url ? { url, state: "open", changed } : { changed };
 }
 
 // The environments grouped by the repository they check out: the screens pick a repository, then its environment.

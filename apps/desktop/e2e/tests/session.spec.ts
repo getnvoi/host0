@@ -21,3 +21,23 @@ test("a session: list, conversation, a streamed event, an approval", async ({ pa
   await page.getByRole("button", { name: /^Allow/ }).first().click();
   await expect.poll(async () => (await writes(request)).some((w) => w.path.endsWith("/plane/approvals/ap1/approve"))).toBe(true);
 });
+
+test("a session's pull request: create asks the agent, an opened one is linked", async ({ page, request }) => {
+  await scenario(request, "ready");
+  await signedIn(page);
+  await page.goto("/");
+  await page.getByText("Health endpoint").first().click();
+
+  // The changed files the plane lists turn the menu's action on; it sends the agent the request.
+  await page.getByTestId("button:Create pull request").click();
+  await page.getByRole("menuitem", { name: /Create pull request/ }).click();
+  await expect
+    .poll(async () => (await writes(request)).find((w) => w.method === "POST" && w.path.endsWith("/plane/sessions/k7f2qa/turns"))?.body)
+    .toEqual({ prompt: "Commit the changes, push the branch and open a pull request." });
+
+  // The outcome the plane writes into the next prompt names the pull request: the button opens it.
+  await request.post(`${hub}/__push`, { data: { event: "opened" } });
+  await page.getByTestId("button:Pull request").click();
+  await page.getByRole("menuitem", { name: /Open the pull request/ }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { hzOpened?: string[] }).hzOpened ?? [])).toContain("https://github.com/northwind/shop/pull/7");
+});
