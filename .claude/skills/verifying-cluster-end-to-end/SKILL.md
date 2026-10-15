@@ -13,13 +13,13 @@ Every command is `./bin/h0`. No curl, no ssh, no kubectl: a stage that needs som
 
 ## Prerequisites
 
-- `~/Desktop/ncx/.env.development` (0600, gitignored), whose `CLOUDFLARE_API_TOKEN` holds the test zone nvoi.to; `.env.production` holds host0.dev's, the SaaS's own zone, never used for a validation run. Both have `HCLOUD_TOKEN`, `CLOUDFLARE_API_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, `RAILS_MASTER_KEY`.
+- `~/Desktop/ncx/.env.development` (0600, gitignored), for the development zone hostzero.app; `.env.production` is for host0.dev, the SaaS's own zone, never used for a validation run. Both have `HCLOUD_TOKEN`, `CLOUDFLARE_API_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, `RAILS_MASTER_KEY`.
 - `~/.ssh/nvoi_ed25519`, and `go`, `ko`, `git` on the laptop.
 - Every shell starts with:
 
 ```sh
 cd ~/Desktop/ncx && set -a && . ./.env.development && set +a
-install() { ./bin/h0 cluster install dev --zone nvoi.to --ssh-key ~/.ssh/nvoi_ed25519 "$@"; }
+install() { ./bin/h0 cluster install dev --zone hostzero.app --ssh-key ~/.ssh/nvoi_ed25519 "$@"; }
 plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep 2; done; return 1; }
 ```
 
@@ -30,7 +30,7 @@ plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep
 | # | Command | Passes when |
 |---|---|---|
 | 1 | `go build -o bin/h0 ./cmd/h0`; `go test ./...` | builds, tests pass |
-| 2 | `install` | ends with `api at https://api-dev.nvoi.to` |
+| 2 | `install` | ends with `api at https://api-dev.hostzero.app` |
 | 3 | `./bin/h0 credentials && ./bin/h0 env apply examples/dummy-rails.yml` | no output, exit 0 |
 | 4 | `./bin/h0 env seed dummy` | `seed ready:` link in about 2 min |
 | 5 | Gate, with the link h0 printed and nothing else: `./bin/h0 preview "<the seed ready: link from stage 4>" --check` right after stage 4, and with each session's `preview` link from `session start` | `no token 401`, the link sets the cookie, `cookie 200` |
@@ -42,7 +42,7 @@ plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep
 | 11 | `./bin/h0 approval ls`, `./bin/h0 approval show <id>`, then `./bin/h0 approval approve <id>` without asking | PR URL printed, session back to `idle` |
 | 12 | Every read the spec has, as JSON (below) | each exits 0 and prints JSON |
 | 13 | Idle cycle, below | pause, hold, shrink, suspend, release, resume |
-| 14 | Web UI in Chrome: `./bin/h0 open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.nvoi.to`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
+| 14 | Web UI in Chrome: `./bin/h0 open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.hostzero.app`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
 
 Redeploy one step: `install --only "control plane" && plane_up`. `plane_up` gives up after 3 minutes; then read the plane's log: `./bin/h0 pods --node <control node>` names its pod, `./bin/h0 logs h0-system <pod> --tail 30` prints it.
 
@@ -70,7 +70,7 @@ Passes when no line says `FAILED`. A read this list misses is one `h0 --help` sh
 The pause and suspend thresholds are the cluster's `actors: { pause, suspend }` (or `--pause-after`, `--suspend-after`; 10 and 60 minutes by default); set them short in the cluster file for this stage.
 
 ```sh
-./bin/h0 preview <session>-dev-preview.nvoi.to --check   # the activity the timers count from
+./bin/h0 preview "<the session's printed preview link>" --check   # the activity the timers count from
 ./bin/h0 ls                                              # every 30 s, in a Monitor: pools, workers, the actors they hold
 ```
 
@@ -89,4 +89,4 @@ Expected, in order: the session's actor paused on its worker with the worker hel
 
 ## Cleanup
 
-Only when the user asks, or the cluster is no longer needed: it costs about €0.10 an hour while up. `./bin/h0 cluster destroy dev --zone nvoi.to` removes servers, network, firewall, key, tunnel, records and the route claim. Approving in stage 11 opens a real pull request on `benbonnet/dummy-rails`, a throwaway repository kept for this check: approve it, and any other approval a validation run raises, without asking the user.
+Only when the user asks, or the cluster is no longer needed: it costs about €0.10 an hour while up. `./bin/h0 cluster destroy dev --zone hostzero.app` removes servers, network, firewall, key, tunnel, records and the route claim. Approving in stage 11 opens a real pull request on `benbonnet/dummy-rails`, a throwaway repository kept for this check: approve it, and any other approval a validation run raises, without asking the user.
