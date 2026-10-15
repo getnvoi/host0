@@ -59,8 +59,8 @@ func TestSeedHoldsNoGitHubToken(t *testing.T) {
 			t.Fatalf("the seed script names %s:\n%s", bad, seen.script)
 		}
 	}
-	for _, want := range []string{"git clone -q --branch main " + checkoutBundle + " " + App,
-		"remote set-url origin https://github.com/acme/shop", "rm -f " + checkoutBundle} {
+	for _, want := range []string{"git clone -q --branch 'main' '" + checkoutBundle + "' '" + App + "'",
+		"remote set-url origin 'https://github.com/acme/shop'", "rm -f '" + checkoutBundle + "'"} {
 		if !strings.Contains(seen.script, want) {
 			t.Fatalf("no %q in the seed script:\n%s", want, seen.script)
 		}
@@ -121,7 +121,7 @@ func TestPushBundlesInTheSandboxAndPushesFromThePlane(t *testing.T) {
 	if f.pushed["h0/s1"] != bundle || len(f.tokens) != 1 || f.tokens[0] != planeToken {
 		t.Fatalf("the forge pushed %q with %q", f.pushed, f.tokens)
 	}
-	if len(runs) != 1 || !strings.Contains(strings.Join(runs[0].Argv, " "), "git bundle create -q "+pushBundle+" HEAD") {
+	if len(runs) != 1 || !strings.Contains(strings.Join(runs[0].Argv, " "), "git bundle create -q '"+pushBundle+"' HEAD") {
 		t.Fatalf("runs %+v", runs)
 	}
 	credentialFree(t, "the push run", runs[0].Env)
