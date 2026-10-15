@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -31,6 +32,8 @@ func Machine() *cobra.Command {
 		c.Flags().StringVar(&cfg.PreviewSuffix, "preview-suffix", "-preview", "previews are <id>-<name><suffix>.<zone>")
 		c.Flags().StringVar(&edge, "edge", "tunnel", "tunnel only: a kind cluster has no public address")
 		c.Flags().StringVar(&provider, "dns", "CLOUDFLAREAPI", "CLOUDFLAREAPI only, the tunnel's")
+		c.Flags().DurationVar(&cfg.Actors.Pause, "pause-after", 10*time.Minute, "an actor idle this long is paused")
+		c.Flags().DurationVar(&cfg.Actors.Suspend, "suspend-after", 60*time.Minute, "an actor idle this long is suspended")
 		_ = c.MarkFlagRequired("zone")
 	}
 	env := func() (*infra.Env, error) {
