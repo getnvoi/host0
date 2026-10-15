@@ -47,8 +47,6 @@ export type AgentModel = {
   instructions: string;
   // The tools it is granted, by name; a tool absent here is not one of its tools.
   tools: Record<string, GrantLevel>;
-  // `AgentResource#locked`: what always waits on a person whatever the levels say, by category, at its one level.
-  locked: LockedTools[];
   // `AgentResource#unenforceable`: the built-in levels the agent's runner cannot enforce, each with why.
   unenforceable: Unenforceable[];
   // `AgentResource#absent`: the built-ins its runner lacks, which are no tool of the agent.
@@ -60,10 +58,9 @@ export type AgentModel = {
 
 export type Unenforceable = { tool: string; level: string; reason: string };
 
-export type LockedTools = { category: string; tools: string[]; level: string };
 
 export function agentModel(a: Partial<AgentModel> & { id: string; name: string }): AgentModel {
-  return { slug: "", instructions: "", tools: {}, locked: [], unenforceable: [], absent: [], archived: false, skillIds: [], createdAt: "", ...a };
+  return { slug: "", instructions: "", tools: {}, unenforceable: [], absent: [], archived: false, skillIds: [], createdAt: "", ...a };
 }
 
 export const agentModels = {

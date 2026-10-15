@@ -132,21 +132,11 @@ const agentTools: AgentToolModel[] = [
   { name: "search_library", label: "Search library", category: "Library", asks: false, outbound: false, level: "auto" },
 ];
 
-// What always waits on a person, as `AgentResource#locked` serves it.
-const locked = [
-  { category: "Agents", tools: ["agent_create", "agent_archive", "agent_restore", "agent_update"], level: "approval" },
-  { category: "Environments", tools: ["environment_create", "environment_command_delete", "env_var_delete", "environment_delete", "utils_dry_run_start", "environment_command_set", "env_var_set", "environment_update"], level: "approval" },
-  { category: "Sessions", tools: ["agent_session_answer"], level: "approval" },
-  { category: "Skills", tools: ["skill_file_create", "skill_create", "skill_archive", "skill_file_archive", "skill_restore", "skill_update"], level: "approval" },
-  { category: "Tasks", tools: ["task_create", "task_archive", "task_restore", "task_start", "task_update"], level: "approval" },
-  { category: "Workflows", tools: ["workflow_create", "workflow_archive", "workflow_restore", "workflow_update"], level: "approval" },
-];
-
 // Codex has no WebFetch (Bash's level governs fetching) and searches without asking.
 const codexRefusals = [{ tool: "WebSearch", level: "approval", reason: "Codex searches the web without asking" }];
 
 const agents = [
-  agentModel({ id: "a1", name: "Dev", slug: "dev", tagline: "Ships", instructions: devInstructions, tools: defaults, locked, skillIds: ["s1"], createdAt: "2026-01-01T00:00:00Z" }),
+  agentModel({ id: "a1", name: "Dev", slug: "dev", tagline: "Ships", instructions: devInstructions, tools: defaults, skillIds: ["s1"], createdAt: "2026-01-01T00:00:00Z" }),
   agentModel({
     id: "a2",
     name: "Reviewer",
