@@ -13,12 +13,12 @@ Every command is `./bin/h0`. No curl, no ssh, no kubectl: a stage that needs som
 
 ## Prerequisites
 
-- `~/Desktop/ncx/.env` (0600, gitignored): `HCLOUD_TOKEN`, `CLOUDFLARE_API_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, `RAILS_MASTER_KEY`.
+- `~/Desktop/ncx/.env.development` (0600, gitignored), whose `CLOUDFLARE_API_TOKEN` holds the test zone nvoi.to; `.env.production` holds host0.dev's, the SaaS's own zone, never used for a validation run. Both have `HCLOUD_TOKEN`, `CLOUDFLARE_API_TOKEN`, `GITHUB_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, `RAILS_MASTER_KEY`.
 - `~/.ssh/nvoi_ed25519`, and `go`, `ko`, `git` on the laptop.
 - Every shell starts with:
 
 ```sh
-cd ~/Desktop/ncx && set -a && . ./.env && set +a
+cd ~/Desktop/ncx && set -a && . ./.env.development && set +a
 install() { ./bin/h0 cluster install dev --zone nvoi.to --ssh-key ~/.ssh/nvoi_ed25519 "$@"; }
 plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep 2; done; return 1; }
 ```
