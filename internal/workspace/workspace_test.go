@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -125,8 +127,31 @@ func (f *forge) took(token string) {
 // A workspace on sb, its rows in memory. Its turns run claude's real parsing of what the fake boxd prints.
 func newWorkspace(t *testing.T, sb sandbox.Sandboxes) *Workspace {
 	return &Workspace{DB: newDB(t), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{}, Forge: &forge{},
-		Sandboxes: sb, Workers: roomy{sb}, Tools: idle{}, Bus: &bus{}, Runners: []llm.Runner{claude.Runner{}},
+		Sandboxes: sb, Workers: roomy{sb}, Tools: idle{}, Bus: &bus{}, Runners: []llm.Runner{claude.Runner{API: anthropic(t)}},
 		Pin: func(_ context.Context, image string) (string, error) { return image, nil }}
+}
+
+// The Messages API: the captured answer to a credential, its authentication_error to the token "bad".
+func anthropic(t *testing.T) string {
+	ok, err := os.ReadFile("../llm/testdata/anthropic-200.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	refused, err := os.ReadFile("../llm/testdata/anthropic-401.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		if r.Header.Get("x-api-key") == "bad" || r.Header.Get("authorization") == "Bearer bad" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write(refused)
+			return
+		}
+		w.Write(ok)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
 }
 
 // A database in a fresh file, migrated.

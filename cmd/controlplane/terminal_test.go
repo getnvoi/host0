@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"net"
 	"net/http"
@@ -27,7 +28,7 @@ func withBox(t *testing.T, boxd http.HandlerFunc) (*plane, http.Handler) {
 	p, h := serve(newDB(t), boxed{addr: srv.Listener.Addr().String()}, nil, nil)
 	putEnv(t, p, workspace.Environment{Name: "web", Branch: "main",
 		Services: []workspace.Service{{Name: "rails"}, {Name: "worker"}}})
-	if _, err := p.ws.AddConfig(testLLM); err != nil {
+	if _, err := p.ws.AddConfig(context.Background(), testLLM); err != nil {
 		t.Fatal(err)
 	}
 	seedRow(t, p, "web", db.Seed{Run: "seed-1", State: "ready"})
