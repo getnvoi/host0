@@ -90,3 +90,26 @@ func TestToolCall(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+// An agent's level for a tool is its grant and nothing else; an operation that is not a tool cannot be granted.
+func TestGrantIsTheLevel(t *testing.T) {
+	p, _ := handler(t)
+	a, err := p.ws.PutAgent("all", workspace.AgentInput{Tools: map[string]string{"*": "auto"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Tools) != len(p.tools.List()) {
+		t.Fatalf("%d grants for %d tools", len(a.Tools), len(p.tools.List()))
+	}
+	for _, g := range a.Tools {
+		if g.Level != "auto" {
+			t.Errorf("%s granted auto is %s", g.Tool, g.Level)
+		}
+	}
+	for _, name := range []string{"approval_approve", "approval_deny", "agent_put", "agent_rm", "agent_tool_set",
+		"agent_tool_rm", "stream", "invite"} {
+		if _, err := p.ws.Grant("all", name, "approval"); err == nil {
+			t.Errorf("%s was granted", name)
+		}
+	}
+}

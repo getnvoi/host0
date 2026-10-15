@@ -69,7 +69,7 @@ test("a failed push or pull request reads as failed, not done", () => {
   const actions = t.kind === "turn" ? t.turn.actions : [];
   expect(actions.map((a) => a.state)).toEqual(["failed", "failed"]);
   expect(settle('{"url":"https://github.com/o/r/pull/1"}')).toBe("done");
-  expect(settle("refused by policy")).toBe("denied");
+  expect(settle("failed: no such tool")).toBe("failed");
 });
 
 test("the preview shows only a page the plane said it showed", () => {

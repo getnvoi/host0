@@ -13,8 +13,8 @@ import (
 )
 
 // How h0 shows an operation: its x-h0 extension, which internal/api/h0gen reads. Output is table, fields, raw or
-// none; Field picks the part of the answer shown; By names the hand-written commands that stand for it. Tool is its
-// level as an agent's tool when the agent has no rule for it; empty is auto for a read, approval for a write.
+// none; Field picks the part of the answer shown; By names the hand-written commands that stand for it. Tool is the
+// level a grant at default gives it; empty is auto for a read, approval for a write. NoTool keeps it from agents.
 type h0 struct {
 	Output  string   `json:"output,omitempty"`
 	Columns []string `json:"columns,omitempty"`

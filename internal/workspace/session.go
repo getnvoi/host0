@@ -375,7 +375,7 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen i
 			asks = append(asks, Approval{ID: id(), Session: s.ID, Turn: s.Turns, Tool: name, ToolID: ev.ToolID, Input: ev.Content,
 				State: "pending", At: time.Now()})
 		default:
-			outcomes = append(outcomes, name+": no such tool")
+			outcomes = append(outcomes, name+": failed: no such tool")
 		}
 	}
 	switch {

@@ -80,10 +80,10 @@ function outcomes(text: string): Map<string, string[]> {
   return out;
 }
 
-// How the plane words an outcome: "denied by the user", "refused by policy", "stopped by the user", "failed: ...";
-// anything else is the operation's answer, the action done.
+// How the plane words an outcome: "denied by the user", "stopped by the user", "failed: ..." (a tool the agent lacks
+// is "failed: no such tool"); anything else is the operation's answer, the action done.
 export function settle(said: string): "done" | "denied" | "stopped" | "failed" {
-  if (/^(denied|refused)\b/.test(said)) return "denied";
+  if (/^denied\b/.test(said)) return "denied";
   if (/^stopped\b/.test(said)) return "stopped";
   if (/^failed:/.test(said)) return "failed";
   return "done";

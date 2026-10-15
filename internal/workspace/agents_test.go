@@ -76,7 +76,7 @@ func TestTurnFollowsLevels(t *testing.T) {
 			break
 		}
 	}
-	want := []string{"session_title: done", "session_push: no such tool", "rm_rf: no such tool"}
+	want := []string{"session_title: done", "session_push: failed: no such tool", "rm_rf: failed: no such tool"}
 	if s.State != "awaiting_approval" || len(s.Outcomes) != 3 || s.Outcomes[0] != want[0] || s.Outcomes[1] != want[1] ||
 		s.Outcomes[2] != want[2] {
 		t.Fatalf("%s %q", s.State, s.Outcomes)
