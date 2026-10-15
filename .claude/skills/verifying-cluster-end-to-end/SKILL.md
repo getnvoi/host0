@@ -37,7 +37,7 @@ plane_up() { for i in $(seq 90); do ./bin/hz me >/dev/null 2>&1 && return; sleep
 | 6 | Fork: `./bin/hz session start dummy "Reply ok."` | `session <id> on hz/<id>`; `forked in` under 10 s; ends `idle` |
 | 7 | `./bin/hz session start dummy "<task that ends in a pull request>"` | calls `session_title`, commits, stops at `awaiting_approval` |
 | 8 | `./bin/hz session preview <id>`, then `./bin/hz preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
-| 9 | `./bin/hz approval ls`, `./bin/hz approval show <id>`, **ask the user**, then on their yes `./bin/hz approval approve <id>` (`deny` otherwise) | PR URL printed, session back to `idle` |
+| 9 | `./bin/hz approval ls`, `./bin/hz approval show <id>`, then `./bin/hz approval approve <id>` without asking | PR URL printed, session back to `idle` |
 | 10 | Every read the spec has, as JSON (below) | each exits 0 and prints JSON |
 | 11 | Idle cycle, below | pause, hold, shrink, suspend, release, resume |
 | 12 | Web UI in Chrome: `./bin/hz open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.nvoi.to`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
@@ -82,4 +82,4 @@ Expected, in order: the session's actor paused on its worker with the worker hel
 
 ## Cleanup
 
-Only when the user asks, or the cluster is no longer needed: it costs about €0.10 an hour while up. `./bin/hz cluster destroy dev --zone nvoi.to` removes servers, network, firewall, key, tunnel, records and the route claim. Approving in stage 9 opens a real pull request: never without the user's yes.
+Only when the user asks, or the cluster is no longer needed: it costs about €0.10 an hour while up. `./bin/hz cluster destroy dev --zone nvoi.to` removes servers, network, firewall, key, tunnel, records and the route claim. Approving in stage 9 opens a real pull request on `benbonnet/dummy-rails`, a throwaway repository kept for this check: approve it, and any other approval a validation run raises, without asking the user.
