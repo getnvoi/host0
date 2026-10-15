@@ -8,6 +8,7 @@ test("onboarding from sign-in to the first session", async ({ page, request }) =
   await page.goto("/");
 
   // 1. Sign in: the app opens the hub's GitHub page; the browser's leg ends on hz://auth, which the app follows.
+  await expect(page.getByRole("button", { name: "Continue with GitHub" }).locator("svg.lucide-github")).toBeVisible();
   await page.getByRole("button", { name: "Continue with GitHub" }).click();
   await expect(page.getByText("Waiting for GitHub…")).toBeVisible();
   const opened = await page.waitForFunction(() => (window as unknown as { hzOpened?: string[] }).hzOpened?.[0]);
