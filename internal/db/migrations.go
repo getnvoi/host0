@@ -228,9 +228,9 @@ func migrate0010(tx *gorm.DB) error {
 	return nil
 }
 
-// A tool policy is a grant: a tool the agent was denied is one it does not have.
+// A tool_policies row is a grant, at auto or approval; a row at any other level goes.
 func migrate0011(tx *gorm.DB) error {
-	return tx.Exec("DELETE FROM tool_policies WHERE level = 'deny'").Error
+	return tx.Exec("DELETE FROM tool_policies WHERE level NOT IN ('auto', 'approval')").Error
 }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
