@@ -45,6 +45,13 @@ func Pick(all []Tier, name string) (Tier, error) {
 type Shape struct {
 	Workers Servers `json:"workers"`
 	Tiers   []Tier  `json:"tiers"`
+	Actors  Rest    `json:"actors"`
+}
+
+// When the plane rests an idle actor: paused after Pause, suspended after Suspend.
+type Rest struct {
+	Pause   time.Duration `json:"pause"`
+	Suspend time.Duration `json:"suspend"`
 }
 
 // The servers the plane creates for worker pools. Type and Location are empty on a cluster with no cloud.

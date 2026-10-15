@@ -26,6 +26,7 @@ var migrations = []*gormigrate.Migration{
 	{ID: "0005", Migrate: migrate0005},
 	{ID: "0006", Migrate: migrate0006},
 	{ID: "0007", Migrate: migrate0007},
+	{ID: "0008", Migrate: migrate0008},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -184,6 +185,23 @@ func (m7Route) TableName() string     { return "routes" }
 func (m7Shape) TableName() string     { return "shapes" }
 func (m7SignIn) TableName() string    { return "sign_ins" }
 func (m7UsageHour) TableName() string { return "usage_hours" }
+
+// When an idle actor is paused and suspended; a shape written before keeps 10 and 60 minutes.
+func migrate0008(tx *gorm.DB) error {
+	for _, f := range []string{"ActorsPause", "ActorsSuspend"} {
+		if err := tx.Migrator().AddColumn(&m8Shape{}, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type m8Shape struct {
+	ActorsPause   time.Duration `gorm:"not null;default:600000000000"`
+	ActorsSuspend time.Duration `gorm:"not null;default:3600000000000"`
+}
+
+func (m8Shape) TableName() string { return "shapes" }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.
 func m1Search(table, col string) []string {

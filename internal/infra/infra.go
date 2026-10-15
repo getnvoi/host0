@@ -27,6 +27,8 @@ type Config struct {
 	WorkerMax   int
 	// A worker server with no actor this long is deleted.
 	WorkerIdle time.Duration
+	// An idle actor is paused after Pause and suspended after Suspend.
+	Actors sandbox.Rest
 	Tiers      []sandbox.Tier
 	Zone       string
 	// Previews are <name>-<cluster><PreviewSuffix>.<Zone>.

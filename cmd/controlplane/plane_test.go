@@ -42,7 +42,7 @@ func newDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 	if err := (&workers.Scaler{DB: gdb}).SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1",
-		Max: 2, Idle: time.Minute}, Tiers: sandbox.DefaultTiers}); err != nil {
+		Max: 2, Idle: time.Minute}, Tiers: sandbox.DefaultTiers, Actors: sandbox.Rest{Pause: 10 * time.Minute, Suspend: time.Hour}}); err != nil {
 		t.Fatal(err)
 	}
 	return gdb

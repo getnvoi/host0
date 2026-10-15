@@ -31,6 +31,10 @@ type File struct {
 		Max  int    `yaml:"max"`
 		Idle string `yaml:"idle"`
 	} `yaml:"workers"`
+	Actors struct {
+		Pause   string `yaml:"pause"`
+		Suspend string `yaml:"suspend"`
+	} `yaml:"actors"`
 	Tiers []Tier `yaml:"tiers"`
 	Edge  struct {
 		Mode          string `yaml:"mode"`

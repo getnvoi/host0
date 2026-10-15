@@ -306,6 +306,9 @@ type PreviewStatus struct {
 // Provider defines model for Provider.
 type Provider = llm.Provider
 
+// Rest defines model for Rest.
+type Rest = sandbox.Rest
+
 // Seed defines model for Seed.
 type Seed struct {
 	Actor    string    `json:"actor"`

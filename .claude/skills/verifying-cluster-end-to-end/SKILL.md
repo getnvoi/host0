@@ -60,7 +60,7 @@ Passes when no line says `FAILED`. A read this list misses is one `hz --help` sh
 
 ## Idle cycle
 
-The pause and suspend thresholds are the plane's `HZ_PAUSE_AFTER` and `HZ_SUSPEND_AFTER` (10 and 60 minutes); hz has no command that shortens them yet, so this stage runs at their length or waits for that command.
+The pause and suspend thresholds are the cluster's `actors: { pause, suspend }` (or `--pause-after`, `--suspend-after`; 10 and 60 minutes by default); set them short in the cluster file for this stage.
 
 ```sh
 ./bin/hz preview <session>-dev-preview.nvoi.to --check   # the activity the timers count from

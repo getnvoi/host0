@@ -60,7 +60,7 @@ func TestMergeFlagWins(t *testing.T) {
 	c := &cobra.Command{Use: "install"}
 	common(c, &o)
 	installFlags(c, &o)
-	if err := c.Flags().Parse([]string{"--zone", "other.to", "--worker-idle", "2m"}); err != nil {
+	if err := c.Flags().Parse([]string{"--zone", "other.to", "--worker-idle", "2m", "--suspend-after", "1h"}); err != nil {
 		t.Fatal(err)
 	}
 	f, err := Load("../../../examples/cluster.yml")
@@ -72,7 +72,7 @@ func TestMergeFlagWins(t *testing.T) {
 	}
 	if o.cfg.Zone != "other.to" || o.edge != "public" || o.cfg.WorkerMax != 5 || o.cfg.WorkerIdle != 2*time.Minute ||
 		o.provider != "CLOUDFLAREAPI" || o.cloud != "hetzner" || o.cfg.ControlType != "ccx23" || o.cfg.WorkerType != "ccx23" ||
-		o.cfg.Location != "fsn1" {
+		o.cfg.Location != "fsn1" || o.cfg.Actors != (sandbox.Rest{Pause: 5 * time.Minute, Suspend: time.Hour}) {
 		t.Fatalf("%+v", o)
 	}
 }

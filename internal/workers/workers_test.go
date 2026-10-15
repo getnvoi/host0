@@ -71,7 +71,7 @@ func TestPlaceNamesTheLowestFreeWorker(t *testing.T) {
 	cl := servers("hz-dev-w1", "hz-dev-w3", "hz-dev-control")
 	pools := &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w3"), node("hz-dev-control")}}
 	p := workerScaler(t, cl, pools)
-	if err := p.SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 3}, Tiers: testShape.Tiers}); err != nil {
+	if err := p.SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 3}, Tiers: testShape.Tiers, Actors: testShape.Actors}); err != nil {
 		t.Fatal(err)
 	}
 	var said []string
@@ -194,7 +194,7 @@ func TestRestartPicksUpWorkers(t *testing.T) {
 	cl := servers("hz-dev-w1", "hz-dev-w2")
 	pools := &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w2")}}
 	p := workerScaler(t, cl, pools)
-	if err := p.SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 5, Idle: time.Minute}, Tiers: testShape.Tiers}); err != nil {
+	if err := p.SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 5, Idle: time.Minute}, Tiers: testShape.Tiers, Actors: testShape.Actors}); err != nil {
 		t.Fatal(err)
 	}
 	if name, err := p.place(context.Background()); err != nil || name != "hz-dev-w3" {

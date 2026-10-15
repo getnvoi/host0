@@ -17,7 +17,7 @@ import (
 func TestShape(t *testing.T) {
 	_, h := handler(t)
 	jar := map[string]string{"Cookie": "hz_session=" + signIn(t, h, "laptop").Value, "X-Requested-With": "hz"}
-	shape := `{"workers":{"type":"cx33","location":"nbg1","max":4,"idle":60000000000},"tiers":[{"name":"small","cpu":"1","memory":"2Gi","cpuRequest":"250m","default":true}]}`
+	shape := `{"workers":{"type":"cx33","location":"nbg1","max":4,"idle":60000000000},"tiers":[{"name":"small","cpu":"1","memory":"2Gi","cpuRequest":"250m","default":true}],"actors":{"pause":600000000000,"suspend":3600000000000}}`
 	if res := call(h, "PUT", "app-dev.nvoi.to", "/api/cluster/shape", shape, jar); res.Code != 404 {
 		t.Fatalf("a browser wrote the shape: %d %s", res.Code, res.Body)
 	}
@@ -28,14 +28,17 @@ func TestShape(t *testing.T) {
 	var got sandbox.Shape
 	json.Unmarshal(res.Body.Bytes(), &got)
 	want := sandbox.Shape{Workers: sandbox.Servers{Type: "cx33", Location: "nbg1", Max: 4, Idle: time.Minute},
-		Tiers: []sandbox.Tier{{Name: "small", CPU: "1", Memory: "2Gi", CPURequest: "250m", Default: true}}}
+		Tiers:  []sandbox.Tier{{Name: "small", CPU: "1", Memory: "2Gi", CPURequest: "250m", Default: true}},
+		Actors: sandbox.Rest{Pause: 10 * time.Minute, Suspend: time.Hour}}
 	if res.Code != 200 || !reflect.DeepEqual(got, want) {
 		t.Fatalf("get: %d %s", res.Code, res.Body)
 	}
+	rest := `,"actors":{"pause":600000000000,"suspend":3600000000000}}`
 	for body, said := range map[string]string{
-		`{"workers":{"type":"cx33","location":"nbg1","max":4,"idle":0},"tiers":[]}`:                          "no default tier",
-		`{"workers":{"type":"cx33","location":"nbg1","max":-1,"idle":0},"tiers":` + tiers(t) + `}`:           "cannot be negative",
-		`{"workers":{"type":"cx33","location":"nbg1","max":1,"idle":0,"zone":"x"},"tiers":` + tiers(t) + `}`: "zone",
+		`{"workers":{"type":"cx33","location":"nbg1","max":4,"idle":0},"tiers":[]` + rest:                                                               "no default tier",
+		`{"workers":{"type":"cx33","location":"nbg1","max":-1,"idle":0},"tiers":` + tiers(t) + rest:                                                     "cannot be negative",
+		`{"workers":{"type":"cx33","location":"nbg1","max":1,"idle":0,"zone":"x"},"tiers":` + tiers(t) + rest:                                           "zone",
+		`{"workers":{"type":"cx33","location":"nbg1","max":1,"idle":0},"tiers":` + tiers(t) + `,"actors":{"pause":600000000000,"suspend":60000000000}}`: "at least as long",
 	} {
 		if res := call(h, "PUT", "api-dev.nvoi.to", "/cluster/shape", body, bearer); res.Code != 400 || !strings.Contains(detail(res), said) {
 			t.Errorf("%s: %d %s", body, res.Code, detail(res))

@@ -48,13 +48,6 @@ func must(name string) string {
 	return v
 }
 
-func duration(name string, def time.Duration) time.Duration {
-	if d, err := time.ParseDuration(os.Getenv(name)); err == nil {
-		return d
-	}
-	return def
-}
-
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "openapi" {
 		if err := writeSpec(os.Args[2:]); err != nil {
@@ -99,7 +92,6 @@ func main() {
 	p := wire(gdb, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("HZ_PREVIEW_SUFFIX"), must("HZ_BOX_TOKEN"))
 	p.Pods = pools
 	p.sc.Cloud, p.sc.WorkerInit = cl, init
-	p.sc.PauseAfter, p.sc.SuspendAfter = duration("HZ_PAUSE_AFTER", 10*time.Minute), duration("HZ_SUSPEND_AFTER", 60*time.Minute)
 	p.ws.Pin, p.ws.BoxImage = substrate.PinDockerHub, must("HZ_BOXD_IMAGE")
 	api, app := p.Host("api"), p.Host("app")
 	for _, h := range []string{api, app} {

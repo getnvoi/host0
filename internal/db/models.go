@@ -262,6 +262,13 @@ type Shape struct {
 	Tiers   json.RawMessage `gorm:"type:text;serializer:json"`
 	// Where the worker servers are made; empty on a cluster with no cloud.
 	Location string `gorm:"column:workers_location"`
+	Actors   Rest   `gorm:"embedded;embeddedPrefix:actors_"`
+}
+
+// An idle actor is paused after Pause and suspended after Suspend.
+type Rest struct {
+	Pause   time.Duration `gorm:"not null;default:600000000000"`
+	Suspend time.Duration `gorm:"not null;default:3600000000000"`
 }
 
 type Workers struct {

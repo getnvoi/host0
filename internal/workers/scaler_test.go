@@ -72,7 +72,8 @@ func newDB(t *testing.T, routes ...sandbox.Route) *gorm.DB {
 	return gdb
 }
 
-var testShape = sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 2, Idle: time.Minute}, Tiers: sandbox.DefaultTiers}
+var testShape = sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 2, Idle: time.Minute}, Tiers: sandbox.DefaultTiers,
+	Actors: sandbox.Rest{Pause: 10 * time.Minute, Suspend: time.Hour}}
 
 func (f *fakeSandboxes) Workers(context.Context) ([]sandbox.Worker, error) { return f.workers, nil }
 func (f *fakeSandboxes) Resume(context.Context, string) error {
@@ -177,8 +178,7 @@ func TestWakeGrows(t *testing.T) {
 func TestRest(t *testing.T) {
 	sc = newScaler()
 	sb := &fakeSandboxes{states: map[string]string{"a": "running", "b": "running", "c": "paused"}}
-	p := &Scaler{Sandboxes: sb, DB: newDB(t, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "b", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "c", Port: 3000, Tier: "medium"}), Pools: &fakePools{},
-		PauseAfter: 10 * time.Minute, SuspendAfter: time.Hour}
+	p := &Scaler{Sandboxes: sb, DB: newDB(t, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "b", Port: 3000, Tier: "medium"}, sandbox.Route{Actor: "c", Port: 3000, Tier: "medium"}), Pools: &fakePools{}}
 	now := time.Now()
 	sc.seen["a"] = now.Add(-11 * time.Minute)
 	sc.seen["b"] = now.Add(-11 * time.Minute)

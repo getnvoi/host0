@@ -69,6 +69,8 @@ func installFlags(c *cobra.Command, o *options) {
 	f.StringVar(&o.cfg.WorkerType, "worker-type", "", "worker server type, one for all: a snapshot is tied to its CPU; the cloud's default when empty")
 	f.IntVar(&o.cfg.WorkerMax, "worker-max", 5, "most worker servers the plane makes")
 	f.DurationVar(&o.cfg.WorkerIdle, "worker-idle", 10*time.Minute, "a worker server with no actor this long is deleted")
+	f.DurationVar(&o.cfg.Actors.Pause, "pause-after", 10*time.Minute, "an actor idle this long is paused")
+	f.DurationVar(&o.cfg.Actors.Suspend, "suspend-after", 60*time.Minute, "an actor idle this long is suspended and its worker freed")
 	f.StringArrayVar(&o.tiers, "tier", nil, "a sandbox size, name:cpu:memory[:default], once per tier; replaces the file's sandbox. "+
 		"Default: small 1:2Gi, medium 2:4Gi (default), large 4:8Gi")
 	f.StringVar(&o.key, "ssh-key", "~/.ssh/id_ed25519", "private key; its .pub is installed on every node")
@@ -206,12 +208,20 @@ func merge(c *cobra.Command, o *options, f File) error {
 	if unset("worker-max") && f.Workers.Max != 0 {
 		o.cfg.WorkerMax = f.Workers.Max
 	}
-	if unset("worker-idle") && f.Workers.Idle != "" {
-		d, err := time.ParseDuration(f.Workers.Idle)
-		if err != nil {
-			return fmt.Errorf("workers.idle: %w", err)
+	for _, d := range []struct {
+		flag, key, v string
+		dst          *time.Duration
+	}{{"worker-idle", "workers.idle", f.Workers.Idle, &o.cfg.WorkerIdle},
+		{"pause-after", "actors.pause", f.Actors.Pause, &o.cfg.Actors.Pause},
+		{"suspend-after", "actors.suspend", f.Actors.Suspend, &o.cfg.Actors.Suspend}} {
+		if !unset(d.flag) || d.v == "" {
+			continue
 		}
-		o.cfg.WorkerIdle = d
+		v, err := time.ParseDuration(d.v)
+		if err != nil {
+			return fmt.Errorf("%s: %w", d.key, err)
+		}
+		*d.dst = v
 	}
 	return nil
 }

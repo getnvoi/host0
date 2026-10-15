@@ -26,8 +26,6 @@ type Scaler struct {
 	// The cloud-init a worker server boots with: it joins the cluster as a worker node.
 	WorkerInit string
 	Cluster    string
-	// Idle this long, an actor is paused; this long, suspended and its worker freed.
-	PauseAfter, SuspendAfter time.Duration
 	// Every actor a record names besides the routed ones: a session's, a seed's, the one a build is making.
 	Named func() map[string]bool
 	// Told of each actor woken: its boxd may be back on its environment's token.
@@ -308,8 +306,12 @@ func (s *Scaler) reap(ctx context.Context) error {
 	return nil
 }
 
-// Pauses actors idle PauseAfter, suspends those idle SuspendAfter. An actor being woken is skipped.
+// Pauses and suspends idle actors at the shape's thresholds. An actor being woken is skipped.
 func (s *Scaler) rest(ctx context.Context) error {
+	shape, err := s.Shape()
+	if err != nil {
+		return err
+	}
 	routed, err := s.actors()
 	if err != nil {
 		return err
@@ -319,16 +321,16 @@ func (s *Scaler) rest(ctx context.Context) error {
 		if !g.TryLock() {
 			continue
 		}
-		s.lull(ctx, actor)
+		s.lull(ctx, actor, shape.Actors)
 		g.Unlock()
 	}
 	return nil
 }
 
 // Rests one actor; its guard is held, so the idle check stands until the pause is done.
-func (s *Scaler) lull(ctx context.Context, actor string) {
+func (s *Scaler) lull(ctx context.Context, actor string, at sandbox.Rest) {
 	quiet := idle(actor)
-	if quiet < s.PauseAfter {
+	if quiet < at.Pause {
 		return
 	}
 	state, err := s.Sandboxes.State(ctx, actor)
@@ -336,7 +338,7 @@ func (s *Scaler) lull(ctx context.Context, actor string) {
 		return
 	}
 	switch {
-	case state == "running" && quiet >= s.SuspendAfter, state == "paused" && quiet >= s.SuspendAfter:
+	case (state == "running" || state == "paused") && quiet >= at.Suspend:
 		log.Printf("suspend %s, idle %s", actor, quiet.Round(time.Second))
 		err = s.Sandboxes.Suspend(ctx, actor)
 	case state == "running":

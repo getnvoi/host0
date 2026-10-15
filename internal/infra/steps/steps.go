@@ -310,7 +310,7 @@ func identity(ctx context.Context, e *infra.Env, id, ips string) error {
 // Writes the cluster's shape, its workers and tiers, to the plane, which holds it as a row.
 func shape(ctx context.Context, e *infra.Env, url, token string) error {
 	body, err := json.Marshal(sandbox.Shape{Tiers: e.Config.Tiers, Workers: sandbox.Servers{Type: e.Config.WorkerType,
-		Location: e.Config.Location, Max: e.Config.WorkerMax, Idle: e.Config.WorkerIdle}})
+		Location: e.Config.Location, Max: e.Config.WorkerMax, Idle: e.Config.WorkerIdle}, Actors: e.Config.Actors})
 	if err != nil {
 		return err
 	}
@@ -326,6 +326,7 @@ func shape(ctx context.Context, e *infra.Env, url, token string) error {
 		return fmt.Errorf("writing the cluster shape: %w", err)
 	}
 	e.Say("workers: %s in %s, at most %d, deleted after %s idle", e.Config.WorkerType, e.Config.Location, e.Config.WorkerMax, e.Config.WorkerIdle)
+	e.Say("actors: paused after %s idle, suspended after %s", e.Config.Actors.Pause, e.Config.Actors.Suspend)
 	return nil
 }
 

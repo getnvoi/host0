@@ -43,7 +43,7 @@ func (s *Scaler) Shape() (sandbox.Shape, error) {
 		return sandbox.Shape{}, fmt.Errorf("the cluster shape: %w", err)
 	}
 	shape := sandbox.Shape{Workers: sandbox.Servers{Type: row.Workers.Type, Location: row.Location, Max: row.Workers.Max,
-		Idle: row.Workers.Idle}}
+		Idle: row.Workers.Idle}, Actors: sandbox.Rest{Pause: row.Actors.Pause, Suspend: row.Actors.Suspend}}
 	if err := json.Unmarshal(row.Tiers, &shape.Tiers); err != nil {
 		return shape, fmt.Errorf("the cluster shape's tiers: %w", err)
 	}
@@ -82,12 +82,16 @@ func (s *Scaler) SetShape(shape sandbox.Shape) error {
 	if shape.Workers.Max < 0 || shape.Workers.Idle < 0 {
 		return Invalid{fmt.Errorf("workers.max and workers.idle cannot be negative")}
 	}
+	if a := shape.Actors; a.Pause <= 0 || a.Suspend < a.Pause {
+		return Invalid{fmt.Errorf("actors.pause %s must be positive and actors.suspend %s at least as long", a.Pause, a.Suspend)}
+	}
 	tiers, err := json.Marshal(shape.Tiers)
 	if err != nil {
 		return err
 	}
 	return s.DB.Save(&db.Shape{ID: shapeID, Workers: db.Workers{Type: shape.Workers.Type, Max: shape.Workers.Max,
-		Idle: shape.Workers.Idle}, Location: shape.Workers.Location, Tiers: tiers}).Error
+		Idle: shape.Workers.Idle}, Location: shape.Workers.Location, Tiers: tiers,
+		Actors: db.Rest{Pause: shape.Actors.Pause, Suspend: shape.Actors.Suspend}}).Error
 }
 
 // A shape that cannot be taken as it is.

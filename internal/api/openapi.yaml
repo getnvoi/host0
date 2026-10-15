@@ -663,6 +663,22 @@ components:
       x-go-type: llm.Provider
       x-go-type-import:
         path: github.com/getnvoi/host0/internal/llm
+    Rest:
+      additionalProperties: false
+      properties:
+        pause:
+          format: int64
+          type: integer
+        suspend:
+          format: int64
+          type: integer
+      required:
+        - pause
+        - suspend
+      type: object
+      x-go-type: sandbox.Rest
+      x-go-type-import:
+        path: github.com/getnvoi/host0/internal/sandbox
     Seed:
       additionalProperties: false
       properties:
@@ -824,6 +840,8 @@ components:
     Shape:
       additionalProperties: false
       properties:
+        actors:
+          $ref: "#/components/schemas/Rest"
         tiers:
           items:
             $ref: "#/components/schemas/Tier"
@@ -834,6 +852,7 @@ components:
       required:
         - workers
         - tiers
+        - actors
       type: object
       x-go-type: sandbox.Shape
       x-go-type-import:

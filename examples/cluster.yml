@@ -5,6 +5,8 @@ cloud: { provider: hetzner, location: fsn1, credentials: { token: HCLOUD_TOKEN }
 control: { type: ccx23 }
 # The plane makes a worker server when a pool's worker finds no node, and deletes one with no actor for idle.
 workers: { type: ccx23, max: 5, idle: 10m }
+# An actor idle for pause is paused, its snapshot kept on its node; idle for suspend, it is suspended and its worker freed.
+actors: { pause: 5m, suspend: 30m }
 # A tier is a worker pool; an environment names one, else gets the default.
 tiers:
   - { name: small, cpu: 1, memory: 2Gi }
