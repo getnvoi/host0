@@ -80,12 +80,12 @@ function outcomes(text: string): Map<string, string[]> {
   return out;
 }
 
-// How the plane words an outcome: "denied by the user", "refused by policy", "stopped by the user", "failed: ...",
-// "push failed: ...", "a path starting with / is needed", "unknown tool"; anything else is the action done.
+// How the plane words an outcome: "denied by the user", "refused by policy", "stopped by the user", "failed: ...";
+// anything else is the operation's answer, the action done.
 export function settle(said: string): "done" | "denied" | "stopped" | "failed" {
   if (/^(denied|refused)\b/.test(said)) return "denied";
   if (/^stopped\b/.test(said)) return "stopped";
-  if (/^(push )?failed:|^unknown tool$|^a path starting with \/ is needed$/.test(said)) return "failed";
+  if (/^failed:/.test(said)) return "failed";
   return "done";
 }
 
@@ -95,9 +95,9 @@ export function shownPage(events: Event[]): { id: string; path: string } | undef
   const waiting: Event[] = [];
   let shown: { id: string; path: string } | undefined;
   for (const e of events) {
-    if (e.kind === "tool_use" && e.tool === HZ + "navigate_preview") waiting.push(e);
+    if (e.kind === "tool_use" && e.tool === HZ + "session_navigate") waiting.push(e);
     else if (e.kind === "prompt" && e.content?.startsWith(OUTCOME)) {
-      for (const said of outcomes(e.content).get("navigate_preview") ?? []) {
+      for (const said of outcomes(e.content).get("session_navigate") ?? []) {
         const call = waiting.shift();
         if (!call) break;
         const path = field(call.content ?? "", "path");

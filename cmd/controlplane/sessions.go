@@ -47,7 +47,7 @@ func (p *plane) sessions(a huma.API) {
 	huma.Register(a, op("session.start", "POST", "/sessions", "Fork the environment's seed and run the prompt in it",
 		hz{By: []string{"session start"}}),
 		func(ctx context.Context, in *struct{ Body workspace.SessionInput }) (*body[workspace.Session], error) {
-			return answer(ws.Start(in.Body.Env, in.Body.Prompt, auth.Who(ctx)))
+			return answer(ws.Start(in.Body.Env, in.Body.Agent, in.Body.Prompt, auth.Who(ctx)))
 		})
 	huma.Register(a, op("session.show", "GET", "/sessions/{id}", "The session and everything it printed",
 		hz{Output: "fields", Columns: []string{"id", "env", "state", "branch", "preview", "turns", "by", "at", "title", "error"},

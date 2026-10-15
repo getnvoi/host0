@@ -13,7 +13,7 @@ const turn: Event[] = [
   { kind: "task", tool_id: "s1", content: '{"state":"notification","status":"completed","tokens":1800,"tools":2,"duration_ms":4000}' },
   { kind: "tool_result", tool_id: "s1", content: "No namespaces.\nagentId: abc123" },
   { kind: "message", content: "Added the route." },
-  { kind: "tool_use", tool: "mcp__hz__create_pull_request", tool_id: "p1", content: '{"title":"Add /health","body":"b"}' },
+  { kind: "tool_use", tool: "mcp__hz__session_pr", tool_id: "p1", content: '{"title":"Add /health","body":"b"}' },
   { kind: "message", content: "I asked to open the pull request." },
   { kind: "result", content: "done", meta: { duration_ms: 38000, tokens: 21400 } },
 ];
@@ -25,16 +25,16 @@ test("folds a turn: calls before the answer, sub-agents apart, hz actions last",
   expect(t?.parts.map((p) => p.kind)).toEqual(["prose", "call", "prose"]);
   expect(t?.subs).toHaveLength(1);
   expect(t?.subs[0]).toMatchObject({ name: "map-routes", agentId: "abc123", state: "done", last: "No namespaces.", tools: 2 });
-  expect(t?.actions[0]).toMatchObject({ name: "create_pull_request", state: "done" });
+  expect(t?.actions[0]).toMatchObject({ name: "session_pr", state: "done" });
   expect(t?.duration).toBe(38000);
 });
 
 test("an open approval marks its action pending; the outcome settles it", () => {
-  const pending: Approval[] = [{ id: "a", session: "x", tool: "create_pull_request", input: '{"title":"Add /health","body":"b"}', state: "pending" }];
+  const pending: Approval[] = [{ id: "a", session: "x", tool: "session_pr", input: '{"title":"Add /health","body":"b"}', state: "pending" }];
   const waiting = transcript(turn, false, pending);
   const t = waiting[1].kind === "turn" ? waiting[1].turn : undefined;
   expect(t?.actions[0].state).toBe("pending");
-  const decided = transcript([...turn, { kind: "prompt", content: "Outcome of the actions you asked for:\ncreate_pull_request: denied by the user" }], false);
+  const decided = transcript([...turn, { kind: "prompt", content: "Outcome of the actions you asked for:\nsession_pr: denied by the user" }], false);
   const d = decided[1].kind === "turn" ? decided[1].turn : undefined;
   expect(d?.actions[0]).toMatchObject({ state: "denied", outcome: "denied by the user" });
   expect(decided).toHaveLength(2);
@@ -60,26 +60,26 @@ test("a sub-agent's conversation reads as its own turn, and a live one runs", ()
 test("a failed push or pull request reads as failed, not done", () => {
   const push: Event[] = [
     { kind: "prompt", content: "push it" },
-    { kind: "tool_use", tool: "mcp__hz__push_branch", tool_id: "p", content: "{}" },
-    { kind: "tool_use", tool: "mcp__hz__create_pull_request", tool_id: "q", content: '{"title":"t"}' },
+    { kind: "tool_use", tool: "mcp__hz__session_push", tool_id: "p", content: "{}" },
+    { kind: "tool_use", tool: "mcp__hz__session_pr", tool_id: "q", content: '{"title":"t"}' },
     { kind: "result", content: "done" },
-    { kind: "prompt", content: "Outcome of the actions you asked for:\npush_branch: failed: exit 128\ncreate_pull_request: push failed: exit 128" },
+    { kind: "prompt", content: "Outcome of the actions you asked for:\nsession_push: failed: exit 128\nsession_pr: failed: push hz/x: exit 128" },
   ];
   const t = transcript(push, false)[1];
   const actions = t.kind === "turn" ? t.turn.actions : [];
   expect(actions.map((a) => a.state)).toEqual(["failed", "failed"]);
-  expect(settle("opened https://github.com/o/r/pull/1")).toBe("done");
+  expect(settle('{"url":"https://github.com/o/r/pull/1"}')).toBe("done");
   expect(settle("refused by policy")).toBe("denied");
 });
 
 test("the preview shows only a page the plane said it showed", () => {
-  const nav = (id: string, path: string): Event => ({ kind: "tool_use", tool: "mcp__hz__navigate_preview", tool_id: id, content: JSON.stringify({ path }) });
+  const nav = (id: string, path: string): Event => ({ kind: "tool_use", tool: "mcp__hz__session_navigate", tool_id: id, content: JSON.stringify({ path }) });
   const outcome = (...lines: string[]): Event => ({ kind: "prompt", content: ["Outcome of the actions you asked for:", ...lines].join("\n") });
   expect(shownPage([nav("a", "/a")])).toBeUndefined();
-  expect(shownPage([nav("a", "/a"), outcome("navigate_preview: the preview shows /a")])).toEqual({ id: "a", path: "/a" });
-  expect(shownPage([nav("a", "/a"), outcome("navigate_preview: the preview shows /a"), nav("b", "/b"), outcome("navigate_preview: denied by the user")])).toEqual({ id: "a", path: "/a" });
-  expect(shownPage([nav("c", "c"), outcome("navigate_preview: a path starting with / is needed")])).toBeUndefined();
-  expect(shownPage([nav("d", "/d"), { kind: "stopped" }, outcome("navigate_preview: the preview shows /x")])).toBeUndefined();
+  expect(shownPage([nav("a", "/a"), outcome('session_navigate: {"path":"/a"}')])).toEqual({ id: "a", path: "/a" });
+  expect(shownPage([nav("a", "/a"), outcome('session_navigate: {"path":"/a"}'), nav("b", "/b"), outcome("session_navigate: denied by the user")])).toEqual({ id: "a", path: "/a" });
+  expect(shownPage([nav("c", "c"), outcome("session_navigate: failed: a path starting with / is needed")])).toBeUndefined();
+  expect(shownPage([nav("d", "/d"), { kind: "stopped" }, outcome('session_navigate: {"path":"/x"}')])).toBeUndefined();
 });
 
 test("a call left without a result stops being live once its turn ended", () => {
@@ -95,20 +95,18 @@ test("a call left without a result stops being live once its turn ended", () => 
 
 test("outcomes read like the plane words them", () => {
   expect(settle("stopped by the user")).toBe("stopped");
-  expect(settle("the preview shows /checkout/failed")).toBe("done");
+  expect(settle('{"path":"/checkout/failed"}')).toBe("done");
   expect(settle("failed: exit 128")).toBe("failed");
-  expect(settle("push failed: exit 128")).toBe("failed");
-  expect(settle("a path starting with / is needed")).toBe("failed");
 });
 
 test("a sub-agent's call takes its own outcome, not the main agent's", () => {
   const events: Event[] = [
     { kind: "prompt", content: "go" },
     { kind: "tool_use", tool: "Task", tool_id: "s", content: '{"description":"helper"}' },
-    { kind: "tool_use", tool: "mcp__hz__push_branch", tool_id: "sp", content: "{}", parent: "s" },
-    { kind: "tool_use", tool: "mcp__hz__push_branch", tool_id: "mp", content: "{}" },
+    { kind: "tool_use", tool: "mcp__hz__session_push", tool_id: "sp", content: "{}", parent: "s" },
+    { kind: "tool_use", tool: "mcp__hz__session_push", tool_id: "mp", content: "{}" },
     { kind: "result", content: "done" },
-    { kind: "prompt", content: "Outcome of the actions you asked for:\npush_branch: failed: exit 1\npush_branch: pushed hz/x" },
+    { kind: "prompt", content: "Outcome of the actions you asked for:\nsession_push: failed: exit 1\nsession_push: {\"branch\":\"hz/x\"}" },
   ];
   const t = transcript(events, false)[1];
   const actions = t.kind === "turn" ? t.turn.actions : [];

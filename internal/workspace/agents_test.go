@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ func TestRules(t *testing.T) {
 	p := newWorkspace(t, nil)
 	level := func(tool string) string {
 		t.Helper()
-		l, err := p.level(agentSlug, tool)
+		l, err := p.level(agentName, tool)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -21,14 +22,14 @@ func TestRules(t *testing.T) {
 	if level("session_title") != "auto" || level("session_push") != "approval" || level("rm_rf") != "deny" {
 		t.Fatal("defaults")
 	}
-	a, err := p.SetRule(agentSlug, "session_push", "deny")
+	a, err := p.SetRule(agentName, "session_push", "deny")
 	if err != nil || level("session_push") != "deny" {
 		t.Fatalf("set: %v", err)
 	}
 	if g := grant(a, "session_push"); !g.Rule || g.Level != "deny" {
 		t.Fatalf("grant %+v", g)
 	}
-	given, err := p.given(agentSlug)
+	given, err := p.given(agentName)
 	if err != nil || len(given) != 3 {
 		t.Fatalf("given %v %v", given, err)
 	}
@@ -37,13 +38,13 @@ func TestRules(t *testing.T) {
 			t.Fatal("a denied tool is given")
 		}
 	}
-	if a, err = p.DropRule(agentSlug, "session_push"); err != nil || level("session_push") != "approval" || grant(a, "session_push").Rule {
+	if a, err = p.DropRule(agentName, "session_push"); err != nil || level("session_push") != "approval" || grant(a, "session_push").Rule {
 		t.Fatalf("drop: %v", err)
 	}
-	if _, err := p.SetRule(agentSlug, "session_push", "maybe"); !errors.As(err, new(Invalid)) {
+	if _, err := p.SetRule(agentName, "session_push", "maybe"); !errors.As(err, new(Invalid)) {
 		t.Fatalf("bad level: %v", err)
 	}
-	if _, err := p.SetRule(agentSlug, "rm_rf", "auto"); !errors.As(err, new(NotFound)) {
+	if _, err := p.SetRule(agentName, "rm_rf", "auto"); !errors.As(err, new(NotFound)) {
 		t.Fatalf("no tool: %v", err)
 	}
 	if _, err := p.SetRule("other", "session_push", "auto"); !errors.As(err, new(NotFound)) {
@@ -63,7 +64,7 @@ func grant(a Agent, tool string) Grant {
 // A turn's calls go by its agent's levels: auto at once, approval parked, deny refused.
 func TestTurnFollowsLevels(t *testing.T) {
 	p, fb := withBoxd(t)
-	if _, err := p.SetRule(agentSlug, "session_push", "deny"); err != nil {
+	if _, err := p.SetRule(agentName, "session_push", "deny"); err != nil {
 		t.Fatal(err)
 	}
 	use := func(id, name string) string {
@@ -90,5 +91,41 @@ func TestTurnFollowsLevels(t *testing.T) {
 	asks, err := p.Approvals("lv1", "pending")
 	if err != nil || len(asks) != 1 || asks[0].Tool != "session_pr" {
 		t.Fatalf("approvals %+v %v", asks, err)
+	}
+}
+
+// An agent file's "*" covers every tool, a tool named beside it overrides it, and declaring it again changes nothing.
+func TestPutAgent(t *testing.T) {
+	p := newWorkspace(t, nil)
+	in := AgentInput{Description: "all", Model: "opus", Instructions: "Be brief.",
+		Tools: map[string]string{"*": "auto", "session_pr": "approval"}}
+	a, err := p.PutAgent("ops", in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.Model != "opus" || grant(a, "session_push").Level != "auto" || grant(a, "session_pr").Level != "approval" ||
+		!grant(a, "session_title").Rule {
+		t.Fatalf("put %+v", a)
+	}
+	again, err := p.PutAgent("ops", in)
+	if err != nil || !reflect.DeepEqual(a, again) {
+		t.Fatalf("again %+v %v", again, err)
+	}
+	// Rules the file no longer names go: the tool's default applies.
+	a, err = p.PutAgent("ops", AgentInput{Description: "none"})
+	if err != nil || grant(a, "session_push").Level != "approval" || grant(a, "session_push").Rule {
+		t.Fatalf("emptied %+v %v", a, err)
+	}
+	for _, bad := range []struct {
+		name string
+		in   AgentInput
+	}{{"Ops", AgentInput{}}, {"ops", AgentInput{Tools: map[string]string{"*": "maybe"}}},
+		{"ops", AgentInput{Tools: map[string]string{"rm_rf": "auto"}}}} {
+		if _, err := p.PutAgent(bad.name, bad.in); !errors.As(err, new(Invalid)) {
+			t.Errorf("%s %+v: %v", bad.name, bad.in, err)
+		}
+	}
+	if _, err := p.Start("web", "nobody", "hi", "cli"); !errors.As(err, new(NotFound)) {
+		t.Fatalf("start as no agent: %v", err)
 	}
 }

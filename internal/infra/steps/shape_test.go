@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -31,7 +32,11 @@ func TestShape(t *testing.T) {
 	defer srv.Close()
 	e := &infra.Env{Out: io.Discard, Config: infra.Config{WorkerType: "cx33", Location: "nbg1", WorkerMax: 2,
 		WorkerIdle: time.Minute, Tiers: sandbox.DefaultTiers}}
-	if err := shape(context.Background(), e, srv.URL, "tok"); err != nil {
+	c, err := planeClient(srv.URL, "tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := shape(context.Background(), e, c); err != nil {
 		t.Fatal(err)
 	}
 	if asked != "PUT /cluster/shape" || auth != "Bearer tok" ||
@@ -39,7 +44,29 @@ func TestShape(t *testing.T) {
 		t.Fatalf("%s %s %s", asked, auth, body)
 	}
 	refuse = true
-	if err := shape(context.Background(), e, srv.URL, "tok"); err == nil || err.Error() != "writing the cluster shape: no default tier among large" {
+	if err := shape(context.Background(), e, c); err == nil || err.Error() != "writing the cluster shape: no default tier among large" {
 		t.Fatalf("refused: %v", err)
+	}
+}
+
+// Every agent file goes to the plane as one PUT, under the CLI's token.
+func TestDeclareAgents(t *testing.T) {
+	var asked []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		asked = append(asked, r.Method+" "+r.URL.Path+" "+r.Header.Get("Authorization")+" "+string(b))
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"name":"x","tools":[]}`)
+	}))
+	defer srv.Close()
+	c, err := planeClient(srv.URL, "tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := declareAgents(context.Background(), &infra.Env{Out: io.Discard}, c); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(asked, `PUT /agents/hz Bearer tok {"description":"Works in the session's checkout and calls every hz tool without asking.","tools":{"*":"auto"}}`) {
+		t.Fatalf("%q", asked)
 	}
 }

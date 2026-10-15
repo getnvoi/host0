@@ -26,7 +26,7 @@ const events = [
   { kind: "tool_use", tool: "Bash", tool_id: "t5", content: '{"command":"git add -A && git commit -m \\"Add /health route rendering plain text ok\\""}', at: ago(3) },
   { kind: "tool_result", tool_id: "t5", content: "[hz/4ca708e1 5b608cc] Add /health route rendering plain text ok", at: ago(3) },
   { kind: "message", content: "Added `HealthController#show` and the route. The controller test passes (1 run, 3 assertions), and the change is committed on `hz/4ca708e1`. I asked to open the pull request.", at: ago(2) },
-  { kind: "tool_use", tool: "mcp__hz__create_pull_request", tool_id: "p1", content: PR, at: ago(2) },
+  { kind: "tool_use", tool: "mcp__hz__session_pr", tool_id: "p1", content: PR, at: ago(2) },
   { kind: "tool_result", tool_id: "p1", content: "Queued.", at: ago(2) },
   { kind: "result", content: "done", meta: { duration_ms: 38200, tokens: 21400 }, at: ago(2) },
 ];
@@ -215,7 +215,7 @@ Bun.serve<Data, never>({
     if (path === "/stream") return new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode("id: 1\nretry: 2000\n\n")); } }), { headers: { "content-type": "text/event-stream" } });
     if (path === "/sessions") return json(summaries);
     if (path === "/environments") return json([{ name: "dummy-rails", repo: "benbonnet/dummy-rails", branch: "main", tier: "medium", ready: true }]);
-    if (path === "/approvals") return json([{ id: "a1", session: "4ca708e1", tool: "create_pull_request", input: PR, state: "pending" }]);
+    if (path === "/approvals") return json([{ id: "a1", session: "4ca708e1", tool: "session_pr", input: PR, state: "pending" }]);
     if (path === "/usage") {
       const n = Number(url.searchParams.get("days") ?? 30);
       const days = Array.from({ length: n }, (_, i) => {

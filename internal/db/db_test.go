@@ -49,7 +49,7 @@ func must(t *testing.T, err error) {
 // An agent, an environment and a session in it.
 func session(t *testing.T, db *gorm.DB) (Agent, Environment, Session) {
 	t.Helper()
-	a := Agent{Slug: "dev", Name: "Dev"}
+	a := Agent{Name: "dev"}
 	must(t, db.Create(&a).Error)
 	e := Environment{Name: "app", Repo: "o/app", Branch: "main"}
 	must(t, db.Create(&e).Error)
@@ -119,7 +119,7 @@ func TestMigrate(t *testing.T) {
 	}
 	var ran []string
 	must(t, db.Raw("SELECT id FROM migrations").Scan(&ran).Error)
-	if !reflect.DeepEqual(ran, []string{"0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009"}) {
+	if !reflect.DeepEqual(ran, []string{"0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010"}) {
 		t.Fatalf("migrations recorded: %v", ran)
 	}
 
@@ -136,7 +136,7 @@ func TestMigrate(t *testing.T) {
 	}
 
 	uniques := map[string]string{
-		"members": "account_id", "agents": "slug", "tool_policies": "agent_id,tool", "llm_configs": "name",
+		"members": "account_id", "agents": "name", "tool_policies": "agent_id,tool", "llm_configs": "name",
 		"environments": "name", "env_vars": "environment_id,key", "secrets": "environment_id,key",
 		"setup_steps": "environment_id,position", "services": "environment_id,name", "sessions": "public_id",
 		"events": "session_id,position", "queued_messages": "session_id,position", "approvals": "public_id",

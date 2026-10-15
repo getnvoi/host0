@@ -48,11 +48,11 @@ function Gate({ approval, session, env, askedBy }: { approval: Approval; session
     );
   };
   // As vrcl's gates helper: the exact command, then what it leaves out.
-  const push = approval.tool === "push_branch" || approval.tool === "create_pull_request";
+  const push = approval.tool === "session_push" || approval.tool === "session_pr";
   const details: Record<string, string> = {};
   if (env) details[t("gate.repository")] = env.repo;
   if (push) details[t("gate.branch")] = session.branch;
-  if (approval.tool === "create_pull_request") {
+  if (approval.tool === "session_pr") {
     const title = field(approval.input, "title");
     const body = field(approval.input, "body");
     if (title) details[t("gate.title")] = title;

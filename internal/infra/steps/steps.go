@@ -23,6 +23,7 @@ import (
 	"github.com/getnvoi/host0/internal/api/client"
 	"github.com/getnvoi/host0/internal/cloud"
 	"github.com/getnvoi/host0/internal/infra"
+	"github.com/getnvoi/host0/internal/infra/agents"
 	"github.com/getnvoi/host0/internal/infra/kube"
 	"github.com/getnvoi/host0/internal/infra/manifests"
 	"github.com/getnvoi/host0/internal/infra/node"
@@ -264,7 +265,14 @@ var Install = []infra.Step{
 			}
 			return fmt.Errorf("%w; %s says:\n%s", err, e.Edge.Deployment(), logs)
 		}
-		if err := shape(ctx, e, url, token); err != nil {
+		c, err := planeClient(url, token)
+		if err != nil {
+			return err
+		}
+		if err := shape(ctx, e, c); err != nil {
+			return err
+		}
+		if err := declareAgents(ctx, e, c); err != nil {
 			return err
 		}
 		e.Say("api at %s", url)
@@ -308,17 +316,9 @@ func identity(ctx context.Context, e *infra.Env, id, ips string) error {
 }
 
 // Writes the cluster's shape, its workers and tiers, to the plane, which holds it as a row.
-func shape(ctx context.Context, e *infra.Env, url, token string) error {
+func shape(ctx context.Context, e *infra.Env, c *client.Client) error {
 	body, err := json.Marshal(sandbox.Shape{Tiers: e.Config.Tiers, Workers: sandbox.Servers{Type: e.Config.WorkerType,
 		Location: e.Config.Location, Max: e.Config.WorkerMax, Idle: e.Config.WorkerIdle}, Actors: e.Config.Actors})
-	if err != nil {
-		return err
-	}
-	c, err := client.NewClient(url, client.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
-		client.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
-			r.Header.Set("Authorization", "Bearer "+token)
-			return nil
-		}))
 	if err != nil {
 		return err
 	}
@@ -327,6 +327,34 @@ func shape(ctx context.Context, e *infra.Env, url, token string) error {
 	}
 	e.Say("workers: %s in %s, at most %d, deleted after %s idle", e.Config.WorkerType, e.Config.Location, e.Config.WorkerMax, e.Config.WorkerIdle)
 	e.Say("actors: paused after %s idle, suspended after %s", e.Config.Actors.Pause, e.Config.Actors.Suspend)
+	return nil
+}
+
+// The plane's API at url, under the CLI's token.
+func planeClient(url, token string) (*client.Client, error) {
+	return client.NewClient(url, client.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
+		client.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
+			r.Header.Set("Authorization", "Bearer "+token)
+			return nil
+		}))
+}
+
+// Declares every agent of internal/infra/agents on the plane; an agent that already matches its file is unchanged.
+func declareAgents(ctx context.Context, e *infra.Env, c *client.Client) error {
+	all, err := agents.All()
+	if err != nil {
+		return err
+	}
+	for _, a := range all {
+		body, err := json.Marshal(a)
+		if err != nil {
+			return err
+		}
+		if err := client.Done(c.AgentPutWithBody(ctx, a.Name, "application/json", bytes.NewReader(body))); err != nil {
+			return fmt.Errorf("declaring agent %s: %w", a.Name, err)
+		}
+		e.Say("agent %s: %s", a.Name, a.Description)
+	}
 	return nil
 }
 

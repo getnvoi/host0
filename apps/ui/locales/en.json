@@ -206,10 +206,10 @@
     "waking_body": "What you type now goes to the shell as soon as it opens."
   },
   "tools": {
-    "set_title": "Set the title",
-    "push_branch": "Push the branch",
-    "create_pull_request": "Open a pull request",
-    "navigate_preview": "Show a page"
+    "session_title": "Set the title",
+    "session_push": "Push the branch",
+    "session_pr": "Open a pull request",
+    "session_navigate": "Show a page"
   },
   "views": {
     "chat": "Chat",

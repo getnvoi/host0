@@ -14,7 +14,7 @@ import (
 )
 
 // The agent every session runs as until a workspace has agents of its own.
-const agentSlug = "hz"
+const agentName = "hz"
 
 func rowOf(tx *gorm.DB, sid string) (db.Session, error) {
 	var r db.Session
@@ -72,7 +72,7 @@ func (ws *Workspace) session(tx *gorm.DB, r db.Session, events bool) (Session, e
 	if err := tx.First(&agent, r.AgentID).Error; err != nil {
 		return Session{}, fmt.Errorf("session %s: its agent: %w", r.PublicID, err)
 	}
-	s := Session{ID: r.PublicID, Env: env.Name, Agent: agent.Slug, Actor: "wt-" + r.PublicID, Branch: r.Branch, Preview: r.Preview,
+	s := Session{ID: r.PublicID, Env: env.Name, Agent: agent.Name, Actor: "wt-" + r.PublicID, Branch: r.Branch, Preview: r.Preview,
 		Transcript: r.Transcript, Turns: r.Turns, State: r.State, Title: r.Title, Error: r.Error, Mark: r.Mark,
 		Pending: r.Pending, Forked: r.Forked, Outcomes: r.Outcomes, By: by, At: r.StartedAt, Last: r.LastAt,
 		Events: []llm.Event{}}
@@ -133,7 +133,7 @@ func (ws *Workspace) newSession(tx *gorm.DB, s *Session) (db.Session, error) {
 		return db.Session{}, err
 	}
 	// A session that names no agent runs as the workspace's own.
-	agent, err := agentRow(tx, cmp.Or(s.Agent, agentSlug))
+	agent, err := agentRow(tx, cmp.Or(s.Agent, agentName))
 	if err != nil {
 		return db.Session{}, err
 	}

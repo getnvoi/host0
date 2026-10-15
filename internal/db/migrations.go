@@ -28,6 +28,7 @@ var migrations = []*gormigrate.Migration{
 	{ID: "0007", Migrate: migrate0007},
 	{ID: "0008", Migrate: migrate0008},
 	{ID: "0009", Migrate: migrate0009},
+	{ID: "0010", Migrate: migrate0010},
 }
 
 // The workspace tables as of 0001, frozen: a model that changes gets a new migration, not an edit here.
@@ -208,6 +209,22 @@ func (m8Shape) TableName() string { return "shapes" }
 func migrate0009(tx *gorm.DB) error {
 	// SQLite drops the column in place; the Migrator's DropColumn remakes the table and loses its indexes.
 	return tx.Exec("ALTER TABLE environments DROP COLUMN tools").Error
+}
+
+// An agent is known by its name alone, as an agent file names it, and says what it is for in its description.
+func migrate0010(tx *gorm.DB) error {
+	for _, q := range []string{
+		"ALTER TABLE agents DROP COLUMN name",
+		"DROP INDEX idx_agents_slug",
+		"ALTER TABLE agents RENAME COLUMN slug TO name",
+		"CREATE UNIQUE INDEX idx_agents_name ON agents(name)",
+		"ALTER TABLE agents RENAME COLUMN tagline TO description",
+	} {
+		if err := tx.Exec(q).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // An FTS5 index <table>_fts over one column, its rowid the row's id, kept in step by triggers.

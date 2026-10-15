@@ -35,7 +35,7 @@ plane_up() { for i in $(seq 90); do ./bin/hz me >/dev/null 2>&1 && return; sleep
 | 4 | `./bin/hz env seed dummy` | `seed ready:` link in about 2 min |
 | 5 | Gate: `./bin/hz preview dummy-dev-preview.nvoi.to --check` | `no token 401`, the link sets the cookie, `cookie 200` |
 | 6 | Fork: `./bin/hz session start dummy "Reply ok."` | `session <id> on hz/<id>`; `forked in` under 10 s; ends `idle` |
-| 7 | `./bin/hz session start dummy "<task that ends in a pull request>"` | calls `set_title`, commits, stops at `awaiting_approval` |
+| 7 | `./bin/hz session start dummy "<task that ends in a pull request>"` | calls `session_title`, commits, stops at `awaiting_approval` |
 | 8 | `./bin/hz session preview <id>`, then `./bin/hz preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
 | 9 | `./bin/hz approval ls`, `./bin/hz approval show <id>`, **ask the user**, then on their yes `./bin/hz approval approve <id>` (`deny` otherwise) | PR URL printed, session back to `idle` |
 | 10 | Every read the spec has, as JSON (below) | each exits 0 and prints JSON |

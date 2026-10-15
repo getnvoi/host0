@@ -3,9 +3,13 @@ components:
     Agent:
       additionalProperties: false
       properties:
-        name:
+        description:
           type: string
-        slug:
+        instructions:
+          type: string
+        model:
+          type: string
+        name:
           type: string
         tools:
           items:
@@ -13,9 +17,22 @@ components:
           nullable: true
           type: array
       required:
-        - slug
         - name
         - tools
+      type: object
+    AgentInput:
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        instructions:
+          type: string
+        model:
+          type: string
+        tools:
+          additionalProperties:
+            type: string
+          type: object
       type: object
     Approval:
       additionalProperties: false
@@ -899,6 +916,9 @@ components:
     SessionInput:
       additionalProperties: false
       properties:
+        agent:
+          description: The agent it runs as; hz when none is named
+          type: string
         env:
           description: The environment whose seed it forks
           type: string
@@ -1245,19 +1265,20 @@ paths:
       summary: The agents sessions run as
       x-hz:
         columns:
-          - slug
           - name
+          - model
+          - description
         output: table
-  /agents/{slug}:
+  /agents/{name}:
     get:
       operationId: agent.show
       parameters:
-        - description: The agent's slug
+        - description: The agent's name
           in: path
-          name: slug
+          name: name
           required: true
           schema:
-            description: The agent's slug
+            description: The agent's name
             type: string
       responses:
         "200":
@@ -1280,16 +1301,54 @@ paths:
           - rule
         field: tools
         output: table
-  /agents/{slug}/tools/{tool}:
+    put:
+      operationId: agent.put
+      parameters:
+        - description: The agent's name
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The agent's name
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInput"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "Declare the agent: its description, model, instructions and rules, which replace those it has"
+      x-hz:
+        columns:
+          - tool
+          - level
+          - rule
+        field: tools
+        output: table
+        tool: deny
+  /agents/{name}/tools/{tool}:
     delete:
       operationId: agent.tool.rm
       parameters:
-        - description: The agent's slug
+        - description: The agent's name
           in: path
-          name: slug
+          name: name
           required: true
           schema:
-            description: The agent's slug
+            description: The agent's name
             type: string
         - description: "The tool's name: an operation id, dots as underscores (session_push)"
           in: path
@@ -1323,12 +1382,12 @@ paths:
     put:
       operationId: agent.tool.set
       parameters:
-        - description: The agent's slug
+        - description: The agent's name
           in: path
-          name: slug
+          name: name
           required: true
           schema:
-            description: The agent's slug
+            description: The agent's name
             type: string
         - description: "The tool's name: an operation id, dots as underscores (session_push)"
           in: path

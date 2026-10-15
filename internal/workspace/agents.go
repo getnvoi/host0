@@ -3,6 +3,9 @@ package workspace
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"regexp"
+	"slices"
 	"sort"
 
 	"gorm.io/gorm"
@@ -27,9 +30,20 @@ type Grant struct {
 }
 
 type Agent struct {
-	Slug  string  `json:"slug"`
-	Name  string  `json:"name"`
-	Tools []Grant `json:"tools"`
+	Name         string  `json:"name"`
+	Description  string  `json:"description,omitempty"`
+	Model        string  `json:"model,omitempty"` // empty runs on the credential's
+	Instructions string  `json:"instructions,omitempty"`
+	Tools        []Grant `json:"tools"`
+}
+
+// An agent as its file declares it. Tools maps a tool to its level; "*" gives every tool there is now that level,
+// and a tool named beside it overrides it. A tool left out keeps its default.
+type AgentInput struct {
+	Description  string            `json:"description,omitempty" yaml:"description"`
+	Model        string            `json:"model,omitempty" yaml:"model"`
+	Instructions string            `json:"instructions,omitempty" yaml:"instructions"`
+	Tools        map[string]string `json:"tools,omitempty" yaml:"tools"`
 }
 
 type Level struct {
@@ -39,16 +53,16 @@ type Level struct {
 var levels = []string{"auto", "approval", "deny"}
 
 // The agent's row; the workspace's own agent is made the first time it is asked for.
-func agentRow(tx *gorm.DB, slug string) (db.Agent, error) {
-	a := db.Agent{Slug: slug}
+func agentRow(tx *gorm.DB, name string) (db.Agent, error) {
+	a := db.Agent{Name: name}
 	var err error
-	if slug == agentSlug {
-		err = tx.Where(&a).Attrs(db.Agent{Name: agentSlug}).FirstOrCreate(&a).Error
+	if name == agentName {
+		err = tx.Where(&a).FirstOrCreate(&a).Error
 	} else {
 		err = tx.Where(&a).First(&a).Error
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return a, NotFound{fmt.Errorf("no agent %s", slug)}
+		return a, NotFound{fmt.Errorf("no agent %s", name)}
 	}
 	return a, err
 }
@@ -71,7 +85,7 @@ func (ws *Workspace) level(agent, name string) (string, error) {
 	}
 	var p db.ToolPolicy
 	err = ws.DB.Joins("JOIN agents ON agents.id = tool_policies.agent_id").
-		Where("agents.slug = ? AND tool_policies.tool = ?", agent, name).First(&p).Error
+		Where("agents.name = ? AND tool_policies.tool = ?", agent, name).First(&p).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return t.Default, nil
 	}
@@ -102,15 +116,15 @@ func (ws *Workspace) given(agent string) ([]map[string]any, error) {
 }
 
 func (ws *Workspace) Agents() ([]Agent, error) {
-	if _, err := agentRow(ws.DB, agentSlug); err != nil {
+	if _, err := agentRow(ws.DB, agentName); err != nil {
 		return nil, err
 	}
-	var slugs []string
-	if err := ws.DB.Model(&db.Agent{}).Where("archived_at IS NULL").Order("slug").Pluck("slug", &slugs).Error; err != nil {
+	var names []string
+	if err := ws.DB.Model(&db.Agent{}).Where("archived_at IS NULL").Order("name").Pluck("name", &names).Error; err != nil {
 		return nil, err
 	}
 	out := []Agent{}
-	for _, s := range slugs {
+	for _, s := range names {
 		a, err := ws.Agent(s)
 		if err != nil {
 			return nil, err
@@ -121,8 +135,8 @@ func (ws *Workspace) Agents() ([]Agent, error) {
 }
 
 // The agent, with its level for every tool.
-func (ws *Workspace) Agent(slug string) (Agent, error) {
-	row, err := agentRow(ws.DB, slug)
+func (ws *Workspace) Agent(name string) (Agent, error) {
+	row, err := agentRow(ws.DB, name)
 	if err != nil {
 		return Agent{}, err
 	}
@@ -134,7 +148,8 @@ func (ws *Workspace) Agent(slug string) (Agent, error) {
 	for _, r := range rules {
 		set[r.Tool] = r.Level
 	}
-	a := Agent{Slug: row.Slug, Name: row.Name, Tools: []Grant{}}
+	a := Agent{Name: row.Name, Description: row.Description, Model: row.Model, Instructions: row.Instructions,
+		Tools: []Grant{}}
 	for _, t := range ws.Tools.List() {
 		g := Grant{Tool: t.Name, Level: t.Default}
 		if l, ok := set[t.Name]; ok {
@@ -146,19 +161,24 @@ func (ws *Workspace) Agent(slug string) (Agent, error) {
 	return a, nil
 }
 
-// Sets the agent's level for the tool, over the tool's default.
-func (ws *Workspace) SetRule(slug, name, level string) (Agent, error) {
-	valid := false
+func validLevel(level string) error {
 	for _, l := range levels {
-		valid = valid || l == level
+		if l == level {
+			return nil
+		}
 	}
-	if !valid {
-		return Agent{}, Invalid{fmt.Errorf("level %q is not auto, approval or deny", level)}
+	return Invalid{fmt.Errorf("level %q is not auto, approval or deny", level)}
+}
+
+// Sets the agent's level for the tool, over the tool's default.
+func (ws *Workspace) SetRule(agent, name, level string) (Agent, error) {
+	if err := validLevel(level); err != nil {
+		return Agent{}, err
 	}
 	if _, err := ws.tool(name); err != nil {
 		return Agent{}, err
 	}
-	row, err := agentRow(ws.DB, slug)
+	row, err := agentRow(ws.DB, agent)
 	if err != nil {
 		return Agent{}, err
 	}
@@ -167,17 +187,72 @@ func (ws *Workspace) SetRule(slug, name, level string) (Agent, error) {
 		Create(&db.ToolPolicy{AgentID: row.ID, Tool: name, Level: level}).Error; err != nil {
 		return Agent{}, err
 	}
-	return ws.Agent(slug)
+	return ws.Agent(agent)
 }
 
 // Removes the agent's rule for the tool: its default applies again. A tool with no rule is no error.
-func (ws *Workspace) DropRule(slug, name string) (Agent, error) {
-	row, err := agentRow(ws.DB, slug)
+func (ws *Workspace) DropRule(agent, name string) (Agent, error) {
+	row, err := agentRow(ws.DB, agent)
 	if err != nil {
 		return Agent{}, err
 	}
 	if err := ws.DB.Where("agent_id = ? AND tool = ?", row.ID, name).Delete(&db.ToolPolicy{}).Error; err != nil {
 		return Agent{}, err
 	}
-	return ws.Agent(slug)
+	return ws.Agent(agent)
 }
+
+// Makes the agent as in declares it, or makes an existing one so: its rules are replaced by in's. Declaring the same
+// agent again changes nothing.
+func (ws *Workspace) PutAgent(name string, in AgentInput) (Agent, error) {
+	if !agentNames.MatchString(name) {
+		return Agent{}, Invalid{fmt.Errorf("agent name %q: lowercase letters, digits and -, from a letter", name)}
+	}
+	set := map[string]string{}
+	if l, ok := in.Tools["*"]; ok {
+		if err := validLevel(l); err != nil {
+			return Agent{}, err
+		}
+		for _, t := range ws.Tools.List() {
+			set[t.Name] = l
+		}
+	}
+	for tool, l := range in.Tools {
+		if tool == "*" {
+			continue
+		}
+		if err := validLevel(l); err != nil {
+			return Agent{}, Invalid{fmt.Errorf("tool %s: %w", tool, err)}
+		}
+		if _, err := ws.tool(tool); err != nil {
+			return Agent{}, Invalid{err}
+		}
+		set[tool] = l
+	}
+	err := ws.DB.Transaction(func(tx *gorm.DB) error {
+		var row db.Agent
+		if err := tx.Where("name = ?", name).First(&row).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		row.Name, row.Description, row.Model, row.Instructions, row.ArchivedAt = name, in.Description, in.Model,
+			in.Instructions, nil
+		if err := tx.Save(&row).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("agent_id = ?", row.ID).Delete(&db.ToolPolicy{}).Error; err != nil {
+			return err
+		}
+		for _, tool := range slices.Sorted(maps.Keys(set)) {
+			if err := tx.Create(&db.ToolPolicy{AgentID: row.ID, Tool: tool, Level: set[tool]}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return Agent{}, err
+	}
+	return ws.Agent(name)
+}
+
+var agentNames = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)

@@ -18,18 +18,31 @@ var operations = []operation{
 		Short:  "The agents sessions run as",
 		Method: "GET",
 		Route:  "/agents",
-		HZ:     hz{Output: "table", Columns: []string{"slug", "name"}},
+		HZ:     hz{Output: "table", Columns: []string{"name", "model", "description"}},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.AgentLs(ctx, edit)
+		},
+	},
+	{
+		ID:          "agent.put",
+		Short:       "Declare the agent: its description, model, instructions and rules, which replace those it has",
+		Method:      "PUT",
+		Route:       "/agents/{name}",
+		HZ:          hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
+		Args:        []string{"name"},
+		ContentType: "application/json",
+		Body:        []param{{Name: "description", Kind: "string", Help: ""}, {Name: "instructions", Kind: "string", Help: ""}, {Name: "model", Kind: "string", Help: ""}, {Name: "tools", Kind: "map", Help: ""}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.AgentPutWithBody(ctx, args[0], "application/json", body, edit)
 		},
 	},
 	{
 		ID:     "agent.show",
 		Short:  "The agent's level for every tool: its rule, or the tool's default",
 		Method: "GET",
-		Route:  "/agents/{slug}",
+		Route:  "/agents/{name}",
 		HZ:     hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
-		Args:   []string{"slug"},
+		Args:   []string{"name"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.AgentShow(ctx, args[0], edit)
 		},
@@ -38,9 +51,9 @@ var operations = []operation{
 		ID:     "agent.tool.rm",
 		Short:  "Drop the agent's rule for a tool: its default applies",
 		Method: "DELETE",
-		Route:  "/agents/{slug}/tools/{tool}",
+		Route:  "/agents/{name}/tools/{tool}",
 		HZ:     hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
-		Args:   []string{"slug", "tool"},
+		Args:   []string{"name", "tool"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.AgentToolRm(ctx, args[0], args[1], edit)
 		},
@@ -49,9 +62,9 @@ var operations = []operation{
 		ID:          "agent.tool.set",
 		Short:       "Set the agent's level for a tool",
 		Method:      "PUT",
-		Route:       "/agents/{slug}/tools/{tool}",
+		Route:       "/agents/{name}/tools/{tool}",
 		HZ:          hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
-		Args:        []string{"slug", "tool"},
+		Args:        []string{"name", "tool"},
 		ContentType: "application/json",
 		Body:        []param{{Name: "level", Kind: "string", Help: ""}},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
@@ -586,7 +599,7 @@ var operations = []operation{
 		Route:       "/sessions",
 		HZ:          hz{By: []string{"session start"}},
 		ContentType: "application/json",
-		Body:        []param{{Name: "env", Kind: "string", Help: "The environment whose seed it forks"}, {Name: "prompt", Kind: "string", Help: "Its first message"}},
+		Body:        []param{{Name: "agent", Kind: "string", Help: "The agent it runs as; hz when none is named"}, {Name: "env", Kind: "string", Help: "The environment whose seed it forks"}, {Name: "prompt", Kind: "string", Help: "Its first message"}},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.SessionStartWithBody(ctx, "application/json", body, edit)
 		},

@@ -37,7 +37,7 @@ func TestToolsFromOperations(t *testing.T) {
 	}
 	for name, want := range map[string]string{"env_ls": "auto", "env_put": "approval", "session_title": "auto",
 		"session_navigate": "auto", "session_push": "approval", "session_pr": "approval", "approval_approve": "deny",
-		"agent_tool_set": "deny", "stream": "deny", "invite": "deny"} {
+		"agent_tool_set": "deny", "agent_put": "deny", "stream": "deny", "invite": "deny"} {
 		if got := tools[name].Default; got != want {
 			t.Errorf("%s: %s, want %s", name, got, want)
 		}

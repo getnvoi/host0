@@ -42,9 +42,19 @@ func (e LevelLevel) Valid() bool {
 
 // Agent defines model for Agent.
 type Agent struct {
-	Name  string   `json:"name"`
-	Slug  string   `json:"slug"`
-	Tools *[]Grant `json:"tools"`
+	Description  *string  `json:"description,omitempty"`
+	Instructions *string  `json:"instructions,omitempty"`
+	Model        *string  `json:"model,omitempty"`
+	Name         string   `json:"name"`
+	Tools        *[]Grant `json:"tools"`
+}
+
+// AgentInput defines model for AgentInput.
+type AgentInput struct {
+	Description  *string            `json:"description,omitempty"`
+	Instructions *string            `json:"instructions,omitempty"`
+	Model        *string            `json:"model,omitempty"`
+	Tools        *map[string]string `json:"tools,omitempty"`
 }
 
 // Approval defines model for Approval.
@@ -429,6 +439,9 @@ type Session struct {
 
 // SessionInput defines model for SessionInput.
 type SessionInput struct {
+	// Agent The agent it runs as; hz when none is named
+	Agent *string `json:"agent,omitempty"`
+
 	// Env The environment whose seed it forks
 	Env string `json:"env"`
 
@@ -601,6 +614,9 @@ type UsageParams struct {
 	By *string `form:"by,omitempty" json:"by,omitempty"`
 }
 
+// AgentPutJSONRequestBody defines body for AgentPut for application/json ContentType.
+type AgentPutJSONRequestBody = AgentInput
+
 // AgentToolSetJSONRequestBody defines body for AgentToolSet for application/json ContentType.
 type AgentToolSetJSONRequestBody = Level
 
@@ -727,27 +743,41 @@ type ClientInterface interface {
 
 	// AgentShow The agent's level for every tool: its rule, or the tool's default
 	//
-	// Corresponds with GET /agents/{slug} (the `AgentShow` operationId).
-	AgentShow(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
+	AgentShow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentPutWithBody Declare the agent: its description, model, instructions and rules, which replace those it has
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+	AgentPutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentPut Declare the agent: its description, model, instructions and rules, which replace those it has
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+	AgentPut(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AgentToolRm Drop the agent's rule for a tool: its default applies
 	//
-	// Corresponds with DELETE /agents/{slug}/tools/{tool} (the `AgentToolRm` operationId).
-	AgentToolRm(ctx context.Context, slug string, tool string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
+	AgentToolRm(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AgentToolSetWithBody Set the agent's level for a tool
 	//
 	// Takes any type of body and a specified content type.
 	//
-	// Corresponds with PUT /agents/{slug}/tools/{tool} (the `AgentToolSet` operationId).
-	AgentToolSetWithBody(ctx context.Context, slug string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+	AgentToolSetWithBody(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AgentToolSet Set the agent's level for a tool
 	//
 	// Takes a body of the `application/json` content type.
 	//
-	// Corresponds with PUT /agents/{slug}/tools/{tool} (the `AgentToolSet` operationId).
-	AgentToolSet(ctx context.Context, slug string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+	AgentToolSet(ctx context.Context, name string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ApprovalLs Actions waiting for a decision
 	//
@@ -1163,9 +1193,43 @@ func (c *Client) AgentLs(ctx context.Context, reqEditors ...RequestEditorFn) (*h
 
 // AgentShow The agent's level for every tool: its rule, or the tool's default
 //
-// Corresponds with GET /agents/{slug} (the `AgentShow` operationId).
-func (c *Client) AgentShow(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAgentShowRequest(c.Server, slug)
+// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
+func (c *Client) AgentShow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentShowRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentPutWithBody Declare the agent: its description, model, instructions and rules, which replace those it has
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+func (c *Client) AgentPutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentPutRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentPut Declare the agent: its description, model, instructions and rules, which replace those it has
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+func (c *Client) AgentPut(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentPutRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1178,9 +1242,9 @@ func (c *Client) AgentShow(ctx context.Context, slug string, reqEditors ...Reque
 
 // AgentToolRm Drop the agent's rule for a tool: its default applies
 //
-// Corresponds with DELETE /agents/{slug}/tools/{tool} (the `AgentToolRm` operationId).
-func (c *Client) AgentToolRm(ctx context.Context, slug string, tool string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAgentToolRmRequest(c.Server, slug, tool)
+// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
+func (c *Client) AgentToolRm(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentToolRmRequest(c.Server, name, tool)
 	if err != nil {
 		return nil, err
 	}
@@ -1195,9 +1259,9 @@ func (c *Client) AgentToolRm(ctx context.Context, slug string, tool string, reqE
 //
 // Takes any type of body and a specified content type.
 //
-// Corresponds with PUT /agents/{slug}/tools/{tool} (the `AgentToolSet` operationId).
-func (c *Client) AgentToolSetWithBody(ctx context.Context, slug string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAgentToolSetRequestWithBody(c.Server, slug, tool, contentType, body)
+// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+func (c *Client) AgentToolSetWithBody(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentToolSetRequestWithBody(c.Server, name, tool, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1212,9 +1276,9 @@ func (c *Client) AgentToolSetWithBody(ctx context.Context, slug string, tool str
 //
 // Takes a body of the `application/json` content type.
 //
-// Corresponds with PUT /agents/{slug}/tools/{tool} (the `AgentToolSet` operationId).
-func (c *Client) AgentToolSet(ctx context.Context, slug string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAgentToolSetRequest(c.Server, slug, tool, body)
+// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+func (c *Client) AgentToolSet(ctx context.Context, name string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentToolSetRequest(c.Server, name, tool, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2329,12 +2393,12 @@ func NewAgentLsRequest(server string) (*http.Request, error) {
 }
 
 // NewAgentShowRequest constructs an http.Request for the AgentShow method
-func NewAgentShowRequest(server string, slug string) (*http.Request, error) {
+func NewAgentShowRequest(server string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -2362,13 +2426,60 @@ func NewAgentShowRequest(server string, slug string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewAgentToolRmRequest constructs an http.Request for the AgentToolRm method
-func NewAgentToolRmRequest(server string, slug string, tool string) (*http.Request, error) {
+// NewAgentPutRequest calls the generic AgentPut builder with application/json body
+func NewAgentPutRequest(server string, name string, body AgentPutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentPutRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewAgentPutRequestWithBody constructs an http.Request for the AgentPut method, with any body, and a specified content type
+func NewAgentPutRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentToolRmRequest constructs an http.Request for the AgentToolRm method
+func NewAgentToolRmRequest(server string, name string, tool string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -2404,23 +2515,23 @@ func NewAgentToolRmRequest(server string, slug string, tool string) (*http.Reque
 }
 
 // NewAgentToolSetRequest calls the generic AgentToolSet builder with application/json body
-func NewAgentToolSetRequest(server string, slug string, tool string, body AgentToolSetJSONRequestBody) (*http.Request, error) {
+func NewAgentToolSetRequest(server string, name string, tool string, body AgentToolSetJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAgentToolSetRequestWithBody(server, slug, tool, "application/json", bodyReader)
+	return NewAgentToolSetRequestWithBody(server, name, tool, "application/json", bodyReader)
 }
 
 // NewAgentToolSetRequestWithBody constructs an http.Request for the AgentToolSet method, with any body, and a specified content type
-func NewAgentToolSetRequestWithBody(server string, slug string, tool string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAgentToolSetRequestWithBody(server string, name string, tool string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -4646,29 +4757,43 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
-	// Corresponds with GET /agents/{slug} (the `AgentShow` operationId).
-	AgentShowWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*AgentShowResponse, error)
+	// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
+	AgentShowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentShowResponse, error)
+
+	// AgentPutWithBodyWithResponse Declare the agent: its description, model, instructions and rules, which replace those it has
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+	AgentPutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentPutResponse, error)
+
+	// AgentPutWithResponse Declare the agent: its description, model, instructions and rules, which replace those it has
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+	AgentPutWithResponse(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentPutResponse, error)
 
 	// AgentToolRmWithResponse Drop the agent's rule for a tool: its default applies
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
-	// Corresponds with DELETE /agents/{slug}/tools/{tool} (the `AgentToolRm` operationId).
-	AgentToolRmWithResponse(ctx context.Context, slug string, tool string, reqEditors ...RequestEditorFn) (*AgentToolRmResponse, error)
+	// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
+	AgentToolRmWithResponse(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*AgentToolRmResponse, error)
 
 	// AgentToolSetWithBodyWithResponse Set the agent's level for a tool
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Corresponds with PUT /agents/{slug}/tools/{tool} (the `AgentToolSet` operationId).
-	AgentToolSetWithBodyWithResponse(ctx context.Context, slug string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error)
+	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+	AgentToolSetWithBodyWithResponse(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error)
 
 	// AgentToolSetWithResponse Set the agent's level for a tool
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Corresponds with PUT /agents/{slug}/tools/{tool} (the `AgentToolSet` operationId).
-	AgentToolSetWithResponse(ctx context.Context, slug string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error)
+	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+	AgentToolSetWithResponse(ctx context.Context, name string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error)
 
 	// ApprovalLsWithResponse Actions waiting for a decision
 	//
@@ -5237,6 +5362,54 @@ func (r AgentShowResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AgentShowResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AgentPutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Agent
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AgentPutResponse) GetJSON200() *Agent {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r AgentPutResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AgentPutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentPutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentPutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AgentPutResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7830,22 +8003,48 @@ func (c *ClientWithResponses) AgentLsWithResponse(ctx context.Context, reqEditor
 //
 // Returns a wrapper object for the known response body format(s).
 //
-// Corresponds with GET /agents/{slug} (the `AgentShow` operationId).
-func (c *ClientWithResponses) AgentShowWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*AgentShowResponse, error) {
-	rsp, err := c.AgentShow(ctx, slug, reqEditors...)
+// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
+func (c *ClientWithResponses) AgentShowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentShowResponse, error) {
+	rsp, err := c.AgentShow(ctx, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAgentShowResponse(rsp)
 }
 
+// AgentPutWithBodyWithResponse Declare the agent: its description, model, instructions and rules, which replace those it has
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+func (c *ClientWithResponses) AgentPutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentPutResponse, error) {
+	rsp, err := c.AgentPutWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentPutResponse(rsp)
+}
+
+// AgentPutWithResponse Declare the agent: its description, model, instructions and rules, which replace those it has
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+func (c *ClientWithResponses) AgentPutWithResponse(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentPutResponse, error) {
+	rsp, err := c.AgentPut(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentPutResponse(rsp)
+}
+
 // AgentToolRmWithResponse Drop the agent's rule for a tool: its default applies
 //
 // Returns a wrapper object for the known response body format(s).
 //
-// Corresponds with DELETE /agents/{slug}/tools/{tool} (the `AgentToolRm` operationId).
-func (c *ClientWithResponses) AgentToolRmWithResponse(ctx context.Context, slug string, tool string, reqEditors ...RequestEditorFn) (*AgentToolRmResponse, error) {
-	rsp, err := c.AgentToolRm(ctx, slug, tool, reqEditors...)
+// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
+func (c *ClientWithResponses) AgentToolRmWithResponse(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*AgentToolRmResponse, error) {
+	rsp, err := c.AgentToolRm(ctx, name, tool, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -7856,9 +8055,9 @@ func (c *ClientWithResponses) AgentToolRmWithResponse(ctx context.Context, slug 
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
-// Corresponds with PUT /agents/{slug}/tools/{tool} (the `AgentToolSet` operationId).
-func (c *ClientWithResponses) AgentToolSetWithBodyWithResponse(ctx context.Context, slug string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error) {
-	rsp, err := c.AgentToolSetWithBody(ctx, slug, tool, contentType, body, reqEditors...)
+// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+func (c *ClientWithResponses) AgentToolSetWithBodyWithResponse(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error) {
+	rsp, err := c.AgentToolSetWithBody(ctx, name, tool, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -7869,9 +8068,9 @@ func (c *ClientWithResponses) AgentToolSetWithBodyWithResponse(ctx context.Conte
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Corresponds with PUT /agents/{slug}/tools/{tool} (the `AgentToolSet` operationId).
-func (c *ClientWithResponses) AgentToolSetWithResponse(ctx context.Context, slug string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error) {
-	rsp, err := c.AgentToolSet(ctx, slug, tool, body, reqEditors...)
+// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+func (c *ClientWithResponses) AgentToolSetWithResponse(ctx context.Context, name string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error) {
+	rsp, err := c.AgentToolSet(ctx, name, tool, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -8804,6 +9003,39 @@ func ParseAgentShowResponse(rsp *http.Response) (*AgentShowResponse, error) {
 	}
 
 	response := &AgentShowResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Agent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentPutResponse parses an HTTP response from a AgentPutWithResponse call
+func ParseAgentPutResponse(rsp *http.Response) (*AgentPutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentPutResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

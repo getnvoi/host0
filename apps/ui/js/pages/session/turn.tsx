@@ -18,7 +18,7 @@ const FACES: Record<string, string> = {
   Bash: "bash", BashOutput: "bash", KillShell: "bash", Read: "read", Edit: "edit", MultiEdit: "edit", Write: "edit",
   NotebookEdit: "edit", Glob: "grep", Grep: "grep", LS: "grep", Task: "subagent", Agent: "subagent",
   SendMessage: "subagent", Skill: "skill", TodoWrite: "plan", EnterPlanMode: "plan", ExitPlanMode: "plan",
-  set_title: "settitle", push_branch: "push", create_pull_request: "pr", navigate_preview: "preview",
+  session_title: "settitle", session_push: "push", session_pr: "pr", session_navigate: "preview",
 };
 
 export function face(tool: string) {

@@ -19,9 +19,8 @@ type Member struct {
 
 type Agent struct {
 	ID              uint
-	Slug            string `gorm:"not null;uniqueIndex"`
-	Name            string `gorm:"not null"`
-	Tagline         string
+	Name            string `gorm:"not null;uniqueIndex"`
+	Description     string
 	Instructions    string
 	Model           string
 	SubagentsAtOnce int        `gorm:"not null;default:4"`

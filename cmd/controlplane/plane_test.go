@@ -322,8 +322,8 @@ func sessionRow(t *testing.T, p *plane, env string, s db.Session) db.Session {
 			t.Fatal(err)
 		}
 	}
-	a := db.Agent{Slug: "hz"}
-	if err := p.DB.Where(&a).Attrs(db.Agent{Name: "hz"}).FirstOrCreate(&a).Error; err != nil {
+	a := db.Agent{Name: "hz"}
+	if err := p.DB.Where(&a).FirstOrCreate(&a).Error; err != nil {
 		t.Fatal(err)
 	}
 	s.EnvironmentID, s.AgentID = e.ID, a.ID

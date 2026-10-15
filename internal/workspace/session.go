@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -49,13 +50,17 @@ func (ws *Workspace) put(s *Session, change func()) {
 	ws.save(s)
 }
 
-func (ws *Workspace) Start(name, prompt, by string) (Session, error) {
+func (ws *Workspace) Start(name, agent, prompt, by string) (Session, error) {
+	agent = cmp.Or(agent, agentName)
+	if _, err := agentRow(ws.DB, agent); err != nil {
+		return Session{}, err
+	}
 	seed, err := ws.served(name)
 	if err != nil {
 		return Session{}, err
 	}
 	sid := id()
-	s := Session{ID: sid, Env: name, Agent: agentSlug, Actor: "wt-" + sid, Branch: "hz/" + sid, Preview: ws.Preview(sid),
+	s := Session{ID: sid, Env: name, Agent: agent, Actor: "wt-" + sid, Branch: "hz/" + sid, Preview: ws.Preview(sid),
 		State: "forking", At: time.Now(), Pending: prompt, By: by}
 	if err := ws.save(&s); err != nil {
 		return s, err
@@ -235,6 +240,11 @@ func (ws *Workspace) take(ctx context.Context, s *Session, prompt string, again 
 		// The last turn's agent, if a failure left it running, would work beside this one on the same checkout.
 		ws.end(s.Actor, fmt.Sprintf("turn-%d", s.Turns))
 	}
+	agent, err := agentRow(ws.DB, s.Agent)
+	if err != nil {
+		ws.fail(s, err)
+		return ""
+	}
 	given, err := ws.given(s.Agent)
 	if err != nil {
 		ws.fail(s, err)
@@ -245,8 +255,10 @@ func (ws *Workspace) take(ctx context.Context, s *Session, prompt string, again 
 		ws.fail(s, err)
 		return ""
 	}
-	argv := runner.Argv(llm.Turn{Prompt: prompt, Session: s.Transcript, Model: values["model"],
-		Instructions: fmt.Sprintf(instructions, origin(s.Preview), s.ID), MCP: Boxd})
+	// The agent's own instructions follow the workspace's; its model, when it names one, replaces the credential's.
+	argv := runner.Argv(llm.Turn{Prompt: prompt, Session: s.Transcript, Model: cmp.Or(agent.Model, values["model"]),
+		Instructions: strings.TrimSpace(fmt.Sprintf(instructions, origin(s.Preview), s.ID) + "\n\n" + agent.Instructions),
+		MCP:          Boxd})
 	if !again {
 		stops.Delete(stopKey(s.ID, s.Turns+1))
 	}
