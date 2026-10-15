@@ -121,13 +121,14 @@ cmd/h0/               the CLI: commands, ~/.h0                                  
 cmd/controlplane/     the plane: HTTP API, usage, cluster status, UI, wiring     runs in the cluster
 cmd/boxd/             commands and their durable output in each actor            runs in the cluster
 cmd/proxy/            TLS for the public edge, every request to the plane        runs in the cluster
+cmd/api/              the hub: GitHub sign-in, workspaces it installs, their planes   beside the planes
 internal/workspace/   environments, seeds, sessions, turns, queues, approvals, LLM configs, changes, logs
 internal/auth/        sign-in links, cookies, the bearer token
 internal/tools/       the tools the agent sees, one file each
 internal/workers/     pools and worker servers, the idle pause and suspend
 internal/preview/     preview tokens and the page bridge
 internal/stream/      the event broker
-internal/infra/       the install: steps, manifests                              cmd/h0/local only
+internal/infra/       the install: steps, manifests                              cmd/h0/local, cmd/api
 internal/sandbox/     contract: Sandboxes, tiers, the shape; substrate/
 internal/llm/         contract: Runner; claude/, codex/
 internal/scm/         contract: Forge; github/
@@ -154,7 +155,7 @@ or several binaries use.
    subpackages; a provider's tests may import `cloud/conformance`.
 5. A client (`box`, `kube`, `api`) imports only `shared` and contracts.
 6. `shared` imports nothing of ours.
-7. `internal/infra` is imported by `cmd/h0/local` alone.
+7. `internal/infra` is imported by `cmd/h0/local` and by `cmd/api`, the hub, which installs workspaces server-side.
 8. Nothing imports `internal/store`: the plane's records are rows in `internal/db`.
 
 **A type that crosses lives in the contract; an interface lives with its consumer.** `workspace` declares
