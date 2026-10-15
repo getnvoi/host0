@@ -41,7 +41,7 @@ func (Forge) Push(ctx context.Context, token, repo, bundle, branch string) error
 	if err := g.run(ctx, nil, "fetch", "-q", bundle, "HEAD:refs/heads/pushed"); err != nil {
 		return fmt.Errorf("reading the bundle: %w", err)
 	}
-	if err := g.run(ctx, nil, "push", "-q", "--no-verify", remote+"/"+repo, "refs/heads/pushed:refs/heads/"+branch); err != nil {
+	if err := g.run(ctx, nil, "push", "-q", remote+"/"+repo, "refs/heads/pushed:refs/heads/"+branch); err != nil {
 		return fmt.Errorf("pushing %s to %s: %w", branch, repo, err)
 	}
 	return nil
