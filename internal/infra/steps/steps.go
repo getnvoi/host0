@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -560,7 +561,9 @@ func kubeContext(e *infra.Env) string {
 // Waits until the plane answers through the edge several times in a row: new records reach Cloudflare's edge servers
 // one by one, and one that has not yet answers with an error of its own (1000, a 403 page).
 func reachable(ctx context.Context, url string, out io.Writer) error {
-	if err := publicdns.Published(ctx, strings.TrimPrefix(url, "https://"), 5*time.Minute); err != nil {
+	if err := publicdns.Published(ctx, strings.TrimPrefix(url, "https://"), 5*time.Minute); errors.Is(err, publicdns.ErrUnreachable) {
+		fmt.Fprintf(out, "  %v; asking this machine's resolver\n", err)
+	} else if err != nil {
 		return err
 	}
 	client := &http.Client{Timeout: 10 * time.Second}

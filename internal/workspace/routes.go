@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/getnvoi/host0/internal/db"
 	"github.com/getnvoi/host0/internal/sandbox"
+	"github.com/getnvoi/host0/internal/shared/publicdns"
 )
 
 // The way in of a preview host; NotFound when the plane routes it nowhere.
@@ -38,7 +40,12 @@ func (ws *Workspace) route(ctx context.Context, host string, rt sandbox.Route) e
 	if ws.Published == nil {
 		return nil
 	}
-	return ws.Published(ctx, host)
+	err := ws.Published(ctx, host)
+	if errors.Is(err, publicdns.ErrUnreachable) {
+		log.Printf("route %s: %v; the link is handed out unchecked", host, err)
+		return nil
+	}
+	return err
 }
 
 // Routes host nowhere; a host already routed nowhere is no error.

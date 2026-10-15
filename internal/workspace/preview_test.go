@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/getnvoi/host0/internal/box"
 	"github.com/getnvoi/host0/internal/sandbox"
+	"github.com/getnvoi/host0/internal/shared/publicdns"
 )
 
 func TestPreviewStatus(t *testing.T) {
@@ -66,5 +68,16 @@ func TestRouteWaitsForPublished(t *testing.T) {
 	}
 	if len(asked) != 2 {
 		t.Fatalf("asked %v", asked)
+	}
+}
+
+// Resolvers that cannot be reached leave the route made: the link goes out unchecked.
+func TestRouteWithoutResolvers(t *testing.T) {
+	p := newWorkspace(t, nil)
+	p.Published = func(context.Context, string) error {
+		return fmt.Errorf("%w for x: 1.1.1.1:53: i/o timeout", publicdns.ErrUnreachable)
+	}
+	if err := p.route(context.Background(), "s1-dev-preview.x", sandbox.Route{Actor: "wt-s1", Port: 3000}); err != nil {
+		t.Fatal(err)
 	}
 }

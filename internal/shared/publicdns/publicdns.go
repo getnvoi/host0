@@ -41,22 +41,31 @@ func Say(answers map[string]string) string {
 	return strings.Join(says, "; ")
 }
 
+// No public resolver could be reached: whether a host is published cannot be asked from here.
+var ErrUnreachable = errors.New("no public resolver answers")
+
 // Waits until every resolver answers host. A name asked of this machine before its record is served is cached as
 // absent by resolvers in between, for as long as the zone says; so nothing local asks for it before this returns.
 func Published(ctx context.Context, host string, within time.Duration) error {
 	deadline := time.Now().Add(within)
 	for {
 		answers := Lookup(ctx, host)
-		ok := true
+		published, reached := 0, 0
 		for _, addr := range Resolvers {
-			if net.ParseIP(strings.Fields(answers[addr] + " x")[0]) == nil {
-				ok = false
+			if net.ParseIP(strings.Fields(answers[addr] + " x")[0]) != nil {
+				published++
+			}
+			if !strings.Contains(answers[addr], "i/o timeout") && !strings.Contains(answers[addr], "connection refused") &&
+				!strings.Contains(answers[addr], "network is unreachable") {
+				reached++
 			}
 		}
-		if ok {
+		switch {
+		case published == len(Resolvers):
 			return nil
-		}
-		if time.Now().After(deadline) {
+		case reached == 0:
+			return fmt.Errorf("%w for %s: %s", ErrUnreachable, host, Say(answers))
+		case time.Now().After(deadline):
 			return fmt.Errorf("%s is not published in %s: %s", host, within, Say(answers))
 		}
 		select {
