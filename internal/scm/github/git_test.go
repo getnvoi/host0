@@ -102,6 +102,14 @@ func TestBundleAndPushRoundTrip(t *testing.T) {
 	if got, want := sh(t, bare, "rev-parse", "refs/heads/h0/s1"), sh(t, app, "rev-parse", "HEAD"); got != want {
 		t.Fatalf("forge's h0/s1 at %s, not %s", got, want)
 	}
+	// A history that does not contain the branch's is refused, never forced over it.
+	sh(t, app, "reset", "-q", "--hard", "HEAD~1")
+	os.WriteFile(filepath.Join(app, "README"), []byte("other\n"), 0o644)
+	sh(t, app, "commit", "-q", "-am", "other")
+	sh(t, app, "bundle", "create", "-q", back, "HEAD")
+	if err := (Forge{}).Push(ctx, token, "o/r", back, "h0/s1"); err == nil {
+		t.Fatal("a diverged history was pushed")
+	}
 	for _, u := range *seen {
 		if strings.Contains(u, token) {
 			t.Fatalf("the token went in a URL: %s", u)
