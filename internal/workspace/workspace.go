@@ -25,14 +25,15 @@ import (
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
+	"github.com/getnvoi/host0/internal/scm"
 )
 
 const (
 	App     = "/workspace/app"
-	Home    = "/workspace/.hz/home"
-	Boxd    = "/workspace/.hz/bin/boxd"
-	Ready   = "/workspace/.hz/ready"
-	Runs    = "/workspace/.hz/runs"
+	Home    = "/workspace/.h0/home"
+	Boxd    = "/workspace/.h0/bin/boxd"
+	Ready   = "/workspace/.h0/ready"
+	Runs    = "/workspace/.h0/runs"
 	pathEnv = Home + "/.local/bin:/usr/local/bundle/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 )
 
@@ -43,6 +44,8 @@ type Workspace struct {
 	Workers   Workers
 	Tools     Tools
 	Bus       Bus
+	// Opens pull requests on the environments' repositories.
+	Forge scm.Forge
 	// The agent CLIs a credential may name; a seed installs every one.
 	Runners  []llm.Runner
 	Pin      func(ctx context.Context, image string) (string, error)
@@ -64,24 +67,11 @@ type Workers interface {
 	Wake(ctx context.Context, actor string, tier sandbox.Tier) error
 }
 
-// The tools the agent sees, and what each does.
+// The plane's operations, each a tool an agent may call.
 type Tools interface {
-	Spec() []map[string]any
-	// The policy of a tool its environment leaves unset.
-	Policy(name string) string
-	Do(ctx context.Context, t *Target, name, input string) string
-}
-
-// What a tool acts on: the session's sandbox and branch, its environment's repository.
-type Target struct {
-	Box box.Client
-	// The GitHub token, which never enters the sandbox.
-	Token                   string
-	Dir, Repo, Base, Branch string
-	// The session's title, which a tool may change.
-	Title string
-	// Told each boxd run a tool starts, so a stop can end it.
-	Started func(run string)
+	List() []Tool
+	// Runs the tool as the session's agent. The answer is what the agent is told: "<name>: <what happened>".
+	Call(ctx context.Context, sid, agent, name, input string) string
 }
 
 // Where the UI hears of each change.
@@ -179,7 +169,7 @@ func (ws *Workspace) containers(ctx context.Context, env Environment) ([]sandbox
 	}
 	cs := []sandbox.Container{
 		{Name: "boxd", Image: ws.BoxImage, Command: []string{"/ko-app/boxd", "install", Boxd}},
-		{Name: "agent", Image: image, Env: withPath(with(base, "HZ_BOX_TOKEN", ws.derive("env", env.Name))), Probe: box.Port,
+		{Name: "agent", Image: image, Env: withPath(with(base, "H0_BOX_TOKEN", ws.derive("env", env.Name))), Probe: box.Port,
 			// boxd comes back when it dies: its runs' logs are on /workspace, and it settles the ones it lost.
 			Command: sh(fmt.Sprintf("until [ -x %s ]; do sleep 0.2; done; while :; do %s; sleep 1; done", Boxd, Boxd))},
 	}
@@ -212,7 +202,7 @@ func (ws *Workspace) containers(ctx context.Context, env Environment) ([]sandbox
 func seedScript(env Environment, runners []llm.Runner) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "set -e\nmkdir -p %s\n", Home)
-	fmt.Fprintf(&b, "git config --global user.name hz && git config --global user.email agent@nvoi.to\n")
+	fmt.Fprintf(&b, "git config --global user.name h0 && git config --global user.email agent@nvoi.to\n")
 	fmt.Fprintf(&b, "git config --global --add safe.directory '*'\n")
 	b.WriteString(announce(fmt.Sprintf("cloning %s@%s", env.Repo, env.Branch)))
 	fmt.Fprintf(&b, "[ -d %s/.git ] || git clone -q --branch %s \"https://x-access-token:$GITHUB_TOKEN@github.com/%s\" %s\n", App, env.Branch, env.Repo, App)
@@ -236,7 +226,7 @@ func seedScript(env Environment, runners []llm.Runner) string {
 }
 
 // A line the seed script prints to name the step it starts; the build reports the rest of the line as its step.
-const stepMark = "::hz-step:: "
+const stepMark = "::h0-step:: "
 
 func announce(step string) string {
 	return "echo '" + strings.ReplaceAll(stepMark+step, "'", `'\''`) + "'\n"
@@ -252,7 +242,7 @@ func (ws *Workspace) env(name string) (Environment, Credentials, error) {
 }
 
 // Logs each ready seed built from other containers (a boxd, an image) than a build would use now. Nothing is
-// rebuilt: hz env seed does that.
+// rebuilt: h0 env seed does that.
 func (ws *Workspace) Stale() {
 	var names []string
 	if err := ws.DB.Model(&db.Environment{}).Where("archived_at IS NULL").Pluck("name", &names).Error; err != nil {
@@ -277,7 +267,7 @@ func (ws *Workspace) Stale() {
 			continue
 		}
 		if seed.Spec != spec(cs) {
-			log.Printf("seed %s: %s was built from other containers than a build would use now: hz env seed %s rebuilds it",
+			log.Printf("seed %s: %s was built from other containers than a build would use now: h0 env seed %s rebuilds it",
 				env.Name, seed.Actor, env.Name)
 		}
 	}
@@ -611,7 +601,7 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 func (ws *Workspace) SuspendSeed(ctx context.Context, name string) (string, error) {
 	rt, err := ws.Route(ws.Preview(name))
 	if errors.As(err, new(NotFound)) {
-		return "", NotFound{fmt.Errorf("environment %s has no routed seed: hz env seed %s builds one", name, name)}
+		return "", NotFound{fmt.Errorf("environment %s has no routed seed: h0 env seed %s builds one", name, name)}
 	}
 	if err != nil {
 		return "", err

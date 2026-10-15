@@ -56,8 +56,8 @@ function json(content: string): Record<string, unknown> {
 const text = (v: unknown) => (typeof v === "string" ? v : undefined);
 
 export const Tools = {
-  // The cli names the plane's tools `mcp__<server>__<tool>`; the server is internal/llm/claude.Server, `hz`.
-  prefix: "mcp__hz__",
+  // The cli names the plane's tools `mcp__<server>__<tool>`; the server is internal/llm/claude.Server, `h0`.
+  prefix: "mcp__h0__",
   // `Provision::Phases::PREFIX`: the machine's setup, drawn as calls.
   phase: "provision__",
 
@@ -674,16 +674,16 @@ export const Transcript = {
     const vendor = "(hetzner|daytona|boat\\.dev|e2b)";
     const matches = (pattern: string) => new RegExp(pattern).test(said);
     if (setup && matches(`\\b${vendor} [A-Z]+ \\S+ (401|403)\\b`)) {
-      return { title: "hz could not start the machine", text: "The machine provider refused hz's own key. This is on hz's side, not your environment's. Send a message to try again once it is fixed." };
+      return { title: "h0 could not start the machine", text: "The machine provider refused h0's own key. This is on h0's side, not your environment's. Send a message to try again once it is fixed." };
     }
     if (setup && matches(`\\b${vendor} (unreachable|[A-Z]+ \\S+ (429|5\\d\\d)\\b)`)) {
-      return { title: "The machine provider did not answer", text: "hz tried again several times. Nothing in your environment is at fault. Send a message to try again." };
+      return { title: "The machine provider did not answer", text: "h0 tried again several times. Nothing in your environment is at fault. Send a message to try again." };
     }
     if (setup) {
       return { title: "The machine could not start", text: "A setup command or a variable of the environment failed. Fix it, then send a message to try again.", action: "Open the environment" };
     }
-    if (said.startsWith("hz could not run the turn")) {
-      return { title: "Something failed on hz's side", text: "The agent was not at fault and nothing it changed is lost. Send a message to try again." };
+    if (said.startsWith("h0 could not run the turn")) {
+      return { title: "Something failed on h0's side", text: "The agent was not at fault and nothing it changed is lost. Send a message to try again." };
     }
     if (matches("\\bmodel credential\\b")) {
       return { title: "No model credential to run the agent with", text: "Add a model credential to this workspace, then send a message to try again.", action: "Add a credential" };
@@ -728,7 +728,7 @@ export const Transcript = {
     return started?.createdAt ?? turn.createdAt;
   },
 
-  // `TurnResource.requested_by` as names; none for a turn hz made.
+  // `TurnResource.requested_by` as names; none for a turn h0 made.
   requesters(turn: TurnRecord) {
     const names = (turn.requestedBy ?? []).map((a) => a.name);
     return names.length ? names : undefined;

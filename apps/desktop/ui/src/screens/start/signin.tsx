@@ -3,7 +3,7 @@ import { Button } from "../../primitives";
 import { OnboardingFrame } from "../../start";
 
 // The landing page's promise, also on onboarding's loading and error.
-export const startPromise = "hz runs coding agents on a cluster you own. Every task forks the running app, gets a preview, and asks before it acts outside.";
+export const startPromise = "h0 runs coding agents on a cluster you own. Every task forks the running app, gets a preview, and asks before it acts outside.";
 
 export const startHeading = { first: "Agents do the work.", second: "Your team decides." };
 

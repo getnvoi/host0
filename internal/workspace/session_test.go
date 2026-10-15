@@ -307,12 +307,12 @@ func TestRecoverFollowsRunningTurn(t *testing.T) {
 func TestRecoverSettlesDecidedApprovals(t *testing.T) {
 	p, fb := withBoxd(t)
 	sessionRow(t, p, Session{ID: "rc3", Env: "web", Actor: "wt-rc3", State: "awaiting_approval",
-		Forked: true, Turns: 1, Outcomes: []string{"set_title: done"}, Events: []llm.Event{{Kind: "prompt"}}})
-	approvalRow(t, p, Approval{ID: "x1", Session: "rc3", Turn: 1, Tool: "push_branch", State: "denied",
-		Outcome: "push_branch: denied by the user"})
+		Forked: true, Turns: 1, Outcomes: []string{"session_title: done"}, Events: []llm.Event{{Kind: "prompt"}}})
+	approvalRow(t, p, Approval{ID: "x1", Session: "rc3", Turn: 1, Tool: "session_push", State: "denied",
+		Outcome: "session_push: denied by the user"})
 	p.Recover()
 	rest(t, p, "rc3", 2)
-	want := Outcome + "\nset_title: done\npush_branch: denied by the user"
+	want := Outcome + "\nsession_title: done\nsession_push: denied by the user"
 	if got := fb.prompt("turn-2"); got != want {
 		t.Fatalf("outcome turn %q", got)
 	}
@@ -322,7 +322,7 @@ func TestRecoverKeepsWaitingOnApprovals(t *testing.T) {
 	p, fb := withBoxd(t)
 	sessionRow(t, p, Session{ID: "rc4", Env: "web", Actor: "wt-rc4", State: "awaiting_approval",
 		Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt"}}})
-	approvalRow(t, p, Approval{ID: "x2", Session: "rc4", Turn: 1, Tool: "push_branch", State: "pending"})
+	approvalRow(t, p, Approval{ID: "x2", Session: "rc4", Turn: 1, Tool: "session_push", State: "pending"})
 	p.Recover()
 	time.Sleep(100 * time.Millisecond)
 	if s := session(p, "rc4"); s.State != "awaiting_approval" || fb.total() != 0 {
@@ -334,11 +334,11 @@ func TestRecoverFinishesDecision(t *testing.T) {
 	p, fb := withBoxd(t)
 	sessionRow(t, p, Session{ID: "rc6", Env: "web", Actor: "wt-rc6", State: "awaiting_approval",
 		Forked: true, Turns: 1, Events: []llm.Event{{Kind: "prompt"}}})
-	approvalRow(t, p, Approval{ID: "x3", Session: "rc6", Turn: 1, Tool: "push_branch", State: "deciding"})
+	approvalRow(t, p, Approval{ID: "x3", Session: "rc6", Turn: 1, Tool: "session_push", State: "deciding"})
 	p.Recover()
 	rest(t, p, "rc6", 2)
 	a, _ := p.Approval("x3")
-	if a.State != "denied" || fb.prompt("turn-2") != Outcome+"\npush_branch: denied by the user" {
+	if a.State != "denied" || fb.prompt("turn-2") != Outcome+"\nsession_push: denied by the user" {
 		t.Fatalf("approval %s, outcome turn %q", a.State, fb.prompt("turn-2"))
 	}
 }
@@ -358,7 +358,7 @@ func TestRecoverRunsQueueOfIdleSession(t *testing.T) {
 func TestSayForksAgain(t *testing.T) {
 	p, fb := withBoxd(t)
 	seedRow(t, p, Seed{Env: "web", Template: "t", Tag: "t", State: "ready"})
-	sessionRow(t, p, Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "hz/f1", State: "failed",
+	sessionRow(t, p, Session{ID: "f1", Env: "web", Actor: "wt-f1", Branch: "h0/f1", State: "failed",
 		Error: "boom", Pending: "first"})
 	if err := p.Say("f1", "second", ""); err != nil {
 		t.Fatal(err)
@@ -376,14 +376,14 @@ func TestDecide(t *testing.T) {
 	p, fb := withBoxd(t)
 	now := time.Now()
 	sessionRow(t, p, Session{ID: "d1", Env: "web", Actor: "wt-d1", State: "awaiting_approval",
-		Forked: true, Turns: 1, Outcomes: []string{"set_title: done"},
+		Forked: true, Turns: 1, Outcomes: []string{"session_title: done"},
 		Events: []llm.Event{{Kind: "prompt", At: now.Add(-time.Minute)}}})
-	approvalRow(t, p, Approval{ID: "a1", Session: "d1", Turn: 1, Tool: "push_branch", State: "pending", At: now})
-	approvalRow(t, p, Approval{ID: "a2", Session: "d1", Turn: 1, Tool: "create_pull_request",
+	approvalRow(t, p, Approval{ID: "a1", Session: "d1", Turn: 1, Tool: "session_push", State: "pending", At: now})
+	approvalRow(t, p, Approval{ID: "a2", Session: "d1", Turn: 1, Tool: "session_pr",
 		State: "pending", At: now.Add(time.Millisecond)})
 	// An approval from an earlier turn is neither waited on nor reported again.
-	approvalRow(t, p, Approval{ID: "a0", Session: "d1", Turn: 0, Tool: "push_branch", State: "done",
-		Outcome: "push_branch: pushed", At: now.Add(-time.Hour)})
+	approvalRow(t, p, Approval{ID: "a0", Session: "d1", Turn: 0, Tool: "session_push", State: "done",
+		Outcome: "session_push: pushed", At: now.Add(-time.Hour)})
 
 	if _, err := p.Decide("a1", false, "ben"); err != nil {
 		t.Fatalf("first click %v", err)
@@ -399,7 +399,7 @@ func TestDecide(t *testing.T) {
 		t.Fatal(err)
 	}
 	rest(t, p, "d1", 2)
-	want := Outcome + "\nset_title: done\npush_branch: denied by the user\ncreate_pull_request: denied by the user"
+	want := Outcome + "\nsession_title: done\nsession_push: denied by the user\nsession_pr: denied by the user"
 	if got := fb.prompt("turn-2"); got != want {
 		t.Fatalf("outcome turn %q", got)
 	}
@@ -411,7 +411,7 @@ func TestDecide(t *testing.T) {
 func TestDecideOnce(t *testing.T) {
 	p := newWorkspace(t, nil)
 	sessionRow(t, p, Session{ID: "d2", State: "idle"})
-	approvalRow(t, p, Approval{ID: "b1", Session: "d2", Tool: "push_branch", State: "pending"})
+	approvalRow(t, p, Approval{ID: "b1", Session: "d2", Tool: "session_push", State: "pending"})
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	won, lost := 0, 0

@@ -10,8 +10,8 @@ import (
 	"github.com/getnvoi/host0/internal/llm"
 )
 
-// The MCP server name; tool events carry mcp__hz__<tool>, the name the plane and the UI read.
-const Server = "hz"
+// The MCP server name; tool events carry mcp__h0__<tool>, the name the plane and the UI read.
+const Server = "h0"
 
 type Runner struct{}
 
@@ -36,7 +36,7 @@ func (Runner) Env(v map[string]string) map[string]string {
 	// A token that is JSON is a ChatGPT sign-in's auth.json; anything else is an API key.
 	env := map[string]string{"CODEX_API_KEY": v["token"]}
 	if json.Valid([]byte(strings.TrimSpace(v["token"]))) {
-		env = map[string]string{"HZ_CODEX_AUTH": v["token"]}
+		env = map[string]string{"H0_CODEX_AUTH": v["token"]}
 	}
 	if v["base_url"] != "" {
 		env["OPENAI_BASE_URL"] = v["base_url"]
@@ -53,7 +53,7 @@ func (Runner) Argv(t llm.Turn) []string {
 		"--dangerously-bypass-approvals-and-sandbox",
 		"-c", "mcp_servers."+Server+".command="+toml(t.MCP),
 		"-c", "mcp_servers."+Server+`.args=["mcp"]`,
-		"-c", "mcp_servers."+Server+`.env_vars=["HZ_TOOLS"]`)
+		"-c", "mcp_servers."+Server+`.env_vars=["H0_TOOLS"]`)
 	if t.Model != "" {
 		argv = append(argv, "-m", t.Model)
 	}
@@ -67,8 +67,8 @@ func (Runner) Argv(t llm.Turn) []string {
 }
 
 // codex refreshes a sign-in and rewrites auth.json, so the plane's copy is written only where there is none.
-const boot = `mkdir -p "$HOME/.codex"; [ -z "$HZ_CODEX_AUTH" ] || [ -f "$HOME/.codex/auth.json" ] || ` +
-	`printf %s "$HZ_CODEX_AUTH" > "$HOME/.codex/auth.json"; unset HZ_CODEX_AUTH; exec codex "$@"`
+const boot = `mkdir -p "$HOME/.codex"; [ -z "$H0_CODEX_AUTH" ] || [ -f "$HOME/.codex/auth.json" ] || ` +
+	`printf %s "$H0_CODEX_AUTH" > "$HOME/.codex/auth.json"; unset H0_CODEX_AUTH; exec codex "$@"`
 
 // A JSON string is a TOML basic string: the same quotes and escapes.
 func toml(s string) string {

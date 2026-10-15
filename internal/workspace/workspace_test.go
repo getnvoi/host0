@@ -39,14 +39,14 @@ func (r roomy) Wake(ctx context.Context, actor string, _ sandbox.Tier) error {
 	return r.sb.Resume(ctx, actor)
 }
 
-// Tools that do nothing: what the tools do is the tools package's.
+// Tools that do nothing: what an operation does is the API's, in cmd/controlplane.
 type idle struct{}
 
-func (idle) Spec() []map[string]any { return []map[string]any{} }
-func (idle) Policy(name string) string {
-	return map[string]string{"set_title": "auto", "navigate_preview": "auto"}[name]
+func (idle) List() []Tool {
+	return []Tool{{Name: "session_title", Default: "auto"}, {Name: "session_navigate", Default: "auto"},
+		{Name: "session_push", Default: "approval"}, {Name: "session_pr", Default: "approval"}}
 }
-func (idle) Do(_ context.Context, _ *Target, name, _ string) string { return name + ": done" }
+func (idle) Call(_ context.Context, _, _, name, _ string) string { return name + ": done" }
 
 // Every update published, to whoever taps it, as the stream would carry it.
 type bus struct {
@@ -95,7 +95,7 @@ func newWorkspace(t *testing.T, sb sandbox.Sandboxes) *Workspace {
 // A database in a fresh file, migrated.
 func newDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	if err != nil {
 		t.Fatal(err)
 	}

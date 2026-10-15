@@ -1,4 +1,4 @@
-# hz
+# h0
 
 Coding agents on a cluster you own: k3s on Hetzner, Agent Substrate for sandboxes, a Cloudflare tunnel for
 previews. A seed sandbox runs the app; every task forks it, gets a preview URL, and asks before it acts outside.
@@ -21,7 +21,7 @@ repository.
 
 ```
 WRONG   curl -H "Authorization: Bearer $TOKEN" https://api.hetzner.cloud/v1/servers
-RIGHT   hz ls                      # and if it does not exist yet, write it
+RIGHT   h0 ls                      # and if it does not exist yet, write it
 ```
 
 This is not process hygiene. It is how the surface gets defined: the product
@@ -107,7 +107,7 @@ running", and the caller answers that by starting a second model over one
 checkout.
 
 **An error carries the sentence the failing thing already wrote.** `sandbox_client`
-printed `HZ_TOKEN is required`; four layers above it reported "failed while
+printed `H0_TOKEN is required`; four layers above it reported "failed while
 waiting for running", and ten minutes went into finding a sentence that had
 already been written. If a caller has to go and look, the CLI is missing a
 command.
@@ -117,7 +117,7 @@ command.
 One module, `github.com/getnvoi/host0`, one `go.mod` at the root.
 
 ```
-cmd/hz/               the CLI: commands, ~/.hz                                  the laptop
+cmd/h0/               the CLI: commands, ~/.h0                                  the laptop
 cmd/controlplane/     the plane: HTTP API, usage, cluster status, UI, wiring     runs in the cluster
 cmd/boxd/             commands and their durable output in each actor            runs in the cluster
 cmd/proxy/            TLS for the public edge, every request to the plane        runs in the cluster
@@ -127,7 +127,7 @@ internal/tools/       the tools the agent sees, one file each
 internal/workers/     pools and worker servers, the idle pause and suspend
 internal/preview/     preview tokens and the page bridge
 internal/stream/      the event broker
-internal/infra/       the install: steps, manifests                              cmd/hz/local only
+internal/infra/       the install: steps, manifests                              cmd/h0/local only
 internal/sandbox/     contract: Sandboxes, tiers, the shape; substrate/
 internal/llm/         contract: Runner; claude/, codex/
 internal/scm/         contract: Forge; github/
@@ -136,7 +136,7 @@ internal/edge/        contract: the install's Edge, the plane's Router; cloudfla
 internal/cloud/       contract: Cloud; conformance/, hetzner/, scaleway/, clouds/
 internal/box/         client: boxd, and the terminal relay
 internal/kube/        client: the cluster's own API
-internal/api/         client: the plane's OpenAPI spec and its generated client; hzgen/ writes hz's commands
+internal/api/         client: the plane's OpenAPI spec and its generated client; h0gen/ writes h0's commands
 internal/shared/      naming, seal
 apps/ui/              the web UI, built into cmd/controlplane/web/dist
 ```
@@ -154,16 +154,28 @@ or several binaries use.
    subpackages; a provider's tests may import `cloud/conformance`.
 5. A client (`box`, `kube`, `api`) imports only `shared` and contracts.
 6. `shared` imports nothing of ours.
-7. `internal/infra` is imported by `cmd/hz/local` alone.
+7. `internal/infra` is imported by `cmd/h0/local` alone.
 8. Nothing imports `internal/store`: the plane's records are rows in `internal/db`.
 
 **A type that crosses lives in the contract; an interface lives with its consumer.** `workspace` declares
 `Workers`, `Tools` and `Bus`, `infra` declares `Laptop`, `workers` declares `Pools`; `cmd/controlplane` and
-`cmd/hz` wire the features into each other. An exception the rules cannot avoid is an entry in the test's
+`cmd/h0` wire the features into each other. An exception the rules cannot avoid is an entry in the test's
 allow-list, with its reason.
 
 **A contract with several providers carries its conformance suite.** Each provider under `cloud/` passes
 `cloud/conformance` against a cassette recorded from a real run.
+
+## Self-hosting is a mode, not a leftover
+
+A cluster installed with `h0 cluster install` on the operator's own cloud account, managed with `h0` and the web
+UI, works with no hub. The hub is one more client of the plane's API and one more caller of `infra`; it never
+becomes something the plane needs.
+
+- The plane imports nothing of the hub and calls it for nothing: no sign-in, licence check or heartbeat.
+- What the hub adds (accounts, billing, server-side provisioning) sits beside the plane, not inside it.
+- A feature built for the hub that the plane needs gets a self-hosted path in the same change.
+- The end-to-end check (`.claude/skills/verifying-cluster-end-to-end`) runs self-hosted, and passes before a hub
+  change merges.
 
 ## Two kinds of command, and no command is both
 
@@ -184,7 +196,7 @@ thin adapter is also what lets a hosted install run it server-side later.
 ## A control plane with no secret does not serve
 
 `install` mints a 32-byte secret, deploys the control plane holding only its
-bcrypt hash, and writes the plaintext to `~/.hz/state.json` at 0600. Nobody
+bcrypt hash, and writes the plaintext to `~/.h0/state.json` at 0600. Nobody
 chooses a password and nobody types one.
 
 **An absent secret is refused, never waved through.** A reference
@@ -225,7 +237,7 @@ if you can compute the name.
 **A name is computed, never discovered.**
 
 ```
-Prefix(app, env) -> "hz-{app}-{env}"
+Prefix(app, env) -> "h0-{app}-{env}"
 ```
 
 Same inputs, same names, same resources. There is nothing to look up, nothing to
@@ -262,7 +274,7 @@ hand comes back on the next run.
 Hetzner, Cloudflare and Kubernetes all resolve by name or label, which is what
 makes this possible without an engine underneath us.
 
-**Sweep by owner.** `hz/owner` on Kubernetes objects, the same label on cloud
+**Sweep by owner.** `h0/owner` on Kubernetes objects, the same label on cloud
 resources. One owner per reconcile step, a closed taxonomy, so a step can only
 ever delete its own work. Adding a step is one const — never an exclusion list.
 In-cluster that is `ApplyOwned` / `SweepOwned`.
@@ -274,28 +286,28 @@ managing infrastructure we did not create — and that is a different product.
 
 ## Where things live
 
-The plane's records are `/var/lib/hz/hz.db` on the control node, its `-wal` and `-shm` beside it and nothing
+The plane's records are `/var/lib/h0/h0.db` on the control node, its `-wal` and `-shm` beside it and nothing
 else in that directory: SQLite, the whole file encrypted (AES-256-XTS under a key derived from the sealing key),
 secrets sealed again in their columns. Its settings are the environment its Deployment sets at install
-(`HZ_CLUSTER`, `HZ_ZONE`, `HZ_EDGE`, …) and the secrets mounted beside them;
-nobody edits them by hand, `hz cluster install` writes them again.
+(`H0_CLUSTER`, `H0_ZONE`, `H0_EDGE`, …) and the secrets mounted beside them;
+nobody edits them by hand, `h0 cluster install` writes them again.
 
 The laptop keeps three things:
 
 ```
-~/.hz/key           32 bytes, 0600 — the sealing key, the one thing to back up
-~/.hz/state.json    where the plane is and the token it takes
-~/.hz/certs/<zone>  development only: a kept certificate, sealed with ~/.hz/key
+~/.h0/key           32 bytes, 0600 — the sealing key, the one thing to back up
+~/.h0/state.json    where the plane is and the token it takes
+~/.h0/certs/<zone>  development only: a kept certificate, sealed with ~/.h0/key
 ```
 
 `cluster.yml` is optional: every field is also a flag.
 
-A sealed column is AES-256-GCM, a fresh 12-byte nonce per seal, `hz-sealed:1:` then
+A sealed column is AES-256-GCM, a fresh 12-byte nonce per seal, `h0-sealed:1:` then
 base64(nonce|ciphertext); one that does not open is an error naming its table and
 column. The key is minted by the first install and kept in
-two places: the `plane` secret's `seal`, which the plane mounts at `/etc/hz/seal`,
-and `~/.hz/key`. An install restores whichever is missing and refuses when they
-differ; `hz cluster destroy` leaves `~/.hz/key` in place. k3s encrypts secrets at
+two places: the `plane` secret's `seal`, which the plane mounts at `/etc/h0/seal`,
+and `~/.h0/key`. An install restores whichever is missing and refuses when they
+differ; `h0 cluster destroy` leaves `~/.h0/key` in place. k3s encrypts secrets at
 rest in its datastore.
 
 ---
@@ -321,7 +333,7 @@ decides on one box. Same interface either way.
 
 The clone happens on the control plane and travels in as a tar, so `git push` from inside
 a Pod must fail — that is the boundary working, not a bug. Tools are served
-_inverted_ over the pipe, so no hz token is in the Pod's environ. The LLM key
+_inverted_ over the pipe, so no h0 token is in the Pod's environ. The LLM key
 is the one necessary exception, and it is pinned by egress to one host.
 
 One namespace per worktree, from day one, even with one worktree.
@@ -331,7 +343,7 @@ One namespace per worktree, from day one, even with one worktree.
 ## Working here
 
 ```
-go build -o bin/hz ./cmd/hz
+go build -o bin/h0 ./cmd/h0
 go test ./...
 ```
 

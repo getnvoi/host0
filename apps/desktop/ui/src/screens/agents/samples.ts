@@ -1,15 +1,16 @@
 // Fixtures for the gallery, shaped on the examples in `doc/openapi.yaml` and the web views.
 import {
   agentModel, credentialModel, skillModel, taskModel, workflowStep,
-  type AgentToolModel, type BoardStateModel, type ConnectionModel, type CredentialOption, type PlaceModel, type ProviderModel, type RunModel, type TaskToken, type WorkflowModel,
+  type AgentToolModel, type BoardStateModel, type GrantLevel, type ConnectionModel, type CredentialOption, type PlaceModel, type ProviderModel, type RunModel, type TaskToken, type WorkflowModel,
 } from "./models";
 
 const devInstructions =
   "You work inside a checkout of the repository, your working directory. On your first turn, call set_title with a short name for the task. " +
   "When you change what a page looks like, call create_screenshot on it so the user sees it. Anything that touches GitHub (push, pull request) " +
-  "goes through the hz tools: you have no credentials. An hz tool answering 'Queued' is normal: end your turn right after. Answer briefly.";
+  "goes through the h0 tools: you have no credentials. An h0 tool answering 'Queued' is normal: end your turn right after. Answer briefly.";
 
-const defaults: Record<string, string> = {
+// Tools granted at their default level.
+const defaults: Record<string, GrantLevel> = {
   set_title: "auto",
   ask_user: "approval",
   create_screenshot: "auto",
@@ -98,7 +99,7 @@ const skills = [
   }),
 ];
 
-// The tools an agent sets a level for, as `agents/tools` serves them: by category, each at its default level.
+// The tools an agent may be granted, as `agents/tools` serves them: by category, each at its default level.
 const agentTools: AgentToolModel[] = [
   { name: "set_title", label: "Set title", category: "Sessions", asks: false, outbound: false, level: "auto" },
   { name: "ask_user", label: "Question", category: "Sessions", asks: true, outbound: false, level: "approval" },
@@ -131,21 +132,11 @@ const agentTools: AgentToolModel[] = [
   { name: "search_library", label: "Search library", category: "Library", asks: false, outbound: false, level: "auto" },
 ];
 
-// What always waits on a person, as `AgentResource#locked` serves it.
-const locked = [
-  { category: "Agents", tools: ["agent_create", "agent_archive", "agent_restore", "agent_update"], level: "approval" },
-  { category: "Environments", tools: ["environment_create", "environment_command_delete", "env_var_delete", "environment_delete", "utils_dry_run_start", "environment_command_set", "env_var_set", "environment_update"], level: "approval" },
-  { category: "Sessions", tools: ["agent_session_answer"], level: "approval" },
-  { category: "Skills", tools: ["skill_file_create", "skill_create", "skill_archive", "skill_file_archive", "skill_restore", "skill_update"], level: "approval" },
-  { category: "Tasks", tools: ["task_create", "task_archive", "task_restore", "task_start", "task_update"], level: "approval" },
-  { category: "Workflows", tools: ["workflow_create", "workflow_archive", "workflow_restore", "workflow_update"], level: "approval" },
-];
-
 // Codex has no WebFetch (Bash's level governs fetching) and searches without asking.
 const codexRefusals = [{ tool: "WebSearch", level: "approval", reason: "Codex searches the web without asking" }];
 
 const agents = [
-  agentModel({ id: "a1", name: "Dev", slug: "dev", tagline: "Ships", instructions: devInstructions, tools: defaults, locked, skillIds: ["s1"], createdAt: "2026-01-01T00:00:00Z" }),
+  agentModel({ id: "a1", name: "Dev", slug: "dev", tagline: "Ships", instructions: devInstructions, tools: defaults, skillIds: ["s1"], createdAt: "2026-01-01T00:00:00Z" }),
   agentModel({
     id: "a2",
     name: "Reviewer",
@@ -153,7 +144,8 @@ const agents = [
     tagline: "Reads a diff and leaves notes",
     model: "opus",
     instructions: "Review it. Say which tests you ran.",
-    tools: { ...defaults, push_branch: "deny", create_pull_request: "deny", Bash: "approval", WebSearch: "deny" },
+    // Not granted push_branch, create_pull_request or WebSearch: it has no such tools.
+    tools: (({ push_branch, create_pull_request, WebSearch, ...granted }) => ({ ...granted, Bash: "approval" as const }))(defaults),
     createdAt: "2026-02-01T00:00:00Z",
   }),
   agentModel({ id: "a3", name: "Writer", slug: "writer", model: "haiku", instructions: "Small steps.", tools: { ...defaults, create_pull_request: "auto", WebFetch: "auto" }, skillIds: ["s2", "s3"], createdAt: "2026-03-01T00:00:00Z" }),
@@ -239,7 +231,7 @@ const runs: RunModel[] = [
 
 const startingRun: RunModel = { id: "r0", title: "Nightly", status: "running", branch: "dummy-rails-9d02aa", worktreeState: "starting", createdAt: "Wed 1 Oct, 09:00" };
 
-const token: TaskToken = { token: "nvt_4mW8qPz2Xc9LhT6yRb1NvK3sJd7Fa5Ge", hookUrl: "https://hz.example.com/hooks/tasks/01a0ec3b-e954-7b6d-bdf9-8374b1be4e00" };
+const token: TaskToken = { token: "nvt_4mW8qPz2Xc9LhT6yRb1NvK3sJd7Fa5Ge", hookUrl: "https://h0.example.com/hooks/tasks/01a0ec3b-e954-7b6d-bdf9-8374b1be4e00" };
 
 const credentials = [
   credentialModel({ id: "c1", provider: "claude_code", label: "Work", model: "sonnet", settings: { kind: "oauth", model: "sonnet" }, main: true, createdAt: "2026-01-01T00:00:00Z" }),

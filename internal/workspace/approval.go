@@ -24,22 +24,20 @@ var works = struct {
 	m map[*work]bool
 }{m: map[*work]bool{}}
 
-// Runs a tool the agent asked for, within performLimit; the answer is what the agent is told. A tool may set the
-// session's title.
-func (ws *Workspace) act(s *Session, env Environment, creds Credentials, name, input string) string {
+type workKey struct{}
+
+// Runs a tool the agent asked for, within performLimit, as the session's agent; the answer is what the agent is told.
+func (ws *Workspace) act(s *Session, name, input string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), performLimit)
 	w := &work{sid: s.ID, actor: s.Actor, cancel: cancel}
 	works.Lock()
 	works.m[w] = true
 	works.Unlock()
-	t := &Target{Box: ws.box(s.Actor), Token: creds.GitHub, Dir: App, Repo: env.Repo, Base: env.Branch, Branch: s.Branch,
-		Title: s.Title, Started: func(run string) {
-			works.Lock()
-			w.run = run
-			works.Unlock()
-		}}
-	out := ws.Tools.Do(ctx, t, name, input)
-	s.Title = t.Title
+	out := ws.Tools.Call(context.WithValue(ctx, workKey{}, w), s.ID, s.Agent, name, input)
+	// An operation may have named the session; this copy is written back after it.
+	if r, err := rowOf(ws.DB, s.ID); err == nil {
+		s.Title = r.Title
+	}
 	works.Lock()
 	delete(works.m, w)
 	halted := w.halted
@@ -49,6 +47,15 @@ func (ws *Workspace) act(s *Session, env Environment, creds Credentials, name, i
 		return name + ": stopped by the user"
 	}
 	return out
+}
+
+// Tells the tool being carried out under ctx, if any, of the boxd run it waits on, so a stop can end it.
+func started(ctx context.Context, run string) {
+	if w, ok := ctx.Value(workKey{}).(*work); ok {
+		works.Lock()
+		w.run = run
+		works.Unlock()
+	}
 }
 
 // Cuts short every tool being carried out for the session. False when there was none.
@@ -121,40 +128,16 @@ func (ws *Workspace) decide(a Approval, approve bool) {
 	case err != nil:
 		a.Outcome, a.State = a.Tool+": failed: "+err.Error(), "failed"
 	default:
-		env, creds, err := ws.env(s.Env)
-		if err == nil {
-			err = ws.Workers.Ensure(context.Background(), s.Actor, env.Tier)
-		}
-		if err != nil {
-			a.Outcome, a.State = a.Tool+": failed: "+err.Error(), "failed"
-			break
-		}
-		title := s.Title
-		a.Outcome, a.State = ws.act(&s, env, creds, a.Tool, a.Input), "done"
+		a.Outcome, a.State = ws.act(&s, a.Tool, a.Input), "done"
 		if failed(a.Outcome) {
 			a.State = "failed"
 		} else if strings.HasSuffix(a.Outcome, ": stopped by the user") {
 			a.State = "stopped"
 		}
-		if s.Title != title {
-			ws.retitle(s.ID, s.Title)
-		}
 	}
 	a.Decided = time.Now()
 	ws.saveApproval(a)
 	ws.settle(a.Session)
-}
-
-// Sets the title of a session waiting on approvals.
-func (ws *Workspace) retitle(sid, title string) {
-	unlock := lock(sid)
-	defer unlock()
-	s, err := ws.load(sid)
-	if err != nil || s.State != "awaiting_approval" {
-		return
-	}
-	s.Title = title
-	ws.save(&s)
 }
 
 // Whether the session's current turn asked for a. One without a turn counts by its time against the turn's prompt.
@@ -219,5 +202,5 @@ func (ws *Workspace) settle(sid string) {
 // Whether an action's outcome line ("<tool>: <what happened>") reports a failure.
 func failed(outcome string) bool {
 	_, said, _ := strings.Cut(outcome, ": ")
-	return strings.HasPrefix(said, "failed:") || strings.HasPrefix(said, "push failed:")
+	return strings.HasPrefix(said, "failed:")
 }

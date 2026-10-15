@@ -19,6 +19,41 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for LevelLevel.
+const (
+	LevelLevelApproval LevelLevel = "approval"
+	LevelLevelAuto     LevelLevel = "auto"
+)
+
+// Valid indicates whether the value is a known member of the LevelLevel enum.
+func (e LevelLevel) Valid() bool {
+	switch e {
+	case LevelLevelApproval:
+		return true
+	case LevelLevelAuto:
+		return true
+	default:
+		return false
+	}
+}
+
+// Agent defines model for Agent.
+type Agent struct {
+	Description  *string  `json:"description,omitempty"`
+	Instructions *string  `json:"instructions,omitempty"`
+	Model        *string  `json:"model,omitempty"`
+	Name         string   `json:"name"`
+	Tools        *[]Grant `json:"tools"`
+}
+
+// AgentInput defines model for AgentInput.
+type AgentInput struct {
+	Description  *string            `json:"description,omitempty"`
+	Instructions *string            `json:"instructions,omitempty"`
+	Model        *string            `json:"model,omitempty"`
+	Tools        *map[string]string `json:"tools,omitempty"`
+}
+
 // Approval defines model for Approval.
 type Approval struct {
 	Allow   *bool      `json:"allow,omitempty"`
@@ -88,7 +123,6 @@ type Environment struct {
 	Services *[]Service         `json:"services,omitempty"`
 	Setup    *[]string          `json:"setup,omitempty"`
 	Tier     *string            `json:"tier,omitempty"`
-	Tools    *map[string]string `json:"tools,omitempty"`
 }
 
 // EnvironmentInput defines model for EnvironmentInput.
@@ -103,7 +137,6 @@ type EnvironmentInput struct {
 	Services *[]Service         `json:"services,omitempty"`
 	Setup    *[]string          `json:"setup,omitempty"`
 	Tier     *string            `json:"tier,omitempty"`
-	Tools    *map[string]string `json:"tools,omitempty"`
 }
 
 // EnvironmentPatch defines model for EnvironmentPatch.
@@ -117,7 +150,6 @@ type EnvironmentPatch struct {
 	Services *[]Service         `json:"services,omitempty"`
 	Setup    *[]string          `json:"setup,omitempty"`
 	Tier     *string            `json:"tier,omitempty"`
-	Tools    *map[string]string `json:"tools,omitempty"`
 }
 
 // EnvironmentSummary defines model for EnvironmentSummary.
@@ -188,6 +220,12 @@ type FileChange struct {
 	Status  string  `json:"status"`
 }
 
+// Grant defines model for Grant.
+type Grant struct {
+	Level string `json:"level"`
+	Tool  string `json:"tool"`
+}
+
 // Host defines model for Host.
 type Host struct {
 	Error *string `json:"error,omitempty"`
@@ -217,6 +255,14 @@ type LLMConfigInput struct {
 type LLMConfigValues struct {
 	Values *map[string]string `json:"values,omitempty"`
 }
+
+// Level defines model for Level.
+type Level struct {
+	Level LevelLevel `json:"level"`
+}
+
+// LevelLevel defines model for Level.Level.
+type LevelLevel string
 
 // Log defines model for Log.
 type Log struct {
@@ -263,6 +309,12 @@ type Node struct {
 // Option defines model for Option.
 type Option = llm.Option
 
+// Page defines model for Page.
+type Page struct {
+	// Path Its path, from / (/health)
+	Path string `json:"path"`
+}
+
 // Pod defines model for Pod.
 type Pod struct {
 	Name      string `json:"name"`
@@ -306,6 +358,25 @@ type PreviewStatus struct {
 // Provider defines model for Provider.
 type Provider = llm.Provider
 
+// PullRequest defines model for PullRequest.
+type PullRequest struct {
+	Url string `json:"url"`
+}
+
+// PullRequestInput defines model for PullRequestInput.
+type PullRequestInput struct {
+	// Body What it changes
+	Body *string `json:"body,omitempty"`
+
+	// Title The pull request's title
+	Title string `json:"title"`
+}
+
+// Pushed defines model for Pushed.
+type Pushed struct {
+	Branch string `json:"branch"`
+}
+
 // Rest defines model for Rest.
 type Rest = sandbox.Rest
 
@@ -342,6 +413,7 @@ type Service struct {
 // Session defines model for Session.
 type Session struct {
 	Actor      string    `json:"actor"`
+	Agent      string    `json:"agent"`
 	At         time.Time `json:"at"`
 	Branch     string    `json:"branch"`
 	By         *string   `json:"by,omitempty"`
@@ -363,6 +435,9 @@ type Session struct {
 
 // SessionInput defines model for SessionInput.
 type SessionInput struct {
+	// Agent The agent it runs as; h0 when none is named
+	Agent *string `json:"agent,omitempty"`
+
 	// Env The environment whose seed it forks
 	Env string `json:"env"`
 
@@ -411,6 +486,12 @@ type Terminal struct {
 
 // Tier defines model for Tier.
 type Tier = sandbox.Tier
+
+// Title defines model for Title.
+type Title struct {
+	// Title The task in a few words
+	Title string `json:"title"`
+}
 
 // Update defines model for Update.
 type Update struct {
@@ -529,6 +610,12 @@ type UsageParams struct {
 	By *string `form:"by,omitempty" json:"by,omitempty"`
 }
 
+// AgentPutJSONRequestBody defines body for AgentPut for application/json ContentType.
+type AgentPutJSONRequestBody = AgentInput
+
+// AgentToolSetJSONRequestBody defines body for AgentToolSet for application/json ContentType.
+type AgentToolSetJSONRequestBody = Level
+
 // ClusterShapePutJSONRequestBody defines body for ClusterShapePut for application/json ContentType.
 type ClusterShapePutJSONRequestBody = Shape
 
@@ -556,8 +643,17 @@ type PreviewJSONRequestBody = PreviewInput
 // SessionStartJSONRequestBody defines body for SessionStart for application/json ContentType.
 type SessionStartJSONRequestBody = SessionInput
 
+// SessionNavigateJSONRequestBody defines body for SessionNavigate for application/json ContentType.
+type SessionNavigateJSONRequestBody = Page
+
+// SessionPrJSONRequestBody defines body for SessionPr for application/json ContentType.
+type SessionPrJSONRequestBody = PullRequestInput
+
 // SessionQueueRmJSONRequestBody defines body for SessionQueueRm for application/json ContentType.
 type SessionQueueRmJSONRequestBody = Withdrawal
+
+// SessionTitleJSONRequestBody defines body for SessionTitle for application/json ContentType.
+type SessionTitleJSONRequestBody = Title
 
 // SessionSayJSONRequestBody defines body for SessionSay for application/json ContentType.
 type SessionSayJSONRequestBody = Message
@@ -636,6 +732,54 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 
+	// AgentLs The agents sessions run as
+	//
+	// Corresponds with GET /agents (the `AgentLs` operationId).
+	AgentLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentRm Remove the agent; sessions that ran as it keep its name
+	//
+	// Corresponds with DELETE /agents/{name} (the `AgentRm` operationId).
+	AgentRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentShow The agent and the tools it is granted
+	//
+	// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
+	AgentShow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentPutWithBody Declare the agent: its description, model, instructions and tools, which replace those it has
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+	AgentPutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentPut Declare the agent: its description, model, instructions and tools, which replace those it has
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+	AgentPut(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentToolRm Take a tool from the agent
+	//
+	// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
+	AgentToolRm(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentToolSetWithBody Grant the agent a tool, or change the level it has it at
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+	AgentToolSetWithBody(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentToolSet Grant the agent a tool, or change the level it has it at
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+	AgentToolSet(ctx context.Context, name string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ApprovalLs Actions waiting for a decision
 	//
 	// Corresponds with GET /approvals (the `ApprovalLs` operationId).
@@ -686,7 +830,7 @@ type ClientInterface interface {
 	// Corresponds with GET /cluster/pods/{namespace}/{pod}/log (the `Logs` operationId).
 	Logs(ctx context.Context, namespace string, pod string, params *LogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ClusterShape The workers and tiers hz cluster install declared
+	// ClusterShape The workers and tiers h0 cluster install declared
 	//
 	// Corresponds with GET /cluster/shape (the `ClusterShape` operationId).
 	ClusterShape(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -724,7 +868,7 @@ type ClientInterface interface {
 	// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
 	CredentialsPut(ctx context.Context, body CredentialsPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CredentialsRm Remove a credential: github (agent credentials: hz llm rm)
+	// CredentialsRm Remove a credential: github (agent credentials: h0 llm rm)
 	//
 	// Corresponds with DELETE /credentials/{name} (the `CredentialsRm` operationId).
 	CredentialsRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -744,14 +888,14 @@ type ClientInterface interface {
 	// Corresponds with GET /environments/{name} (the `EnvGet` operationId).
 	EnvGet(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EnvSetWithBody Change the environment's fields; hz env seed rebuilds its seed
+	// EnvSetWithBody Change the environment's fields; h0 env seed rebuilds its seed
 	//
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
 	EnvSetWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; hz env seed rebuilds its seed
+	// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; h0 env seed rebuilds its seed
 	//
 	// Takes a body of the `application/merge-patch+json` content type.
 	//
@@ -917,10 +1061,43 @@ type ClientInterface interface {
 	// Corresponds with GET /sessions/{id}/logs/{name} (the `SessionLogShow` operationId).
 	SessionLogShow(ctx context.Context, id string, name string, params *SessionLogShowParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SessionNavigateWithBody Show a page of the session's app in its preview
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /sessions/{id}/navigate (the `SessionNavigate` operationId).
+	SessionNavigateWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionNavigate Show a page of the session's app in its preview
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /sessions/{id}/navigate (the `SessionNavigate` operationId).
+	SessionNavigate(ctx context.Context, id string, body SessionNavigateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SessionPreview Whether the session's app answers, waking it first
 	//
 	// Corresponds with GET /sessions/{id}/preview (the `SessionPreview` operationId).
 	SessionPreview(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionPrWithBody Push the session's branch and open a pull request onto its environment's branch
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /sessions/{id}/pull-request (the `SessionPr` operationId).
+	SessionPrWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionPr Push the session's branch and open a pull request onto its environment's branch
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /sessions/{id}/pull-request (the `SessionPr` operationId).
+	SessionPr(ctx context.Context, id string, body SessionPrJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionPush Push the session's committed work to its branch on GitHub
+	//
+	// Corresponds with POST /sessions/{id}/push (the `SessionPush` operationId).
+	SessionPush(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SessionQueueLs Messages waiting for the session's turn to end
 	//
@@ -961,6 +1138,20 @@ type ClientInterface interface {
 	// Corresponds with DELETE /sessions/{id}/terminals/{tid} (the `SessionTerminalRm` operationId).
 	SessionTerminalRm(ctx context.Context, id string, tid string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SessionTitleWithBody Name the session's task in a few words
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with PUT /sessions/{id}/title (the `SessionTitle` operationId).
+	SessionTitleWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SessionTitle Name the session's task in a few words
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with PUT /sessions/{id}/title (the `SessionTitle` operationId).
+	SessionTitle(ctx context.Context, id string, body SessionTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SessionSayWithBody Send the session a message
 	//
 	// Takes any type of body and a specified content type.
@@ -984,6 +1175,134 @@ type ClientInterface interface {
 	//
 	// Corresponds with GET /usage (the `Usage` operationId).
 	Usage(ctx context.Context, params *UsageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+// AgentLs The agents sessions run as
+//
+// Corresponds with GET /agents (the `AgentLs` operationId).
+func (c *Client) AgentLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentLsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentRm Remove the agent; sessions that ran as it keep its name
+//
+// Corresponds with DELETE /agents/{name} (the `AgentRm` operationId).
+func (c *Client) AgentRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentRmRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentShow The agent and the tools it is granted
+//
+// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
+func (c *Client) AgentShow(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentShowRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentPutWithBody Declare the agent: its description, model, instructions and tools, which replace those it has
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+func (c *Client) AgentPutWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentPutRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentPut Declare the agent: its description, model, instructions and tools, which replace those it has
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+func (c *Client) AgentPut(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentPutRequest(c.Server, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentToolRm Take a tool from the agent
+//
+// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
+func (c *Client) AgentToolRm(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentToolRmRequest(c.Server, name, tool)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentToolSetWithBody Grant the agent a tool, or change the level it has it at
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+func (c *Client) AgentToolSetWithBody(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentToolSetRequestWithBody(c.Server, name, tool, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentToolSet Grant the agent a tool, or change the level it has it at
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+func (c *Client) AgentToolSet(ctx context.Context, name string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentToolSetRequest(c.Server, name, tool, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 // ApprovalLs Actions waiting for a decision
@@ -1136,7 +1455,7 @@ func (c *Client) Logs(ctx context.Context, namespace string, pod string, params 
 	return c.Client.Do(req)
 }
 
-// ClusterShape The workers and tiers hz cluster install declared
+// ClusterShape The workers and tiers h0 cluster install declared
 //
 // Corresponds with GET /cluster/shape (the `ClusterShape` operationId).
 func (c *Client) ClusterShape(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1234,7 +1553,7 @@ func (c *Client) CredentialsPut(ctx context.Context, body CredentialsPutJSONRequ
 	return c.Client.Do(req)
 }
 
-// CredentialsRm Remove a credential: github (agent credentials: hz llm rm)
+// CredentialsRm Remove a credential: github (agent credentials: h0 llm rm)
 //
 // Corresponds with DELETE /credentials/{name} (the `CredentialsRm` operationId).
 func (c *Client) CredentialsRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1294,7 +1613,7 @@ func (c *Client) EnvGet(ctx context.Context, name string, reqEditors ...RequestE
 	return c.Client.Do(req)
 }
 
-// EnvSetWithBody Change the environment's fields; hz env seed rebuilds its seed
+// EnvSetWithBody Change the environment's fields; h0 env seed rebuilds its seed
 //
 // Takes any type of body and a specified content type.
 //
@@ -1311,7 +1630,7 @@ func (c *Client) EnvSetWithBody(ctx context.Context, name string, contentType st
 	return c.Client.Do(req)
 }
 
-// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; hz env seed rebuilds its seed
+// EnvSetWithApplicationMergePatchPlusJSONBody Change the environment's fields; h0 env seed rebuilds its seed
 //
 // Takes a body of the `application/merge-patch+json` content type.
 //
@@ -1757,11 +2076,94 @@ func (c *Client) SessionLogShow(ctx context.Context, id string, name string, par
 	return c.Client.Do(req)
 }
 
+// SessionNavigateWithBody Show a page of the session's app in its preview
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /sessions/{id}/navigate (the `SessionNavigate` operationId).
+func (c *Client) SessionNavigateWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionNavigateRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionNavigate Show a page of the session's app in its preview
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /sessions/{id}/navigate (the `SessionNavigate` operationId).
+func (c *Client) SessionNavigate(ctx context.Context, id string, body SessionNavigateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionNavigateRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // SessionPreview Whether the session's app answers, waking it first
 //
 // Corresponds with GET /sessions/{id}/preview (the `SessionPreview` operationId).
 func (c *Client) SessionPreview(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSessionPreviewRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionPrWithBody Push the session's branch and open a pull request onto its environment's branch
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /sessions/{id}/pull-request (the `SessionPr` operationId).
+func (c *Client) SessionPrWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionPrRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionPr Push the session's branch and open a pull request onto its environment's branch
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /sessions/{id}/pull-request (the `SessionPr` operationId).
+func (c *Client) SessionPr(ctx context.Context, id string, body SessionPrJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionPrRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionPush Push the session's committed work to its branch on GitHub
+//
+// Corresponds with POST /sessions/{id}/push (the `SessionPush` operationId).
+func (c *Client) SessionPush(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionPushRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -1881,6 +2283,40 @@ func (c *Client) SessionTerminalRm(ctx context.Context, id string, tid string, r
 	return c.Client.Do(req)
 }
 
+// SessionTitleWithBody Name the session's task in a few words
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with PUT /sessions/{id}/title (the `SessionTitle` operationId).
+func (c *Client) SessionTitleWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionTitleRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SessionTitle Name the session's task in a few words
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with PUT /sessions/{id}/title (the `SessionTitle` operationId).
+func (c *Client) SessionTitle(ctx context.Context, id string, body SessionTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSessionTitleRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // SessionSayWithBody Send the session a message
 //
 // Takes any type of body and a specified content type.
@@ -1943,6 +2379,243 @@ func (c *Client) Usage(ctx context.Context, params *UsageParams, reqEditors ...R
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewAgentLsRequest constructs an http.Request for the AgentLs method
+func NewAgentLsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentRmRequest constructs an http.Request for the AgentRm method
+func NewAgentRmRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentShowRequest constructs an http.Request for the AgentShow method
+func NewAgentShowRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentPutRequest calls the generic AgentPut builder with application/json body
+func NewAgentPutRequest(server string, name string, body AgentPutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentPutRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewAgentPutRequestWithBody constructs an http.Request for the AgentPut method, with any body, and a specified content type
+func NewAgentPutRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentToolRmRequest constructs an http.Request for the AgentToolRm method
+func NewAgentToolRmRequest(server string, name string, tool string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "tool", tool, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s/tools/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentToolSetRequest calls the generic AgentToolSet builder with application/json body
+func NewAgentToolSetRequest(server string, name string, tool string, body AgentToolSetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentToolSetRequestWithBody(server, name, tool, "application/json", bodyReader)
+}
+
+// NewAgentToolSetRequestWithBody constructs an http.Request for the AgentToolSet method, with any body, and a specified content type
+func NewAgentToolSetRequestWithBody(server string, name string, tool string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "tool", tool, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s/tools/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewApprovalLsRequest constructs an http.Request for the ApprovalLs method
@@ -3484,6 +4157,53 @@ func NewSessionLogShowRequest(server string, id string, name string, params *Ses
 	return req, nil
 }
 
+// NewSessionNavigateRequest calls the generic SessionNavigate builder with application/json body
+func NewSessionNavigateRequest(server string, id string, body SessionNavigateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSessionNavigateRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSessionNavigateRequestWithBody constructs an http.Request for the SessionNavigate method, with any body, and a specified content type
+func NewSessionNavigateRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/navigate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSessionPreviewRequest constructs an http.Request for the SessionPreview method
 func NewSessionPreviewRequest(server string, id string) (*http.Request, error) {
 	var err error
@@ -3511,6 +4231,87 @@ func NewSessionPreviewRequest(server string, id string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSessionPrRequest calls the generic SessionPr builder with application/json body
+func NewSessionPrRequest(server string, id string, body SessionPrJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSessionPrRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSessionPrRequestWithBody constructs an http.Request for the SessionPr method, with any body, and a specified content type
+func NewSessionPrRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/pull-request", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSessionPushRequest constructs an http.Request for the SessionPush method
+func NewSessionPushRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/push", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -3749,6 +4550,53 @@ func NewSessionTerminalRmRequest(server string, id string, tid string) (*http.Re
 	return req, nil
 }
 
+// NewSessionTitleRequest calls the generic SessionTitle builder with application/json body
+func NewSessionTitleRequest(server string, id string, body SessionTitleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSessionTitleRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSessionTitleRequestWithBody constructs an http.Request for the SessionTitle method, with any body, and a specified content type
+func NewSessionTitleRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/sessions/%s/title", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSessionSayRequest calls the generic SessionSay builder with application/json body
 func NewSessionSayRequest(server string, id string, body SessionSayJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -3948,6 +4796,62 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 
+	// AgentLsWithResponse The agents sessions run as
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /agents (the `AgentLs` operationId).
+	AgentLsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AgentLsResponse, error)
+
+	// AgentRmWithResponse Remove the agent; sessions that ran as it keep its name
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /agents/{name} (the `AgentRm` operationId).
+	AgentRmWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentRmResponse, error)
+
+	// AgentShowWithResponse The agent and the tools it is granted
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
+	AgentShowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentShowResponse, error)
+
+	// AgentPutWithBodyWithResponse Declare the agent: its description, model, instructions and tools, which replace those it has
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+	AgentPutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentPutResponse, error)
+
+	// AgentPutWithResponse Declare the agent: its description, model, instructions and tools, which replace those it has
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+	AgentPutWithResponse(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentPutResponse, error)
+
+	// AgentToolRmWithResponse Take a tool from the agent
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
+	AgentToolRmWithResponse(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*AgentToolRmResponse, error)
+
+	// AgentToolSetWithBodyWithResponse Grant the agent a tool, or change the level it has it at
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+	AgentToolSetWithBodyWithResponse(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error)
+
+	// AgentToolSetWithResponse Grant the agent a tool, or change the level it has it at
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+	AgentToolSetWithResponse(ctx context.Context, name string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error)
+
 	// ApprovalLsWithResponse Actions waiting for a decision
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -4018,7 +4922,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /cluster/pods/{namespace}/{pod}/log (the `Logs` operationId).
 	LogsWithResponse(ctx context.Context, namespace string, pod string, params *LogsParams, reqEditors ...RequestEditorFn) (*LogsResponse, error)
 
-	// ClusterShapeWithResponse The workers and tiers hz cluster install declared
+	// ClusterShapeWithResponse The workers and tiers h0 cluster install declared
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -4060,7 +4964,7 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with PUT /credentials (the `CredentialsPut` operationId).
 	CredentialsPutWithResponse(ctx context.Context, body CredentialsPutJSONRequestBody, reqEditors ...RequestEditorFn) (*CredentialsPutResponse, error)
 
-	// CredentialsRmWithResponse Remove a credential: github (agent credentials: hz llm rm)
+	// CredentialsRmWithResponse Remove a credential: github (agent credentials: h0 llm rm)
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -4088,14 +4992,14 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /environments/{name} (the `EnvGet` operationId).
 	EnvGetWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*EnvGetResponse, error)
 
-	// EnvSetWithBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+	// EnvSetWithBodyWithResponse Change the environment's fields; h0 env seed rebuilds its seed
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with PATCH /environments/{name} (the `EnvSet` operationId).
 	EnvSetWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnvSetResponse, error)
 
-	// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+	// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; h0 env seed rebuilds its seed
 	//
 	// Takes a body of the `application/merge-patch+json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -4291,12 +5195,47 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /sessions/{id}/logs/{name} (the `SessionLogShow` operationId).
 	SessionLogShowWithResponse(ctx context.Context, id string, name string, params *SessionLogShowParams, reqEditors ...RequestEditorFn) (*SessionLogShowResponse, error)
 
+	// SessionNavigateWithBodyWithResponse Show a page of the session's app in its preview
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/navigate (the `SessionNavigate` operationId).
+	SessionNavigateWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionNavigateResponse, error)
+
+	// SessionNavigateWithResponse Show a page of the session's app in its preview
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/navigate (the `SessionNavigate` operationId).
+	SessionNavigateWithResponse(ctx context.Context, id string, body SessionNavigateJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionNavigateResponse, error)
+
 	// SessionPreviewWithResponse Whether the session's app answers, waking it first
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with GET /sessions/{id}/preview (the `SessionPreview` operationId).
 	SessionPreviewWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionPreviewResponse, error)
+
+	// SessionPrWithBodyWithResponse Push the session's branch and open a pull request onto its environment's branch
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/pull-request (the `SessionPr` operationId).
+	SessionPrWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionPrResponse, error)
+
+	// SessionPrWithResponse Push the session's branch and open a pull request onto its environment's branch
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/pull-request (the `SessionPr` operationId).
+	SessionPrWithResponse(ctx context.Context, id string, body SessionPrJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionPrResponse, error)
+
+	// SessionPushWithResponse Push the session's committed work to its branch on GitHub
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /sessions/{id}/push (the `SessionPush` operationId).
+	SessionPushWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionPushResponse, error)
 
 	// SessionQueueLsWithResponse Messages waiting for the session's turn to end
 	//
@@ -4347,6 +5286,20 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with DELETE /sessions/{id}/terminals/{tid} (the `SessionTerminalRm` operationId).
 	SessionTerminalRmWithResponse(ctx context.Context, id string, tid string, reqEditors ...RequestEditorFn) (*SessionTerminalRmResponse, error)
 
+	// SessionTitleWithBodyWithResponse Name the session's task in a few words
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /sessions/{id}/title (the `SessionTitle` operationId).
+	SessionTitleWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionTitleResponse, error)
+
+	// SessionTitleWithResponse Name the session's task in a few words
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with PUT /sessions/{id}/title (the `SessionTitle` operationId).
+	SessionTitleWithResponse(ctx context.Context, id string, body SessionTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionTitleResponse, error)
+
 	// SessionSayWithBodyWithResponse Send the session a message
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -4374,6 +5327,287 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with GET /usage (the `Usage` operationId).
 	UsageWithResponse(ctx context.Context, params *UsageParams, reqEditors ...RequestEditorFn) (*UsageResponse, error)
+}
+
+type AgentLsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Agent
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AgentLsResponse) GetJSON200() *[]Agent {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r AgentLsResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AgentLsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentLsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentLsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AgentLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AgentRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r AgentRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AgentRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AgentRmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AgentShowResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Agent
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AgentShowResponse) GetJSON200() *Agent {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r AgentShowResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AgentShowResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentShowResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentShowResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AgentShowResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AgentPutResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Agent
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AgentPutResponse) GetJSON200() *Agent {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r AgentPutResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AgentPutResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentPutResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentPutResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AgentPutResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AgentToolRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Agent
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AgentToolRmResponse) GetJSON200() *Agent {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r AgentToolRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AgentToolRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentToolRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentToolRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AgentToolRmResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AgentToolSetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Agent
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r AgentToolSetResponse) GetJSON200() *Agent {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r AgentToolSetResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AgentToolSetResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentToolSetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentToolSetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AgentToolSetResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
 }
 
 type ApprovalLsResponse struct {
@@ -6227,6 +7461,54 @@ func (r SessionLogShowResponse) ContentType() string {
 	return ""
 }
 
+type SessionNavigateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Page
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionNavigateResponse) GetJSON200() *Page {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionNavigateResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionNavigateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionNavigateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionNavigateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionNavigateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type SessionPreviewResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6269,6 +7551,102 @@ func (r SessionPreviewResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SessionPreviewResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionPrResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *PullRequest
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionPrResponse) GetJSON200() *PullRequest {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionPrResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionPrResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionPrResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionPrResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionPrResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SessionPushResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *Pushed
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SessionPushResponse) GetJSON200() *Pushed {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionPushResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionPushResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionPushResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionPushResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionPushResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -6535,6 +7913,47 @@ func (r SessionTerminalRmResponse) ContentType() string {
 	return ""
 }
 
+type SessionTitleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SessionTitleResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SessionTitleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SessionTitleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SessionTitleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SessionTitleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type SessionSayResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6663,6 +8082,110 @@ func (r UsageResponse) ContentType() string {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
+}
+
+// AgentLsWithResponse The agents sessions run as
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /agents (the `AgentLs` operationId).
+func (c *ClientWithResponses) AgentLsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AgentLsResponse, error) {
+	rsp, err := c.AgentLs(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentLsResponse(rsp)
+}
+
+// AgentRmWithResponse Remove the agent; sessions that ran as it keep its name
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /agents/{name} (the `AgentRm` operationId).
+func (c *ClientWithResponses) AgentRmWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentRmResponse, error) {
+	rsp, err := c.AgentRm(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentRmResponse(rsp)
+}
+
+// AgentShowWithResponse The agent and the tools it is granted
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
+func (c *ClientWithResponses) AgentShowWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentShowResponse, error) {
+	rsp, err := c.AgentShow(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentShowResponse(rsp)
+}
+
+// AgentPutWithBodyWithResponse Declare the agent: its description, model, instructions and tools, which replace those it has
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+func (c *ClientWithResponses) AgentPutWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentPutResponse, error) {
+	rsp, err := c.AgentPutWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentPutResponse(rsp)
+}
+
+// AgentPutWithResponse Declare the agent: its description, model, instructions and tools, which replace those it has
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /agents/{name} (the `AgentPut` operationId).
+func (c *ClientWithResponses) AgentPutWithResponse(ctx context.Context, name string, body AgentPutJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentPutResponse, error) {
+	rsp, err := c.AgentPut(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentPutResponse(rsp)
+}
+
+// AgentToolRmWithResponse Take a tool from the agent
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /agents/{name}/tools/{tool} (the `AgentToolRm` operationId).
+func (c *ClientWithResponses) AgentToolRmWithResponse(ctx context.Context, name string, tool string, reqEditors ...RequestEditorFn) (*AgentToolRmResponse, error) {
+	rsp, err := c.AgentToolRm(ctx, name, tool, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentToolRmResponse(rsp)
+}
+
+// AgentToolSetWithBodyWithResponse Grant the agent a tool, or change the level it has it at
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+func (c *ClientWithResponses) AgentToolSetWithBodyWithResponse(ctx context.Context, name string, tool string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error) {
+	rsp, err := c.AgentToolSetWithBody(ctx, name, tool, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentToolSetResponse(rsp)
+}
+
+// AgentToolSetWithResponse Grant the agent a tool, or change the level it has it at
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /agents/{name}/tools/{tool} (the `AgentToolSet` operationId).
+func (c *ClientWithResponses) AgentToolSetWithResponse(ctx context.Context, name string, tool string, body AgentToolSetJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentToolSetResponse, error) {
+	rsp, err := c.AgentToolSet(ctx, name, tool, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentToolSetResponse(rsp)
 }
 
 // ApprovalLsWithResponse Actions waiting for a decision
@@ -6795,7 +8318,7 @@ func (c *ClientWithResponses) LogsWithResponse(ctx context.Context, namespace st
 	return ParseLogsResponse(rsp)
 }
 
-// ClusterShapeWithResponse The workers and tiers hz cluster install declared
+// ClusterShapeWithResponse The workers and tiers h0 cluster install declared
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -6873,7 +8396,7 @@ func (c *ClientWithResponses) CredentialsPutWithResponse(ctx context.Context, bo
 	return ParseCredentialsPutResponse(rsp)
 }
 
-// CredentialsRmWithResponse Remove a credential: github (agent credentials: hz llm rm)
+// CredentialsRmWithResponse Remove a credential: github (agent credentials: h0 llm rm)
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -6925,7 +8448,7 @@ func (c *ClientWithResponses) EnvGetWithResponse(ctx context.Context, name strin
 	return ParseEnvGetResponse(rsp)
 }
 
-// EnvSetWithBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+// EnvSetWithBodyWithResponse Change the environment's fields; h0 env seed rebuilds its seed
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -6938,7 +8461,7 @@ func (c *ClientWithResponses) EnvSetWithBodyWithResponse(ctx context.Context, na
 	return ParseEnvSetResponse(rsp)
 }
 
-// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; hz env seed rebuilds its seed
+// EnvSetWithApplicationMergePatchPlusJSONBodyWithResponse Change the environment's fields; h0 env seed rebuilds its seed
 //
 // Takes a body of the `application/merge-patch+json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -7302,6 +8825,32 @@ func (c *ClientWithResponses) SessionLogShowWithResponse(ctx context.Context, id
 	return ParseSessionLogShowResponse(rsp)
 }
 
+// SessionNavigateWithBodyWithResponse Show a page of the session's app in its preview
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/navigate (the `SessionNavigate` operationId).
+func (c *ClientWithResponses) SessionNavigateWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionNavigateResponse, error) {
+	rsp, err := c.SessionNavigateWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionNavigateResponse(rsp)
+}
+
+// SessionNavigateWithResponse Show a page of the session's app in its preview
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/navigate (the `SessionNavigate` operationId).
+func (c *ClientWithResponses) SessionNavigateWithResponse(ctx context.Context, id string, body SessionNavigateJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionNavigateResponse, error) {
+	rsp, err := c.SessionNavigate(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionNavigateResponse(rsp)
+}
+
 // SessionPreviewWithResponse Whether the session's app answers, waking it first
 //
 // Returns a wrapper object for the known response body format(s).
@@ -7313,6 +8862,45 @@ func (c *ClientWithResponses) SessionPreviewWithResponse(ctx context.Context, id
 		return nil, err
 	}
 	return ParseSessionPreviewResponse(rsp)
+}
+
+// SessionPrWithBodyWithResponse Push the session's branch and open a pull request onto its environment's branch
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/pull-request (the `SessionPr` operationId).
+func (c *ClientWithResponses) SessionPrWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionPrResponse, error) {
+	rsp, err := c.SessionPrWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionPrResponse(rsp)
+}
+
+// SessionPrWithResponse Push the session's branch and open a pull request onto its environment's branch
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/pull-request (the `SessionPr` operationId).
+func (c *ClientWithResponses) SessionPrWithResponse(ctx context.Context, id string, body SessionPrJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionPrResponse, error) {
+	rsp, err := c.SessionPr(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionPrResponse(rsp)
+}
+
+// SessionPushWithResponse Push the session's committed work to its branch on GitHub
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /sessions/{id}/push (the `SessionPush` operationId).
+func (c *ClientWithResponses) SessionPushWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*SessionPushResponse, error) {
+	rsp, err := c.SessionPush(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionPushResponse(rsp)
 }
 
 // SessionQueueLsWithResponse Messages waiting for the session's turn to end
@@ -7406,6 +8994,32 @@ func (c *ClientWithResponses) SessionTerminalRmWithResponse(ctx context.Context,
 	return ParseSessionTerminalRmResponse(rsp)
 }
 
+// SessionTitleWithBodyWithResponse Name the session's task in a few words
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /sessions/{id}/title (the `SessionTitle` operationId).
+func (c *ClientWithResponses) SessionTitleWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SessionTitleResponse, error) {
+	rsp, err := c.SessionTitleWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionTitleResponse(rsp)
+}
+
+// SessionTitleWithResponse Name the session's task in a few words
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with PUT /sessions/{id}/title (the `SessionTitle` operationId).
+func (c *ClientWithResponses) SessionTitleWithResponse(ctx context.Context, id string, body SessionTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*SessionTitleResponse, error) {
+	rsp, err := c.SessionTitle(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSessionTitleResponse(rsp)
+}
+
 // SessionSayWithBodyWithResponse Send the session a message
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
@@ -7456,6 +9070,200 @@ func (c *ClientWithResponses) UsageWithResponse(ctx context.Context, params *Usa
 		return nil, err
 	}
 	return ParseUsageResponse(rsp)
+}
+
+// ParseAgentLsResponse parses an HTTP response from a AgentLsWithResponse call
+func ParseAgentLsResponse(rsp *http.Response) (*AgentLsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentLsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Agent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentRmResponse parses an HTTP response from a AgentRmWithResponse call
+func ParseAgentRmResponse(rsp *http.Response) (*AgentRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentShowResponse parses an HTTP response from a AgentShowWithResponse call
+func ParseAgentShowResponse(rsp *http.Response) (*AgentShowResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentShowResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Agent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentPutResponse parses an HTTP response from a AgentPutWithResponse call
+func ParseAgentPutResponse(rsp *http.Response) (*AgentPutResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentPutResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Agent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentToolRmResponse parses an HTTP response from a AgentToolRmWithResponse call
+func ParseAgentToolRmResponse(rsp *http.Response) (*AgentToolRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentToolRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Agent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentToolSetResponse parses an HTTP response from a AgentToolSetWithResponse call
+func ParseAgentToolSetResponse(rsp *http.Response) (*AgentToolSetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentToolSetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Agent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseApprovalLsResponse parses an HTTP response from a ApprovalLsWithResponse call
@@ -8751,6 +10559,39 @@ func ParseSessionLogShowResponse(rsp *http.Response) (*SessionLogShowResponse, e
 	return response, nil
 }
 
+// ParseSessionNavigateResponse parses an HTTP response from a SessionNavigateWithResponse call
+func ParseSessionNavigateResponse(rsp *http.Response) (*SessionNavigateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionNavigateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Page
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseSessionPreviewResponse parses an HTTP response from a SessionPreviewWithResponse call
 func ParseSessionPreviewResponse(rsp *http.Response) (*SessionPreviewResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8767,6 +10608,72 @@ func ParseSessionPreviewResponse(rsp *http.Response) (*SessionPreviewResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PreviewStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionPrResponse parses an HTTP response from a SessionPrWithResponse call
+func ParseSessionPrResponse(rsp *http.Response) (*SessionPrResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionPrResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PullRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionPushResponse parses an HTTP response from a SessionPushWithResponse call
+func ParseSessionPushResponse(rsp *http.Response) (*SessionPushResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionPushResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Pushed
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -8946,6 +10853,35 @@ func ParseSessionTerminalRmResponse(rsp *http.Response) (*SessionTerminalRmRespo
 	}
 
 	response := &SessionTerminalRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSessionTitleResponse parses an HTTP response from a SessionTitleWithResponse call
+func ParseSessionTitleResponse(rsp *http.Response) (*SessionTitleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SessionTitleResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

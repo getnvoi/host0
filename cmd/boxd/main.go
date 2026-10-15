@@ -19,7 +19,7 @@ func main() {
 	}
 	switch cmd {
 	case "mcp":
-		if err := MCP(json.RawMessage(os.Getenv("HZ_TOOLS")), os.Stdin, os.Stdout); err != nil {
+		if err := MCP(json.RawMessage(os.Getenv("H0_TOOLS")), os.Stdin, os.Stdout); err != nil {
 			log.Fatal(err)
 		}
 	case "install":
@@ -32,9 +32,9 @@ func main() {
 		signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 		<-sig
 	default:
-		s := &Server{Token: os.Getenv("HZ_BOX_TOKEN"), Root: "/workspace/.hz/runs"}
+		s := &Server{Token: os.Getenv("H0_BOX_TOKEN"), Root: "/workspace/.h0/runs"}
 		if s.Token == "" {
-			log.Fatal("HZ_BOX_TOKEN is required")
+			log.Fatal("H0_BOX_TOKEN is required")
 		}
 		if err := os.MkdirAll(s.Root, 0o755); err != nil {
 			log.Fatal(err)

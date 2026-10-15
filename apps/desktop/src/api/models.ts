@@ -1,5 +1,5 @@
 // Records as the hub and the plane serve them (README.md), the fields the app reads.
-import { words, type Tone } from "@hz/ui";
+import { words, type Tone } from "@h0/ui";
 
 // The hub.
 export type User = { login: string; name?: string | null; avatar_url?: string | null };

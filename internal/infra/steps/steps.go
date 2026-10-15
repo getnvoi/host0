@@ -23,6 +23,7 @@ import (
 	"github.com/getnvoi/host0/internal/api/client"
 	"github.com/getnvoi/host0/internal/cloud"
 	"github.com/getnvoi/host0/internal/infra"
+	"github.com/getnvoi/host0/internal/infra/agents"
 	"github.com/getnvoi/host0/internal/infra/kube"
 	"github.com/getnvoi/host0/internal/infra/manifests"
 	"github.com/getnvoi/host0/internal/infra/node"
@@ -41,7 +42,7 @@ type pool struct {
 func pools(e *infra.Env) []pool {
 	var ps []pool
 	for _, t := range e.Config.Tiers {
-		ps = append(ps, pool{Tier: t, Name: t.Pool(), Namespace: "hz"})
+		ps = append(ps, pool{Tier: t, Name: t.Pool(), Namespace: "h0"})
 	}
 	return ps
 }
@@ -102,7 +103,7 @@ var Install = []infra.Step{
 		if err != nil {
 			return err
 		}
-		dir, err := os.MkdirTemp("", "hz-")
+		dir, err := os.MkdirTemp("", "h0-")
 		if err != nil {
 			return err
 		}
@@ -135,7 +136,7 @@ var Install = []infra.Step{
 	}),
 	step("worker pools", func(ctx context.Context, e *infra.Env) error {
 		// replicas is the plane's: a pool is written back with what it has now, and a new one starts at zero.
-		current, err := output(ctx, e, `k3s kubectl -n hz get workerpool -o jsonpath='{range .items[*]}{.metadata.name}={.spec.replicas}{"\n"}{end}'`)
+		current, err := output(ctx, e, `k3s kubectl -n h0 get workerpool -o jsonpath='{range .items[*]}{.metadata.name}={.spec.replicas}{"\n"}{end}'`)
 		if err != nil {
 			return err
 		}
@@ -167,7 +168,7 @@ var Install = []infra.Step{
 		for _, p := range pools(e) {
 			names = append(names, p.Name)
 		}
-		return kube.Run(ctx, e.Shell, "-n hz delete workerpool --ignore-not-found -l 'workload,workload notin ("+strings.Join(names, ",")+")'", e.Out)
+		return kube.Run(ctx, e.Shell, "-n h0 delete workerpool --ignore-not-found -l 'workload,workload notin ("+strings.Join(names, ",")+")'", e.Out)
 	}),
 	step("certificates", certificates),
 	step("edge", func(ctx context.Context, e *infra.Env) error {
@@ -264,11 +265,18 @@ var Install = []infra.Step{
 			}
 			return fmt.Errorf("%w; %s says:\n%s", err, e.Edge.Deployment(), logs)
 		}
-		if err := shape(ctx, e, url, token); err != nil {
+		c, err := planeClient(url, token)
+		if err != nil {
+			return err
+		}
+		if err := shape(ctx, e, c); err != nil {
+			return err
+		}
+		if err := declareAgents(ctx, e, c); err != nil {
 			return err
 		}
 		e.Say("api at %s", url)
-		e.Say("web UI at %s: sign in with hz open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
+		e.Say("web UI at %s: sign in with h0 open", origin(e, naming.Host(e.Cluster, "app", e.Config.Zone)))
 		return e.Laptop.SavePlane(url, token)
 	}),
 }
@@ -308,17 +316,9 @@ func identity(ctx context.Context, e *infra.Env, id, ips string) error {
 }
 
 // Writes the cluster's shape, its workers and tiers, to the plane, which holds it as a row.
-func shape(ctx context.Context, e *infra.Env, url, token string) error {
+func shape(ctx context.Context, e *infra.Env, c *client.Client) error {
 	body, err := json.Marshal(sandbox.Shape{Tiers: e.Config.Tiers, Workers: sandbox.Servers{Type: e.Config.WorkerType,
 		Location: e.Config.Location, Max: e.Config.WorkerMax, Idle: e.Config.WorkerIdle}, Actors: e.Config.Actors})
-	if err != nil {
-		return err
-	}
-	c, err := client.NewClient(url, client.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
-		client.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
-			r.Header.Set("Authorization", "Bearer "+token)
-			return nil
-		}))
 	if err != nil {
 		return err
 	}
@@ -327,6 +327,34 @@ func shape(ctx context.Context, e *infra.Env, url, token string) error {
 	}
 	e.Say("workers: %s in %s, at most %d, deleted after %s idle", e.Config.WorkerType, e.Config.Location, e.Config.WorkerMax, e.Config.WorkerIdle)
 	e.Say("actors: paused after %s idle, suspended after %s", e.Config.Actors.Pause, e.Config.Actors.Suspend)
+	return nil
+}
+
+// The plane's API at url, under the CLI's token.
+func planeClient(url, token string) (*client.Client, error) {
+	return client.NewClient(url, client.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
+		client.WithRequestEditorFn(func(_ context.Context, r *http.Request) error {
+			r.Header.Set("Authorization", "Bearer "+token)
+			return nil
+		}))
+}
+
+// Declares every agent of internal/infra/agents on the plane; an agent that already matches its file is unchanged.
+func declareAgents(ctx context.Context, e *infra.Env, c *client.Client) error {
+	all, err := agents.All()
+	if err != nil {
+		return err
+	}
+	for _, a := range all {
+		body, err := json.Marshal(a)
+		if err != nil {
+			return err
+		}
+		if err := client.Done(c.AgentPutWithBody(ctx, a.Name, "application/json", bytes.NewReader(body))); err != nil {
+			return fmt.Errorf("declaring agent %s: %w", a.Name, err)
+		}
+		e.Say("agent %s: %s", a.Name, a.Description)
+	}
 	return nil
 }
 
@@ -364,7 +392,7 @@ func secretData(ctx context.Context, e *infra.Env, name string) (map[string][]by
 // The edge that keeps its certificates in naming.Certs.
 const proxy = "proxy"
 
-// Creates naming.Certs for the proxy, empty, or from ~/.hz/certs/<zone> when that file exists. A cluster's own
+// Creates naming.Certs for the proxy, empty, or from ~/.h0/certs/<zone> when that file exists. A cluster's own
 // certificates are never replaced.
 func certificates(ctx context.Context, e *infra.Env) error {
 	if e.Edge.Deployment() != proxy {
@@ -391,7 +419,7 @@ func certificates(ctx context.Context, e *infra.Env) error {
 	return kube.Apply(ctx, e.Shell, cloud.Secret(naming.Namespace, naming.Certs, data), e.Out)
 }
 
-// Writes the proxy's certificate secret to ~/.hz/certs/<zone>, sealed with ~/.hz/key, for the next install of the
+// Writes the proxy's certificate secret to ~/.h0/certs/<zone>, sealed with ~/.h0/key, for the next install of the
 // zone to restore. Run before the servers go.
 func KeepCerts(ctx context.Context, e *infra.Env) error {
 	if e.Edge.Deployment() != proxy {
@@ -433,7 +461,7 @@ func KeepCerts(ctx context.Context, e *infra.Env) error {
 	return nil
 }
 
-// The sealing key, from ~/.hz/key and the cluster's: equal, or the one that exists restores the other, or a new one.
+// The sealing key, from ~/.h0/key and the cluster's: equal, or the one that exists restores the other, or a new one.
 func sealKey(local, cluster []byte, path string) ([]byte, error) {
 	if cluster != nil && len(cluster) != seal.Size {
 		return nil, fmt.Errorf("the plane secret's seal is %d bytes, not %d", len(cluster), seal.Size)

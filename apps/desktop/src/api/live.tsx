@@ -2,7 +2,7 @@
 // on a timer: an update names what moved and the answers under it are fetched again.
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { StreamError } from "@hz/transport";
+import { StreamError } from "@h0/transport";
 import { ApiError, boot, enter, get, hubRequest, keepToken, remembered, signed, transport, workspace } from "./client";
 import type { EnvironmentSummary, Update, User, Workspace } from "./models";
 

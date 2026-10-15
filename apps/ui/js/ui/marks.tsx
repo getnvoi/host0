@@ -70,10 +70,10 @@ const TOOLS: Record<string, { icon: LucideIcon; label?: string }> = {
   Task: { icon: BotMessageSquare },
   Agent: { icon: BotMessageSquare },
   SendMessage: { icon: BotMessageSquare },
-  set_title: { icon: Tag, label: "tools.set_title" },
-  push_branch: { icon: Upload, label: "tools.push_branch" },
-  create_pull_request: { icon: GitPullRequest, label: "tools.create_pull_request" },
-  navigate_preview: { icon: Compass, label: "tools.navigate_preview" },
+  session_title: { icon: Tag, label: "tools.session_title" },
+  session_push: { icon: Upload, label: "tools.session_push" },
+  session_pr: { icon: GitPullRequest, label: "tools.session_pr" },
+  session_navigate: { icon: Compass, label: "tools.session_navigate" },
 };
 
 export function toolIcon(name: string): LucideIcon {

@@ -14,21 +14,21 @@
     ]
   },
   "run": [
-    "[1/12] Workspace northwind: network hz-northwind-prod",
-    "[2/12] Firewall hz-northwind-prod",
-    "[3/12] Server hz-northwind-prod-master-1 (cx33, fsn1)",
-    "[4/12] Waiting for ssh on hz-northwind-prod-master-1",
-    "[5/12] k3s server 1.33 on hz-northwind-prod-master-1",
-    "[6/12] Worker pool hz-northwind-prod-workers",
+    "[1/12] Workspace northwind: network h0-northwind-prod",
+    "[2/12] Firewall h0-northwind-prod",
+    "[3/12] Server h0-northwind-prod-master-1 (cx33, fsn1)",
+    "[4/12] Waiting for ssh on h0-northwind-prod-master-1",
+    "[5/12] k3s server 1.33 on h0-northwind-prod-master-1",
+    "[6/12] Worker pool h0-northwind-prod-workers",
     "[7/12] Agent Substrate",
-    "[8/12] Cloudflare tunnel hz-northwind-prod",
+    "[8/12] Cloudflare tunnel h0-northwind-prod",
     "[9/12] DNS app-northwind and *.northwind",
     "[10/12] Control plane image",
     "[11/12] Control plane rollout",
     "[12/12] Control plane answers"
   ],
   "repositories": {
-    "install_url": "https://github.com/apps/hz/installations/new",
+    "install_url": "https://github.com/apps/h0/installations/new",
     "repositories": [
       { "full_name": "northwind/shop", "default_branch": "main", "private": true },
       { "full_name": "northwind/billing", "default_branch": "trunk", "private": true }

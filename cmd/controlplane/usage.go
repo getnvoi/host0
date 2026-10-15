@@ -22,7 +22,7 @@ const dayFormat = "2006-01-02"
 
 func (p *plane) usage(a huma.API) {
 	huma.Register(a, op("usage", "GET", "/usage", "Sessions, compute, pull requests and tokens over the last days",
-		hz{By: []string{"usage"}}),
+		h0{By: []string{"usage"}}),
 		func(_ context.Context, in *struct {
 			Days int    `query:"days" default:"30" minimum:"1" maximum:"365" doc:"How many days back, today's included"`
 			By   string `query:"by" doc:"One person's usage: the sessions they started"`
@@ -103,7 +103,7 @@ func (p *plane) sample(ctx context.Context, now time.Time) {
 		return
 	}
 	for _, w := range workers {
-		t, ok := strings.CutPrefix(w.Pool, "hz-")
+		t, ok := strings.CutPrefix(w.Pool, "h0-")
 		if !ok {
 			t = w.Pool
 		}
@@ -183,7 +183,7 @@ func (p *plane) Usage(now time.Time, days int, by string) (workspace.Usage, erro
 				env(s.Env).Tokens += m.Tokens
 			case e.Kind == "prompt" && strings.HasPrefix(e.Content, workspace.Outcome):
 				for _, line := range strings.Split(e.Content, "\n") {
-					if strings.HasPrefix(line, "create_pull_request: opened") {
+					if strings.HasPrefix(line, `session_pr: {"url":`) {
 						day.PullRequests++
 						out.Totals.PullRequests++
 						env(s.Env).PullRequests++

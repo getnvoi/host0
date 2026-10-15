@@ -12,7 +12,7 @@ import (
 	"github.com/getnvoi/host0/internal/shared/seal"
 )
 
-// Sealed stores a column as seal's "hz-sealed:1:" text: a string as its bytes, anything else as its JSON. Only a
+// Sealed stores a column as seal's "h0-sealed:1:" text: a string as its bytes, anything else as its JSON. Only a
 // secret is sealed: SQL can neither search nor compare a sealed column.
 type Sealed struct{}
 
@@ -27,11 +27,11 @@ func useKey(db *gorm.DB, key []byte) error {
 	}
 	cb := db.Callback()
 	for _, err := range []error{
-		cb.Create().Before("gorm:create").Register("hz:key", set),
-		cb.Query().Before("gorm:query").Register("hz:key", set),
-		cb.Update().Before("gorm:update").Register("hz:key", set),
-		cb.Row().Before("gorm:row").Register("hz:key", set),
-		cb.Raw().Before("gorm:raw").Register("hz:key", set),
+		cb.Create().Before("gorm:create").Register("h0:key", set),
+		cb.Query().Before("gorm:query").Register("h0:key", set),
+		cb.Update().Before("gorm:update").Register("h0:key", set),
+		cb.Row().Before("gorm:row").Register("h0:key", set),
+		cb.Raw().Before("gorm:raw").Register("h0:key", set),
 	} {
 		if err != nil {
 			return err

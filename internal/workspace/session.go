@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -22,19 +23,11 @@ import (
 	"github.com/getnvoi/host0/internal/sandbox"
 )
 
-// The policy of a tool in env: the environment's own, or the tool's default.
-func (ws *Workspace) policy(env Environment, name string) string {
-	if p, ok := env.Tools[name]; ok {
-		return p
-	}
-	return ws.Tools.Policy(name)
-}
-
 const instructions = "You work inside a checkout of the repository, your working directory. The app runs from this " +
-	"checkout and reloads on change; the user watches it at %s. On your first turn call set_title. When a change shows " +
-	"on a page, call navigate_preview with its path so the user sees it. Commit your work. " +
-	"Anything that touches GitHub (push, pull request) goes through the hz tools: you have no credentials. " +
-	"A hz tool answering 'Queued' is normal: end your turn right after. Answer briefly."
+	"checkout and reloads on change; the user watches it at %s. Your session's id is %s. On your first turn call " +
+	"session_title. When a change shows on a page, call session_navigate with its path so the user sees it. Commit your " +
+	"work. The h0 tools are the h0 plane's API; anything that touches GitHub (session_push, session_pr) goes through " +
+	"them: you have no credentials. A h0 tool answering 'Queued' is normal: end your turn right after. Answer briefly."
 
 // Opens the prompt that tells a turn what its tools did.
 const Outcome = "Outcome of the actions you asked for:"
@@ -57,13 +50,17 @@ func (ws *Workspace) put(s *Session, change func()) {
 	ws.save(s)
 }
 
-func (ws *Workspace) Start(name, prompt, by string) (Session, error) {
+func (ws *Workspace) Start(name, agent, prompt, by string) (Session, error) {
+	agent = cmp.Or(agent, agentName)
+	if _, err := agentRow(ws.DB, agent); err != nil {
+		return Session{}, err
+	}
 	seed, err := ws.served(name)
 	if err != nil {
 		return Session{}, err
 	}
 	sid := id()
-	s := Session{ID: sid, Env: name, Actor: "wt-" + sid, Branch: "hz/" + sid, Preview: ws.Preview(sid),
+	s := Session{ID: sid, Env: name, Agent: agent, Actor: "wt-" + sid, Branch: "h0/" + sid, Preview: ws.Preview(sid),
 		State: "forking", At: time.Now(), Pending: prompt, By: by}
 	if err := ws.save(&s); err != nil {
 		return s, err
@@ -243,9 +240,25 @@ func (ws *Workspace) take(ctx context.Context, s *Session, prompt string, again 
 		// The last turn's agent, if a failure left it running, would work beside this one on the same checkout.
 		ws.end(s.Actor, fmt.Sprintf("turn-%d", s.Turns))
 	}
-	tools, _ := json.Marshal(ws.Tools.Spec())
-	argv := runner.Argv(llm.Turn{Prompt: prompt, Session: s.Transcript, Model: values["model"],
-		Instructions: fmt.Sprintf(instructions, origin(s.Preview)), MCP: Boxd})
+	agent, err := agentRow(ws.DB, s.Agent)
+	if err != nil {
+		ws.fail(s, err)
+		return ""
+	}
+	given, err := ws.given(s.Agent)
+	if err != nil {
+		ws.fail(s, err)
+		return ""
+	}
+	tools, err := json.Marshal(given)
+	if err != nil {
+		ws.fail(s, err)
+		return ""
+	}
+	// The agent's own instructions follow the workspace's; its model, when it names one, replaces the credential's.
+	argv := runner.Argv(llm.Turn{Prompt: prompt, Session: s.Transcript, Model: cmp.Or(agent.Model, values["model"]),
+		Instructions: strings.TrimSpace(fmt.Sprintf(instructions, origin(s.Preview), s.ID) + "\n\n" + agent.Instructions),
+		MCP:          Boxd})
 	if !again {
 		stops.Delete(stopKey(s.ID, s.Turns+1))
 	}
@@ -258,7 +271,7 @@ func (ws *Workspace) take(ctx context.Context, s *Session, prompt string, again 
 		}
 	})
 	run := box.Run{Argv: argv, Dir: App, Env: runner.Env(values)}
-	run.Env["HZ_TOOLS"] = string(tools)
+	run.Env["H0_TOOLS"] = string(tools)
 	return ws.follow(ctx, s, run, 0)
 }
 
@@ -275,7 +288,7 @@ var linger = 10 * time.Second
 // Runs or follows the current turn, then settles its tools: auto at once, approval parked until decided. The first
 // seen events its output yields are stored already. Returns the prompt to run next.
 func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen int) string {
-	env, creds, err := ws.env(s.Env)
+	env, _, err := ws.env(s.Env)
 	if err != nil {
 		ws.fail(s, err)
 		return ""
@@ -350,14 +363,19 @@ func (ws *Workspace) follow(ctx context.Context, s *Session, run box.Run, seen i
 		if ev.Kind != "tool_use" || !ok {
 			continue
 		}
-		switch ws.policy(env, name) {
+		level, err := ws.level(s.Agent, name)
+		if err != nil {
+			ws.fail(s, err)
+			return ""
+		}
+		switch level {
 		case "auto":
-			outcomes = append(outcomes, ws.act(s, env, creds, name, ev.Content))
+			outcomes = append(outcomes, ws.act(s, name, ev.Content))
 		case "approval":
 			asks = append(asks, Approval{ID: id(), Session: s.ID, Turn: s.Turns, Tool: name, ToolID: ev.ToolID, Input: ev.Content,
 				State: "pending", At: time.Now()})
 		default:
-			outcomes = append(outcomes, name+": refused by policy")
+			outcomes = append(outcomes, name+": failed: no such tool")
 		}
 	}
 	switch {

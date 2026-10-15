@@ -23,7 +23,7 @@ import (
 type Auth struct{ DB *gorm.DB }
 
 const (
-	sessionCookie = "hz_session"
+	sessionCookie = "h0_session"
 	linkTTL       = 60 * time.Second
 	sessionTTL    = 30 * 24 * time.Hour
 )
@@ -129,7 +129,7 @@ func (a *Auth) SignOut(label string) (int, error) {
 		return 0, res.Error
 	}
 	if label != "" && res.RowsAffected == 0 {
-		return 0, NotFound{fmt.Errorf("no browser is signed in as %s: hz browsers lists them", label)}
+		return 0, NotFound{fmt.Errorf("no browser is signed in as %s: h0 browsers lists them", label)}
 	}
 	return int(res.RowsAffected), nil
 }
@@ -153,7 +153,7 @@ func (a *Auth) SignedIn(next http.Handler) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if r.Method != http.MethodGet && r.Header.Get("X-Requested-With") != "hz" {
+		if r.Method != http.MethodGet && r.Header.Get("X-Requested-With") != "h0" {
 			http.Error(w, "missing X-Requested-With", http.StatusForbidden)
 			return
 		}
@@ -165,14 +165,20 @@ type whoKey struct{}
 
 type doorKey struct{}
 
-// How a request came in: the CLI's bearer token, or a signed-in browser's cookie.
+// How a request came in: the CLI's bearer token, a signed-in browser's cookie, or a session's agent calling a tool.
 const (
 	ByToken  = "bearer"
 	ByCookie = "cookie"
+	ByAgent  = "agent"
 )
 
 func through(ctx context.Context, door, who string) context.Context {
 	return context.WithValue(context.WithValue(ctx, doorKey{}, door), whoKey{}, who)
+}
+
+// A request a session's agent makes through one of its tools, served in-process: it never crosses the network.
+func AsAgent(ctx context.Context, agent, sid string) context.Context {
+	return through(ctx, ByAgent, fmt.Sprintf("agent %s, session %s", agent, sid))
 }
 
 // The door the request came in by; empty when it came by neither.

@@ -15,7 +15,7 @@ import (
 
 func TestConformance(t *testing.T) {
 	secret, project := os.Getenv("SCW_SECRET_KEY"), os.Getenv("SCW_DEFAULT_PROJECT_ID")
-	if os.Getenv("HZ_RECORD") == "" {
+	if os.Getenv("H0_RECORD") == "" {
 		project = "REDACTED"
 	}
 	conformance.Run(t, conformance.Subject{

@@ -31,7 +31,3 @@ services:
     command: bin/rails tailwindcss:watch[always]
   - name: jobs
     command: bin/jobs
-tools:
-  set_title: auto
-  push_branch: auto
-  create_pull_request: approval

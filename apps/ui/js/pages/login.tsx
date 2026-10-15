@@ -21,7 +21,7 @@ export function LoginPage() {
               {t("login.body")}
             </Text>
           </Stack>
-          <Code source="hz open" lang="sh" copy />
+          <Code source="h0 open" lang="sh" copy />
           <Text as="meta" tagName="p">
             {t("login.invite")}
           </Text>

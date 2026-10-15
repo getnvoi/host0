@@ -10,7 +10,7 @@ import (
 	"github.com/getnvoi/host0/internal/llm"
 )
 
-// Captured from codex-cli 0.157.1 with the hz MCP server.
+// Captured from codex-cli 0.157.1 with the h0 MCP server.
 func read(t *testing.T, name string) ([]llm.Event, string) {
 	b, err := os.ReadFile("testdata/" + name)
 	if err != nil {
@@ -33,7 +33,7 @@ func TestTool(t *testing.T) {
 		t.Fatalf("transcript %q", id)
 	}
 	want := []llm.Event{
-		{Kind: "tool_use", Tool: "mcp__hz__set_title", ToolID: "item_0", Content: `{"title":"ok"}`},
+		{Kind: "tool_use", Tool: "mcp__h0__set_title", ToolID: "item_0", Content: `{"title":"ok"}`},
 		{Kind: "tool_result", ToolID: "item_0", Content: "Queued. This action is performed for you once your turn ends and you will be told the outcome. End your turn now with a one-line summary of what you asked for."},
 		{Kind: "message", Content: "ok"},
 		{Kind: "result", Meta: []byte(`{"tokens":10557}`)},
@@ -70,7 +70,7 @@ func TestEnvTellsASignInFromAKey(t *testing.T) {
 		t.Fatalf("key: %v", env)
 	}
 	auth := `{"tokens":{"refresh_token":"r"}}`
-	if env := (Runner{}).Env(map[string]string{"token": auth}); env["HZ_CODEX_AUTH"] != auth || len(env) != 1 {
+	if env := (Runner{}).Env(map[string]string{"token": auth}); env["H0_CODEX_AUTH"] != auth || len(env) != 1 {
 		t.Fatalf("sign-in: %v", env)
 	}
 }
@@ -78,25 +78,25 @@ func TestEnvTellsASignInFromAKey(t *testing.T) {
 func TestArgv(t *testing.T) {
 	got := Runner{}.Argv(llm.Turn{Prompt: "hi", Session: "s1", Model: "gpt-5", Instructions: `say "x"`, MCP: "/boxd"})
 	want := []string{"sh", "-c", boot, "codex", "exec", "resume", "--json", "--skip-git-repo-check", "--ignore-user-config",
-		"--dangerously-bypass-approvals-and-sandbox", "-c", `mcp_servers.hz.command="/boxd"`, "-c", `mcp_servers.hz.args=["mcp"]`,
-		"-c", `mcp_servers.hz.env_vars=["HZ_TOOLS"]`, "-m", "gpt-5", "-c", `developer_instructions="say \"x\""`, "s1", "hi"}
+		"--dangerously-bypass-approvals-and-sandbox", "-c", `mcp_servers.h0.command="/boxd"`, "-c", `mcp_servers.h0.args=["mcp"]`,
+		"-c", `mcp_servers.h0.env_vars=["H0_TOOLS"]`, "-m", "gpt-5", "-c", `developer_instructions="say \"x\""`, "s1", "hi"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %q", got)
 	}
 }
 
-// Runs the plane's command line against the codex on this machine; HZ_BOXD is a built boxd.
+// Runs the plane's command line against the codex on this machine; H0_BOXD is a built boxd.
 func TestLive(t *testing.T) {
-	boxd := os.Getenv("HZ_BOXD")
+	boxd := os.Getenv("H0_BOXD")
 	if boxd == "" {
-		t.Skip("HZ_BOXD not set")
+		t.Skip("H0_BOXD not set")
 	}
 	dir := t.TempDir()
 	run := func(prompt, session string) ([]llm.Event, string) {
 		argv := Runner{}.Argv(llm.Turn{Prompt: prompt, Session: session, MCP: boxd, Instructions: "Answer in one word."})
 		cmd := exec.Command(argv[0], argv[1:]...)
 		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), `HZ_TOOLS=[{"name":"set_title","description":"Name this task.","inputSchema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}}]`)
+		cmd.Env = append(os.Environ(), `H0_TOOLS=[{"name":"set_title","description":"Name this task.","inputSchema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}}]`)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("%v: %s", err, out)
@@ -112,7 +112,7 @@ func TestLive(t *testing.T) {
 		return evs, id
 	}
 	evs, id := run("Call set_title with title ok, then reply ok.", "")
-	if id == "" || !has(evs, "tool_use", "mcp__hz__set_title") || !has(evs, "result", "") {
+	if id == "" || !has(evs, "tool_use", "mcp__h0__set_title") || !has(evs, "result", "") {
 		t.Fatalf("first turn %s: %+v", id, evs)
 	}
 	evs, again := run("Reply ok.", id)

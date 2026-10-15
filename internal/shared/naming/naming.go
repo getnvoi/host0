@@ -14,7 +14,7 @@ const (
 	// Images pushed from the laptop are named localhost:RegistryPort; atelet and containerd map it to Registry.
 	RegistryPort = 15001
 	Registry     = ControlIP + ":5001"
-	Namespace    = "hz-system"
+	Namespace    = "h0-system"
 	// The Secret in Namespace holding the public edge's ACME account and certificates.
 	Certs = "proxy-certs"
 	// Every worker carries the taint; only sandbox workers and atelet land there.
@@ -32,7 +32,7 @@ func New(name string) (Cluster, error) {
 	return Cluster{name}, nil
 }
 
-func (c Cluster) Prefix() string  { return "hz-" + c.Name }
+func (c Cluster) Prefix() string  { return "h0-" + c.Name }
 func (c Cluster) Control() string { return c.Prefix() + "-control" }
 
 // Worker n's server and node; every pool shares the workers, so the name holds no pool.
@@ -51,11 +51,11 @@ func (c Cluster) WorkerIndex(name string) (int, bool) {
 // Worker n's address on the private network.
 func WorkerIP(n int) string { return fmt.Sprintf("10.0.1.%d", 10+n) }
 
-// The TXT value that marks a DNS record as this cluster's, as hz/owner marks its other objects.
-func (c Cluster) Owner() string { return "hz/owner=" + c.Prefix() }
+// The TXT value that marks a DNS record as this cluster's, as h0/owner marks its other objects.
+func (c Cluster) Owner() string { return "h0/owner=" + c.Prefix() }
 
 // The Cloudflare tunnel: a name no other tool picks, since tunnels carry no labels and one found by name is ours.
-func (c Cluster) Tunnel() string { return "hz-cluster-" + c.Name }
+func (c Cluster) Tunnel() string { return "h0-cluster-" + c.Name }
 
 // One label under the zone, which the zone's universal certificate covers.
 func Host(c Cluster, name, zone string) string { return fmt.Sprintf("%s-%s.%s", name, c.Name, zone) }

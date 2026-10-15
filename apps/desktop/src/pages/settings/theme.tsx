@@ -1,4 +1,4 @@
-import { ThemeDialog } from "@hz/ui";
+import { ThemeDialog } from "@h0/ui";
 import { themeStore, useTheme } from "../../theme";
 
 // The account menu's Theme: the dialog over the window, each change applied and saved at once.

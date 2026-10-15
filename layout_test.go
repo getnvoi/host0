@@ -23,9 +23,9 @@ var (
 // Imports the rules refuse, kept for the reason given. A test-only entry holds for the importer's tests alone.
 var allowed = []exception{
 	{"internal/cloud/clouds", "internal/cloud/hetzner", false,
-		"the providers by name: hz and the plane both find a cloud from the name a cluster file or a Secret holds"},
+		"the providers by name: h0 and the plane both find a cloud from the name a cluster file or a Secret holds"},
 	{"internal/cloud/clouds", "internal/cloud/scaleway", false,
-		"the providers by name: hz and the plane both find a cloud from the name a cluster file or a Secret holds"},
+		"the providers by name: h0 and the plane both find a cloud from the name a cluster file or a Secret holds"},
 	{"internal/workspace", "internal/llm/claude", true,
 		"turns are tested on claude's real stream-json parsing; a runner written for the test would be a stub"},
 }
@@ -80,8 +80,8 @@ func refused(from, to string, test bool) string {
 		return "imports " + to + ", which is in no place of the layout"
 	case toKind == "cmd" && !(kind == "cmd" && toTop == top):
 		return "imports a binary's own code: nothing imports cmd/ but the binary itself"
-	case toTop == "internal/infra" && !inside && from != "cmd/hz/local":
-		return "imports the install: only cmd/hz/local may"
+	case toTop == "internal/infra" && !inside && from != "cmd/h0/local":
+		return "imports the install: only cmd/h0/local may"
 	case kind == "cmd":
 		return ""
 	case kind == "shared":
@@ -169,9 +169,9 @@ func TestRefused(t *testing.T) {
 		test     bool
 		want     string
 	}{
-		{"internal/workspace", "cmd/hz/state", false, "nothing imports cmd/"},
-		{"cmd/hz/remote", "cmd/hz/state", false, ""},
-		{"cmd/controlplane", "cmd/hz/state", false, "nothing imports cmd/"},
+		{"internal/workspace", "cmd/h0/state", false, "nothing imports cmd/"},
+		{"cmd/h0/remote", "cmd/h0/state", false, ""},
+		{"cmd/controlplane", "cmd/h0/state", false, "nothing imports cmd/"},
 		{"internal/workspace", "internal/workers", false, "a feature"},
 		{"internal/workspace", "internal/sandbox/substrate", false, "a feature"},
 		{"internal/workspace", "internal/box", false, ""},
@@ -182,8 +182,8 @@ func TestRefused(t *testing.T) {
 		{"internal/cloud/hetzner", "internal/cloud/conformance", false, "an implementation"},
 		{"internal/box", "internal/workspace", false, "a client"},
 		{"internal/shared/naming", "internal/shared/seal", false, "shared"},
-		{"cmd/controlplane", "internal/infra", false, "only cmd/hz/local"},
-		{"cmd/hz/local", "internal/infra/steps", false, ""},
+		{"cmd/controlplane", "internal/infra", false, "only cmd/h0/local"},
+		{"cmd/h0/local", "internal/infra/steps", false, ""},
 		{"internal/oddity", "internal/shared/seal", false, "no place"},
 		{"cmd/controlplane", "internal/store", false, "internal/db"},
 		{"internal/workspace", "internal/store/files", true, "internal/db"},

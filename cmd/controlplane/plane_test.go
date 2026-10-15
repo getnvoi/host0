@@ -29,7 +29,7 @@ import (
 
 // The plane's database in a fresh file, holding the shape install writes.
 func newDB(t *testing.T) *gorm.DB {
-	gdb, err := db.Open(filepath.Join(t.TempDir(), "hz.db"), seal.Mint())
+	gdb, err := db.Open(filepath.Join(t.TempDir(), "h0.db"), seal.Mint())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestEnvironmentCRUD(t *testing.T) {
 		return res.Code, res.Body.String()
 	}
 	if code, body := api("PUT", "/environments/web", `{"repo":"o/r","branch":"main","image":"ruby","preview":3000,
-		"secrets":{"TOKEN":"s1"},"tools":{"push_branch":"approval"}}`); code != 204 {
+		"secrets":{"TOKEN":"s1"}}`); code != 204 {
 		t.Fatalf("put: %d %s", code, body)
 	}
 	code, body := api("GET", "/environments/web", "")
@@ -247,7 +247,7 @@ func TestEnvironmentCRUD(t *testing.T) {
 	if code != 200 || strings.Contains(body, "s1") || !reflect.DeepEqual(e.Secrets, map[string]string{"TOKEN": ""}) || e.Repo != "o/r" {
 		t.Fatalf("get: %d %s", code, body)
 	}
-	if code, body := api("PATCH", "/environments/web", `{"image":"ruby:3","env":{"A":"1","B":"2"},"tools":{"push_branch":"deny"}}`); code != 200 || strings.Contains(body, "s1") {
+	if code, body := api("PATCH", "/environments/web", `{"image":"ruby:3","env":{"A":"1","B":"2"}}`); code != 200 || strings.Contains(body, "s1") {
 		t.Fatalf("patch: %d %s", code, body)
 	}
 	if code, body := api("PATCH", "/environments/web", `{"env":{"A":null}}`); code != 200 {
@@ -255,11 +255,11 @@ func TestEnvironmentCRUD(t *testing.T) {
 	}
 	stored, err := p.ws.Environment("web")
 	if err != nil || stored.Image != "ruby:3" || !reflect.DeepEqual(stored.Env, map[string]string{"B": "2"}) ||
-		stored.Tools["push_branch"] != "deny" || secret(t, p, "TOKEN") != "s1" || stored.Preview != 3000 {
+		secret(t, p, "TOKEN") != "s1" || stored.Preview != 3000 {
 		t.Fatalf("after patches: %+v %v", stored, err)
 	}
 	for _, bad := range []string{`{"imagee":"x"}`, `{"Image":"x"}`, `{"services":[{"name":"w","bogus":1}]}`, `{"tier":"huge"}`,
-		`{"tools":{"x":"maybe"}}`, `{"secrets":{"NEW":""}}`, `{"name":"other"}`, `[1]`,
+		`{"tools":{"x":"auto"}}`, `{"secrets":{"NEW":""}}`, `{"name":"other"}`, `[1]`,
 		`{"services":[{"name":"w","command":"a"},{"name":"w","command":"b"}]}`} {
 		if code, body := api("PATCH", "/environments/web", bad); code != 400 {
 			t.Errorf("patch %s: %d %s, want 400", bad, code, body)
@@ -322,8 +322,8 @@ func sessionRow(t *testing.T, p *plane, env string, s db.Session) db.Session {
 			t.Fatal(err)
 		}
 	}
-	a := db.Agent{Slug: "hz"}
-	if err := p.DB.Where(&a).Attrs(db.Agent{Name: "hz"}).FirstOrCreate(&a).Error; err != nil {
+	a := db.Agent{Name: "h0"}
+	if err := p.DB.Where(&a).FirstOrCreate(&a).Error; err != nil {
 		t.Fatal(err)
 	}
 	s.EnvironmentID, s.AgentID = e.ID, a.ID
@@ -439,8 +439,8 @@ func TestCredentialsRead(t *testing.T) {
 }
 
 func TestClusterStatus(t *testing.T) {
-	pools := &fakePools{replicas: map[string]int{"hz-medium": 2}, ready: map[string]int{"hz-medium": 1}, nodes: []kube.Node{{Name: "w1", Ready: true}}}
-	sb := &fakeSandboxes{workers: []sandbox.Worker{{Pool: "hz-medium", Pod: "p1", Held: []sandbox.Held{{Name: "a", State: "running"}}}}}
+	pools := &fakePools{replicas: map[string]int{"h0-medium": 2}, ready: map[string]int{"h0-medium": 1}, nodes: []kube.Node{{Name: "w1", Ready: true}}}
+	sb := &fakeSandboxes{workers: []sandbox.Worker{{Pool: "h0-medium", Pod: "p1", Held: []sandbox.Held{{Name: "a", State: "running"}}}}}
 	_, h := serve(newDB(t), sb, pools, checking{"app-dev.nvoi.to": errors.New("app-dev.nvoi.to has no record")})
 	res := call(h, "GET", "api-dev.nvoi.to", "/cluster", "", bearer)
 	var c workers.Cluster
@@ -449,7 +449,7 @@ func TestClusterStatus(t *testing.T) {
 		t.Fatalf("status: %d %s", res.Code, res.Body)
 	}
 	for _, pool := range c.Pools {
-		if pool.Name == "hz-medium" && (pool.Replicas != 2 || pool.Ready != 1) {
+		if pool.Name == "h0-medium" && (pool.Replicas != 2 || pool.Ready != 1) {
 			t.Fatalf("pool: %+v", pool)
 		}
 	}

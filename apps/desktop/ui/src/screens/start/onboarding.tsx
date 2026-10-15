@@ -59,7 +59,7 @@ const waiting: Record<OnboardingStep, string> = {
   seed: "Building the environment",
 };
 
-const fine = "You can leave and come back; hz keeps your place.";
+const fine = "You can leave and come back; h0 keeps your place.";
 
 const record = (load: OnboardingLoad) => (typeof load === "object" && "ready" in load ? load.ready : undefined);
 

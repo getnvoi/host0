@@ -13,7 +13,7 @@ import (
 func TestEvents(t *testing.T) {
 	cases := map[string]string{
 		`{"type":"system","subtype":"init"}`: "status",
-		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__hz__create_pull_request","id":"t1","input":{"title":"x"}}]}}`: "tool_use",
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"mcp__h0__create_pull_request","id":"t1","input":{"title":"x"}}]}}`: "tool_use",
 		`{"type":"result","result":"done"}`: "result",
 		`not json`:                          "notice",
 	}
@@ -23,7 +23,7 @@ func TestEvents(t *testing.T) {
 			t.Errorf("%s: got %+v, want %s", line, ev, kind)
 		}
 	}
-	if name, ok := (Runner{}).Tool("mcp__hz__create_pull_request"); !ok || name != "create_pull_request" {
+	if name, ok := (Runner{}).Tool("mcp__h0__create_pull_request"); !ok || name != "create_pull_request" {
 		t.Errorf("Tool: %q %v", name, ok)
 	}
 }
@@ -109,18 +109,18 @@ func TestEnv(t *testing.T) {
 	}
 }
 
-// Runs the plane's command line against the claude on this machine; HZ_BOXD is a built boxd.
+// Runs the plane's command line against the claude on this machine; H0_BOXD is a built boxd.
 func TestLive(t *testing.T) {
-	boxd := os.Getenv("HZ_BOXD")
+	boxd := os.Getenv("H0_BOXD")
 	if boxd == "" {
-		t.Skip("HZ_BOXD not set")
+		t.Skip("H0_BOXD not set")
 	}
 	dir := t.TempDir()
 	run := func(prompt, session string) ([]llm.Event, string) {
 		argv := Runner{}.Argv(llm.Turn{Prompt: prompt, Session: session, MCP: boxd, Model: "haiku", Instructions: "Answer in one word."})
 		cmd := exec.Command(argv[0], argv[1:]...)
 		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), `HZ_TOOLS=[{"name":"set_title","description":"Name this task.","inputSchema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}}]`)
+		cmd.Env = append(os.Environ(), `H0_TOOLS=[{"name":"set_title","description":"Name this task.","inputSchema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}}]`)
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("%v: %s", err, out)
@@ -136,7 +136,7 @@ func TestLive(t *testing.T) {
 		return evs, id
 	}
 	evs, id := run("Call set_title with title ok, then reply ok.", "")
-	if id == "" || !has(evs, "tool_use", "mcp__hz__set_title") || !has(evs, "result", "") {
+	if id == "" || !has(evs, "tool_use", "mcp__h0__set_title") || !has(evs, "result", "") {
 		t.Fatalf("first turn %s: %+v", id, evs)
 	}
 	evs, _ = run("What title did you set? One word.", id)

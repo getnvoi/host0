@@ -1,6 +1,6 @@
 // The plane's sessions as the screens take them. The plane keeps a session's events in one list, a `prompt` opening
 // each turn; the screens read turns, each with its events, and a waiting approval as a call in the last one.
-import type { AgentRecord, EnvironmentChoice, EventRecord, PullRequestRecord, RepoRecord, SessionRecord, TurnRecord } from "@hz/ui";
+import type { AgentRecord, EnvironmentChoice, EventRecord, PullRequestRecord, RepoRecord, SessionRecord, TurnRecord } from "@h0/ui";
 import { request } from "./client";
 import type { Approval, Changes, EnvironmentSummary, Event, LlmConfig, Provider, Session, State, Summary } from "./models";
 

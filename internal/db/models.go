@@ -19,9 +19,8 @@ type Member struct {
 
 type Agent struct {
 	ID              uint
-	Slug            string `gorm:"not null;uniqueIndex"`
-	Name            string `gorm:"not null"`
-	Tagline         string
+	Name            string `gorm:"not null;uniqueIndex"`
+	Description     string
 	Instructions    string
 	Model           string
 	SubagentsAtOnce int        `gorm:"not null;default:4"`
@@ -36,7 +35,7 @@ type ToolPolicy struct {
 	ID      uint
 	AgentID uint   `gorm:"not null;uniqueIndex:idx_tool_policies_agent_tool"`
 	Tool    string `gorm:"not null;uniqueIndex:idx_tool_policies_agent_tool"`
-	Level   string `gorm:"not null"` // auto, approval or deny
+	Level   string `gorm:"not null"` // auto or approval; a tool with no row does not exist for the agent
 }
 
 type LLMConfig struct {
@@ -66,14 +65,12 @@ type Environment struct {
 	Preview    int // the app's port
 	Tier       string
 	ArchivedAt *time.Time
-	// Tool name to policy: auto, approval or deny.
-	Tools      map[string]string `gorm:"type:text;serializer:json"`
-	EnvVars    []EnvVar          `gorm:"constraint:OnDelete:CASCADE"`
-	Secrets    []Secret          `gorm:"constraint:OnDelete:CASCADE"`
-	SetupSteps []SetupStep       `gorm:"constraint:OnDelete:CASCADE"`
-	Services   []Service         `gorm:"constraint:OnDelete:CASCADE"`
-	Seeds      []Seed            `gorm:"constraint:OnDelete:CASCADE"`
-	Sessions   []Session         `gorm:"constraint:OnDelete:RESTRICT"`
+	EnvVars    []EnvVar    `gorm:"constraint:OnDelete:CASCADE"`
+	Secrets    []Secret    `gorm:"constraint:OnDelete:CASCADE"`
+	SetupSteps []SetupStep `gorm:"constraint:OnDelete:CASCADE"`
+	Services   []Service   `gorm:"constraint:OnDelete:CASCADE"`
+	Seeds      []Seed      `gorm:"constraint:OnDelete:CASCADE"`
+	Sessions   []Session   `gorm:"constraint:OnDelete:RESTRICT"`
 }
 
 type EnvVar struct {

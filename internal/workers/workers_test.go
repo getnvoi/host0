@@ -68,8 +68,8 @@ func workerScaler(t *testing.T, cl *fakeCloud, pools *fakePools, routes ...sandb
 }
 
 func TestPlaceNamesTheLowestFreeWorker(t *testing.T) {
-	cl := servers("hz-dev-w1", "hz-dev-w3", "hz-dev-control")
-	pools := &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w3"), node("hz-dev-control")}}
+	cl := servers("h0-dev-w1", "h0-dev-w3", "h0-dev-control")
+	pools := &fakePools{unplaced: 1, nodes: []kube.Node{node("h0-dev-w1"), node("h0-dev-w3"), node("h0-dev-control")}}
 	p := workerScaler(t, cl, pools)
 	if err := p.SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 3}, Tiers: testShape.Tiers, Actors: testShape.Actors}); err != nil {
 		t.Fatal(err)
@@ -77,33 +77,33 @@ func TestPlaceNamesTheLowestFreeWorker(t *testing.T) {
 	var said []string
 	ctx := sandbox.WithProgress(context.Background(), func(l string) { said = append(said, l) })
 	name, err := p.place(ctx)
-	if err != nil || name != "hz-dev-w2" || !slices.Equal(cl.made, []string{"hz-dev-w2"}) {
+	if err != nil || name != "h0-dev-w2" || !slices.Equal(cl.made, []string{"h0-dev-w2"}) {
 		t.Fatalf("placed %q, made %v: %v", name, cl.made, err)
 	}
-	if s := cl.servers["hz-dev-w2"]; s.Type != "ccx23" || s.PrivateIP != "10.0.1.12" || s.Init != "#cloud-config" {
+	if s := cl.servers["h0-dev-w2"]; s.Type != "ccx23" || s.PrivateIP != "10.0.1.12" || s.Init != "#cloud-config" {
 		t.Fatalf("spec %+v", s)
 	}
-	if !slices.Equal(said, []string{"creating server hz-dev-w2 (ccx23, fsn1)"}) {
+	if !slices.Equal(said, []string{"creating server h0-dev-w2 (ccx23, fsn1)"}) {
 		t.Fatalf("said %q", said)
 	}
 }
 
 func TestPlaceWaitsForAJoiningWorker(t *testing.T) {
-	cl := servers("hz-dev-w1")
+	cl := servers("h0-dev-w1")
 	p := workerScaler(t, cl, &fakePools{unplaced: 1})
-	if name, err := p.place(context.Background()); err != nil || name != "hz-dev-w1" || len(cl.made) > 0 {
+	if name, err := p.place(context.Background()); err != nil || name != "h0-dev-w1" || len(cl.made) > 0 {
 		t.Fatalf("placed %q, made %v: %v", name, cl.made, err)
 	}
-	fresh := kube.Node{Name: "hz-dev-w1", Ready: true, Created: time.Now()}
+	fresh := kube.Node{Name: "h0-dev-w1", Ready: true, Created: time.Now()}
 	p.Pools.(*fakePools).nodes = []kube.Node{fresh}
-	if name, err := p.place(context.Background()); err != nil || name != "hz-dev-w1" || len(cl.made) > 0 {
+	if name, err := p.place(context.Background()); err != nil || name != "h0-dev-w1" || len(cl.made) > 0 {
 		t.Fatalf("a node ready a moment ago: placed %q, made %v: %v", name, cl.made, err)
 	}
 }
 
 func TestPlaceRefusesPastMax(t *testing.T) {
-	cl := servers("hz-dev-w1", "hz-dev-w2")
-	p := workerScaler(t, cl, &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w2")}})
+	cl := servers("h0-dev-w1", "h0-dev-w2")
+	p := workerScaler(t, cl, &fakePools{unplaced: 1, nodes: []kube.Node{node("h0-dev-w1"), node("h0-dev-w2")}})
 	_, err := p.place(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "workers are at their max of 2") || len(cl.made) > 0 {
 		t.Fatalf("made %v: %v", cl.made, err)
@@ -119,10 +119,10 @@ func TestPlaceNothingWhenEveryPodHasANode(t *testing.T) {
 }
 
 func TestRetireAnIdleWorker(t *testing.T) {
-	cl := servers("hz-dev-control", "hz-dev-w1", "hz-dev-w2", "hz-dev-w3", "hz-dev-w4")
-	recent := kube.Node{Name: "hz-dev-w3", Ready: true, Created: time.Now()}
-	pools := &fakePools{occupants: map[string]int{"hz-dev-w2": 1},
-		nodes: []kube.Node{node("hz-dev-control"), node("hz-dev-w1"), node("hz-dev-w2"), recent, node("n1")}}
+	cl := servers("h0-dev-control", "h0-dev-w1", "h0-dev-w2", "h0-dev-w3", "h0-dev-w4")
+	recent := kube.Node{Name: "h0-dev-w3", Ready: true, Created: time.Now()}
+	pools := &fakePools{occupants: map[string]int{"h0-dev-w2": 1},
+		nodes: []kube.Node{node("h0-dev-control"), node("h0-dev-w1"), node("h0-dev-w2"), recent, node("n1")}}
 	p := workerScaler(t, cl, pools, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"})
 	p.Sandboxes.(*fakeSandboxes).states["a"] = "paused"
 	// a is paused on n1, no worker; w2 holds a pod, w3 joined a moment ago, w4 has not joined.
@@ -138,37 +138,37 @@ func TestRetireAnIdleWorker(t *testing.T) {
 	if err := p.retire(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(cl.deleted, []string{"hz-dev-w1"}) || !slices.Equal(pools.forgot, []string{"hz-dev-w1"}) || !pools.cordoned["hz-dev-w1"] {
+	if !slices.Equal(cl.deleted, []string{"h0-dev-w1"}) || !slices.Equal(pools.forgot, []string{"h0-dev-w1"}) || !pools.cordoned["h0-dev-w1"] {
 		t.Fatalf("deleted %v, forgot %v, cordoned %v", cl.deleted, pools.forgot, pools.cordoned)
 	}
 	// One not joined goes after joinWait.
-	fl.free["hz-dev-w4"] = time.Now().Add(-joinWait - time.Minute)
+	fl.free["h0-dev-w4"] = time.Now().Add(-joinWait - time.Minute)
 	if err := p.retire(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(cl.deleted, []string{"hz-dev-w1", "hz-dev-w4"}) {
+	if !slices.Equal(cl.deleted, []string{"h0-dev-w1", "h0-dev-w4"}) {
 		t.Fatalf("deleted %v", cl.deleted)
 	}
 }
 
 func TestRetireKeepsThePausedActorsNode(t *testing.T) {
-	cl := servers("hz-dev-w1")
-	pools := &fakePools{nodes: []kube.Node{node("hz-dev-w1")}}
+	cl := servers("h0-dev-w1")
+	pools := &fakePools{nodes: []kube.Node{node("h0-dev-w1")}}
 	p := workerScaler(t, cl, pools, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"})
-	p.Sandboxes = pausedOn{&fakeSandboxes{states: map[string]string{"a": "paused"}}, "hz-dev-w1"}
-	fl.free["hz-dev-w1"] = time.Now().Add(-time.Hour)
+	p.Sandboxes = pausedOn{&fakeSandboxes{states: map[string]string{"a": "paused"}}, "h0-dev-w1"}
+	fl.free["h0-dev-w1"] = time.Now().Add(-time.Hour)
 	if err := p.retire(context.Background()); err != nil || len(cl.deleted) > 0 {
 		t.Fatalf("deleted %v: %v", cl.deleted, err)
 	}
 }
 
 func TestRetireDropsTheNodeOfAPausedActorNoWorkerHolds(t *testing.T) {
-	cl := servers("hz-dev-w1")
-	pools := &fakePools{nodes: []kube.Node{node("hz-dev-w1")}}
+	cl := servers("h0-dev-w1")
+	pools := &fakePools{nodes: []kube.Node{node("h0-dev-w1")}}
 	p := workerScaler(t, cl, pools, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"})
 	p.Sandboxes = pausedOn{&fakeSandboxes{states: map[string]string{"a": "paused"}}, ""}
-	fl.free["hz-dev-w1"] = time.Now().Add(-time.Hour)
-	if err := p.retire(context.Background()); err != nil || !slices.Equal(cl.deleted, []string{"hz-dev-w1"}) {
+	fl.free["h0-dev-w1"] = time.Now().Add(-time.Hour)
+	if err := p.retire(context.Background()); err != nil || !slices.Equal(cl.deleted, []string{"h0-dev-w1"}) {
 		t.Fatalf("deleted %v: %v", cl.deleted, err)
 	}
 }
@@ -181,9 +181,9 @@ type pausedOn struct {
 func (s pausedOn) Node(context.Context, string) (string, error) { return s.node, nil }
 
 func TestRetireForgetsANodeWhoseServerIsGone(t *testing.T) {
-	pools := &fakePools{nodes: []kube.Node{{Name: "hz-dev-w1", Created: long}, node("hz-dev-w2")}}
-	p := workerScaler(t, servers("hz-dev-w2"), pools)
-	if err := p.retire(context.Background()); err != nil || !slices.Equal(pools.forgot, []string{"hz-dev-w1"}) {
+	pools := &fakePools{nodes: []kube.Node{{Name: "h0-dev-w1", Created: long}, node("h0-dev-w2")}}
+	p := workerScaler(t, servers("h0-dev-w2"), pools)
+	if err := p.retire(context.Background()); err != nil || !slices.Equal(pools.forgot, []string{"h0-dev-w1"}) {
 		t.Fatalf("forgot %v: %v", pools.forgot, err)
 	}
 }
@@ -191,13 +191,13 @@ func TestRetireForgetsANodeWhoseServerIsGone(t *testing.T) {
 // A plane that starts again has its workers from the cloud and the nodes: the next name skips them, the idle clock
 // starts over.
 func TestRestartPicksUpWorkers(t *testing.T) {
-	cl := servers("hz-dev-w1", "hz-dev-w2")
-	pools := &fakePools{unplaced: 1, nodes: []kube.Node{node("hz-dev-w1"), node("hz-dev-w2")}}
+	cl := servers("h0-dev-w1", "h0-dev-w2")
+	pools := &fakePools{unplaced: 1, nodes: []kube.Node{node("h0-dev-w1"), node("h0-dev-w2")}}
 	p := workerScaler(t, cl, pools)
 	if err := p.SetShape(sandbox.Shape{Workers: sandbox.Servers{Type: "ccx23", Location: "fsn1", Max: 5, Idle: time.Minute}, Tiers: testShape.Tiers, Actors: testShape.Actors}); err != nil {
 		t.Fatal(err)
 	}
-	if name, err := p.place(context.Background()); err != nil || name != "hz-dev-w3" {
+	if name, err := p.place(context.Background()); err != nil || name != "h0-dev-w3" {
 		t.Fatalf("placed %q: %v", name, err)
 	}
 	pools.unplaced = 0
@@ -221,7 +221,7 @@ func TestNoCloudMakesNoWorker(t *testing.T) {
 
 func TestShapeIsRequired(t *testing.T) {
 	p := &Scaler{DB: emptyDB(t)}
-	if _, err := p.Tier(""); err == nil || !strings.Contains(err.Error(), "hz cluster install writes it") {
+	if _, err := p.Tier(""); err == nil || !strings.Contains(err.Error(), "h0 cluster install writes it") {
 		t.Fatal(err)
 	}
 	if err := p.SetShape(sandbox.Shape{}); err == nil {

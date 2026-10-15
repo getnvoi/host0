@@ -1,0 +1,10 @@
+# An agent limited to its own branch: it commits, pushes and titles freely, a pull request waits for a person.
+name: gitops
+description: Changes the session's checkout, pushes its branch and asks before opening a pull request.
+tools:
+  session_title: auto
+  session_show: auto
+  session_changes: auto
+  session_navigate: auto
+  session_push: auto
+  session_pr: approval

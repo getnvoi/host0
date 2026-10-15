@@ -52,7 +52,7 @@ func (ws *Workspace) environment(tx *gorm.DB, name string) (Environment, error) 
 		return Environment{}, err
 	}
 	e := Environment{Name: row.Name, Repo: row.Repo, Branch: row.Branch, Image: row.Image, Preview: row.Preview,
-		Tier: row.Tier, Tools: row.Tools}
+		Tier: row.Tier}
 	for _, v := range row.EnvVars {
 		if e.Env == nil {
 			e.Env = map[string]string{}
@@ -193,7 +193,7 @@ func (ws *Workspace) store(e, old Environment) error {
 			return err
 		}
 		row.Name, row.Repo, row.Branch, row.Image, row.Preview, row.Tier = e.Name, e.Repo, e.Branch, e.Image, e.Preview, e.Tier
-		row.Tools, row.ArchivedAt = e.Tools, nil
+		row.ArchivedAt = nil
 		if err := tx.Save(&row).Error; err != nil {
 			return err
 		}
@@ -231,11 +231,6 @@ func (ws *Workspace) valid(e Environment) error {
 	}
 	if _, err := ws.Workers.Tier(e.Tier); err != nil {
 		return err
-	}
-	for tool, pol := range e.Tools {
-		if pol != "auto" && pol != "approval" && pol != "deny" {
-			return fmt.Errorf("tool %s: policy %q is not auto, approval or deny", tool, pol)
-		}
 	}
 	seen := map[string]bool{}
 	for _, s := range e.Services {

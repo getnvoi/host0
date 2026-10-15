@@ -1,4 +1,4 @@
-# hz desktop
+# h0 desktop
 
 The macOS app: Tauri v2 around nvoi's design system (`ui/`, from nvoi's `design` branch at 958d5d6c, with nvoix's
 composer and new session dialog) and the app in `src/`. It talks to one **hub** and, through it, to the plane of the
@@ -6,17 +6,17 @@ workspace in use. This file is the contract the hub and the plane's API rework i
 
 ```
 bun install                                   # at the repository root
-VITE_HZ_HUB=https://hub.example bun run build # the web bundle in dist/
+VITE_H0_HUB=https://hub.example bun run build # the web bundle in dist/
 bun run e2e                                   # Playwright, headless WebKit, against e2e/hub.ts
-bun tauri build --debug --bundles app         # src-tauri/target/debug/bundle/macos/hz.app
+bun tauri build --debug --bundles app         # src-tauri/target/debug/bundle/macos/h0.app
 ```
 
-A build without `VITE_HZ_HUB` starts and says it names no hub.
+A build without `VITE_H0_HUB` starts and says it names no hub.
 
 ## The app
 
-- `src-tauri`: the window, the http plugin (requests from Rust, no CORS), deep-link (`hz://`), and four commands:
-  `keychain_get|set|delete(account)` (service `hz`, account the hub's host) and `open_url(url)` (http and https only).
+- `src-tauri`: the window, the http plugin (requests from Rust, no CORS), deep-link (`h0://`), and four commands:
+  `keychain_get|set|delete(account)` (service `h0`, account the hub's host) and `open_url(url)` (http and https only).
 - `src/native.ts` is everything the web app asks of Tauri; `e2e/native.ts` replaces it in the e2e build.
 - `src/api/client.ts` implements apps/ui's `Transport` (`apps/ui/js/contexts/api/transport.ts`) for the plane through
   the hub: bearer token, fetch-based SSE, sockets by ticket, previews by host.
@@ -28,7 +28,7 @@ A 401 from the hub means the token is gone: the app forgets it and shows sign-in
 
 | Request | Answer |
 |---|---|
-| `GET /v1/auth/github?challenge=<b64url sha256(verifier)>&method=S256&state=<random>&redirect=hz://auth` (opened in the browser) | GitHub's sign-in, then `302 hz://auth?code=<one-time code>&state=<state>`, or `hz://auth?error=<reason>&state=<state>` |
+| `GET /v1/auth/github?challenge=<b64url sha256(verifier)>&method=S256&state=<random>&redirect=h0://auth` (opened in the browser) | GitHub's sign-in, then `302 h0://auth?code=<one-time code>&state=<state>`, or `h0://auth?error=<reason>&state=<state>` |
 | `POST /v1/auth/token` `{"code","verifier"}` | `{"token"}`; 400 when the code was used, expired or does not match the challenge |
 | `DELETE /v1/auth/token` | 204; the token stops working |
 | `GET /v1/me` | `{"login","name","avatar_url"}` |

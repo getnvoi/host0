@@ -1,5 +1,5 @@
 // Signing in with GitHub through the hub: PKCE, with the verifier kept here and the challenge sent; the browser comes
-// back as hz://auth with a code only this verifier trades for a device token.
+// back as h0://auth with a code only this verifier trades for a device token.
 import { ApiError, hub, hubRequest, openUrl } from "./client";
 import { returnFor, returnOr } from "./link";
 
@@ -19,7 +19,7 @@ export async function signInWithGithub(stopped: () => boolean = () => false): Pr
   const verifier = random(32);
   const state = random(16);
   const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
-  await openUrl(`${hub}/v1/auth/github?${new URLSearchParams({ challenge, method: "S256", state, redirect: "hz://auth" })}`);
+  await openUrl(`${hub}/v1/auth/github?${new URLSearchParams({ challenge, method: "S256", state, redirect: "h0://auth" })}`);
   const until = Date.now() + waitFor;
   while (Date.now() < until && !stopped()) {
     await returnOr(2_000);

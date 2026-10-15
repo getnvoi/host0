@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react";
-import { defaultTheme, modes, setDark, switchingTheme, themeRange, type Theme } from "@hz/ui";
+import { defaultTheme, modes, setDark, switchingTheme, themeRange, type Theme } from "@h0/ui";
 
 // The theme, kept in the webview's local storage: the two variables the greys are built from, and dark mode as a class
 // on the document root (the system's preference when the mode is system).
-const saved = "hz.theme";
+const saved = "h0.theme";
 const listeners = new Set<() => void>();
 
 const clamp = (value: number, low: number, high: number) => Math.min(Math.max(value, low), high);

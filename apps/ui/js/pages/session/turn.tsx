@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "@/contexts/i18n";
 import type { Action, Call, Item, Sub, Turn } from "@/lib/transcript";
-import { field, HZ } from "@/lib/transcript";
+import { field, H0 } from "@/lib/transcript";
 import { clock, duration, joined, tokens } from "@/lib/time";
 import { Markdown } from "@/ui/bits";
 import { useToolLabel } from "@/ui/marks";
@@ -18,11 +18,11 @@ const FACES: Record<string, string> = {
   Bash: "bash", BashOutput: "bash", KillShell: "bash", Read: "read", Edit: "edit", MultiEdit: "edit", Write: "edit",
   NotebookEdit: "edit", Glob: "grep", Grep: "grep", LS: "grep", Task: "subagent", Agent: "subagent",
   SendMessage: "subagent", Skill: "skill", TodoWrite: "plan", EnterPlanMode: "plan", ExitPlanMode: "plan",
-  set_title: "settitle", push_branch: "push", create_pull_request: "pr", navigate_preview: "preview",
+  session_title: "settitle", session_push: "push", session_pr: "pr", session_navigate: "preview",
 };
 
 export function face(tool: string) {
-  return FACES[tool.startsWith(HZ) ? tool.slice(HZ.length) : tool] ?? "tool";
+  return FACES[tool.startsWith(H0) ? tool.slice(H0.length) : tool] ?? "tool";
 }
 
 // The one detail worth a line: a command, a path, a title.
@@ -143,7 +143,7 @@ function Subs({ subs, subHref }: { subs: Sub[]; subHref: (id: string) => string 
   );
 }
 
-// An hz action: a denied one as its decided gate, the others as runs with their outcome.
+// An h0 action: a denied one as its decided gate, the others as runs with their outcome.
 function ActionRow({ action }: { action: Action }) {
   const { t } = useTranslations();
   const label = useToolLabel();

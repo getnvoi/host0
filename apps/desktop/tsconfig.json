@@ -13,8 +13,8 @@
     "baseUrl": ".",
     "paths": {
       "@/native": ["src/native.ts"],
-      "@hz/ui": ["ui/src/index.ts"],
-      "@hz/transport": ["../ui/js/contexts/api/transport.ts"],
+      "@h0/ui": ["ui/src/index.ts"],
+      "@h0/transport": ["../ui/js/contexts/api/transport.ts"],
       "@/*": ["src/*"]
     }
   },

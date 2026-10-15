@@ -137,7 +137,7 @@ func (s Client) retry(ctx context.Context, f func() error) error {
 }
 
 // Each address, volume and private address a server holds carries its name too, so its Delete finds them.
-func of(name string) string { return "hz/server=" + name }
+func of(name string) string { return "h0/server=" + name }
 
 type named struct {
 	ID   string `json:"id"`

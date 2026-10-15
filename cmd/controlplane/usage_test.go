@@ -28,7 +28,7 @@ func (b brokenState) State(ctx context.Context, a string) (string, error) {
 func TestSample(t *testing.T) {
 	sb := &fakeSandboxes{
 		states:  map[string]string{"wt-s1": "running", "wt-s2": "paused", "seed-web": "suspended", "wt-s4": "resuming"},
-		workers: []sandbox.Worker{{Pool: "hz-large", Pod: "a"}, {Pool: "hz-large", Pod: "b"}, {Pod: "c"}},
+		workers: []sandbox.Worker{{Pool: "h0-large", Pod: "a"}, {Pool: "h0-large", Pod: "b"}, {Pod: "c"}},
 	}
 	p, _ := serve(newDB(t), brokenState{sb}, nil, nil)
 	putEnv(t, p, workspace.Environment{Name: "web", Tier: "large"})
@@ -93,8 +93,8 @@ func usagePlane(t *testing.T) (*plane, http.Handler) {
 	}
 	usageSession(t, p, workspace.Session{ID: "a", Env: "web", By: "ben", At: day("2026-09-24", 9), Events: []llm.Event{
 		{Kind: "result", At: day("2026-09-24", 10), Meta: json.RawMessage(`{"tokens":100}`)},
-		{Kind: "prompt", At: day("2026-09-25", 1), Content: workspace.Outcome + "\nset_title: done\ncreate_pull_request: opened https://x/1"},
-		{Kind: "prompt", At: day("2026-09-25", 2), Content: "create_pull_request: opened by hand"},
+		{Kind: "prompt", At: day("2026-09-25", 1), Content: workspace.Outcome + "\nsession_title: done\nsession_pr: {\"url\":\"https://x/1\"}"},
+		{Kind: "prompt", At: day("2026-09-25", 2), Content: "session_pr: {\"url\":\"by hand\"}"},
 		{Kind: "error", At: day("2026-09-20", 1), Meta: json.RawMessage(`{"tokens":50}`)},
 	}})
 	usageSession(t, p, workspace.Session{ID: "b", Env: "api", By: "ann", At: day("2026-09-25", 3), Events: []llm.Event{

@@ -2,7 +2,7 @@
 // changes. The report comes in the screen's own shape, its dates as ISO strings.
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { remote, UsageScreen, type Remote, type UsageReport } from "@hz/ui";
+import { remote, UsageScreen, type Remote, type UsageReport } from "@h0/ui";
 import { workspace } from "../../api/client";
 import { useHub } from "../../api/live";
 import { message } from "../../api/session";

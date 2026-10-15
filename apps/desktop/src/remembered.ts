@@ -1,4 +1,4 @@
-import type { SetupRecord } from "@hz/ui";
+import type { SetupRecord } from "@h0/ui";
 
 // What the app remembers on this machine between launches so that a person is not asked twice: per workspace, the
 // setup of their last session (its agent, environment and repositories). Reads never throw: without storage nothing
@@ -31,7 +31,7 @@ function write(store: Store | undefined, key: string, value: unknown) {
   }
 }
 
-const lastKey = (workspace: string) => `hz.last ${workspace}`;
+const lastKey = (workspace: string) => `h0.last ${workspace}`;
 
 const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 

@@ -11,7 +11,7 @@ spec:
   replicas: [[.Replicas]]
   workerImage: ko://github.com/agent-substrate/substrate/cmd/ateom-gvisor
   template:
-    nodeSelector: { hz.dev/worker: "true" }
+    nodeSelector: { h0.dev/worker: "true" }
     tolerations:
       - { key: ate.dev/sandboxClass, operator: Equal, value: gvisor, effect: NoSchedule }
     resources:

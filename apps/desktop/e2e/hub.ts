@@ -130,7 +130,7 @@ async function plane(method: string, route: string, url: URL, body: unknown): Pr
     case "POST sessions": {
       const b = body as { env: string; prompt: string };
       const s = { ...structuredClone(planeRecorded.session), id: `s${state.sessions.size + 1}`, env: b.env, state: "forking", title: "", events: b.prompt ? [{ kind: "prompt", content: b.prompt, at: new Date().toISOString() }] : [] };
-      s.branch = `hz/${s.id}`;
+      s.branch = `h0/${s.id}`;
       s.preview = `${s.id}.northwind.example.com`;
       state.sessions.set(s.id, s);
       return json(s);

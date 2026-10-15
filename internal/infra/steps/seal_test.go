@@ -22,7 +22,7 @@ func TestSealKey(t *testing.T) {
 		{"differ", a, b, nil, "differs from the sealing key in the cluster"},
 		{"cluster short", nil, []byte("short"), nil, "seal is 5 bytes"},
 	} {
-		got, err := sealKey(c.local, c.cluster, "~/.hz/key")
+		got, err := sealKey(c.local, c.cluster, "~/.h0/key")
 		if c.fails != "" {
 			if err == nil || !strings.Contains(err.Error(), c.fails) {
 				t.Errorf("%s: %v, want %q", c.name, err, c.fails)
@@ -33,7 +33,7 @@ func TestSealKey(t *testing.T) {
 			t.Errorf("%s: %x %v", c.name, got, err)
 		}
 	}
-	got, err := sealKey(nil, nil, "~/.hz/key")
+	got, err := sealKey(nil, nil, "~/.h0/key")
 	if err != nil || len(got) != seal.Size {
 		t.Fatalf("neither: %x %v", got, err)
 	}

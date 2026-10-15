@@ -31,7 +31,7 @@ func (ws *Workspace) latestSeed(name, where string, args ...any) (Seed, error) {
 	}
 	err = q.Order("id DESC").First(&r).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return Seed{}, NotFound{fmt.Errorf("environment %s has no seed: hz env seed %s builds one", name, name)}
+		return Seed{}, NotFound{fmt.Errorf("environment %s has no seed: h0 env seed %s builds one", name, name)}
 	}
 	return seedOf(r, name), err
 }

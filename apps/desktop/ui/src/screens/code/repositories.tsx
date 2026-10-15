@@ -66,7 +66,7 @@ export function RepositoriesScreen({
   // Without a GitHub connection, the first run says GitHub comes first; the dialog offers to connect it.
   const noGithub = codeLoad.value(installations)?.length === 0;
   const empty = noGithub
-    ? listEmpty("github", { noun: "repository", plural: "repositories", text: "hz reads and writes your repositories through GitHub. Connecting one starts by connecting GitHub." })
+    ? listEmpty("github", { noun: "repository", plural: "repositories", text: "h0 reads and writes your repositories through GitHub. Connecting one starts by connecting GitHub." })
     : listEmpty("repo", { noun: "repository", plural: "repositories", text: "Connect a repository a GitHub account of this workspace reaches; sessions run on checkouts of it." });
 
   let over = null;
@@ -287,7 +287,7 @@ export function ConnectRepositoryDialog({
     const list = shown(i);
     let notice = null;
     if (i.suspended) {
-      notice = <Notice tone="red" text={`The hz app is suspended on ${i.accountLogin}’s account. Its repositories cannot be read until it is resumed on GitHub.`} />;
+      notice = <Notice tone="red" text={`The h0 app is suspended on ${i.accountLogin}’s account. Its repositories cannot be read until it is resumed on GitHub.`} />;
     } else if (githubInstallation.syncing(i)) {
       notice = <Notice tone="blue" text={`Reading ${i.accountLogin}’s repositories from GitHub.`} />;
     } else if (i.reposSyncStatus === "failed") {

@@ -1,5 +1,5 @@
 // A stand-in plane for working on the UI without a cluster: fixtures for the API, a local shell for terminals.
-// bun dev/plane.ts, then HZ_APP=http://127.0.0.1:5445 bun run dev.
+// bun dev/plane.ts, then H0_APP=http://127.0.0.1:5445 bun run dev.
 import type { ServerWebSocket, Subprocess } from "bun";
 
 const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
@@ -24,9 +24,9 @@ const events = [
   { kind: "tool_use", tool: "Bash", tool_id: "t4", content: '{"command":"bin/rails test test/controllers/health_controller_test.rb"}', at: ago(3) },
   { kind: "tool_result", tool_id: "t4", content: "1 runs, 3 assertions, 0 failures, 0 errors, 0 skips", at: ago(3) },
   { kind: "tool_use", tool: "Bash", tool_id: "t5", content: '{"command":"git add -A && git commit -m \\"Add /health route rendering plain text ok\\""}', at: ago(3) },
-  { kind: "tool_result", tool_id: "t5", content: "[hz/4ca708e1 5b608cc] Add /health route rendering plain text ok", at: ago(3) },
-  { kind: "message", content: "Added `HealthController#show` and the route. The controller test passes (1 run, 3 assertions), and the change is committed on `hz/4ca708e1`. I asked to open the pull request.", at: ago(2) },
-  { kind: "tool_use", tool: "mcp__hz__create_pull_request", tool_id: "p1", content: PR, at: ago(2) },
+  { kind: "tool_result", tool_id: "t5", content: "[h0/4ca708e1 5b608cc] Add /health route rendering plain text ok", at: ago(3) },
+  { kind: "message", content: "Added `HealthController#show` and the route. The controller test passes (1 run, 3 assertions), and the change is committed on `h0/4ca708e1`. I asked to open the pull request.", at: ago(2) },
+  { kind: "tool_use", tool: "mcp__h0__session_pr", tool_id: "p1", content: PR, at: ago(2) },
   { kind: "tool_result", tool_id: "p1", content: "Queued.", at: ago(2) },
   { kind: "result", content: "done", meta: { duration_ms: 38200, tokens: 21400 }, at: ago(2) },
 ];
@@ -97,7 +97,7 @@ const summaries = [
   { id: "9b1e44d2", env: "dummy-rails", title: "Note production check in README", state: "idle", last: ago(180), queued: 0 },
   { id: "5d0f7a13", env: "dummy-rails", title: "Check README and home page title", state: "idle", last: ago(60 * 26), queued: 0 },
   { id: "c3aa9f61", env: "dummy-rails", title: "Upgrade to Rails 8.1", state: "failed", error: "bundle install failed: nokogiri needs libxml2", last: ago(60 * 30), queued: 0 },
-].map((s) => ({ ...s, branch: `hz/${s.id}`, preview: `${s.id}-dev-preview.nvoi.to`, prompt: s.title, at: s.last }));
+].map((s) => ({ ...s, branch: `h0/${s.id}`, preview: `${s.id}-dev-preview.nvoi.to`, prompt: s.title, at: s.last }));
 
 const session = (id: string) => {
   const s = summaries.find((x) => x.id === id);
@@ -215,7 +215,7 @@ Bun.serve<Data, never>({
     if (path === "/stream") return new Response(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode("id: 1\nretry: 2000\n\n")); } }), { headers: { "content-type": "text/event-stream" } });
     if (path === "/sessions") return json(summaries);
     if (path === "/environments") return json([{ name: "dummy-rails", repo: "benbonnet/dummy-rails", branch: "main", tier: "medium", ready: true }]);
-    if (path === "/approvals") return json([{ id: "a1", session: "4ca708e1", tool: "create_pull_request", input: PR, state: "pending" }]);
+    if (path === "/approvals") return json([{ id: "a1", session: "4ca708e1", tool: "session_pr", input: PR, state: "pending" }]);
     if (path === "/usage") {
       const n = Number(url.searchParams.get("days") ?? 30);
       const days = Array.from({ length: n }, (_, i) => {

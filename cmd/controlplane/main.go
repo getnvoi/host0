@@ -29,11 +29,9 @@ import (
 	"github.com/getnvoi/host0/internal/preview"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/sandbox/substrate"
-	"github.com/getnvoi/host0/internal/scm"
 	"github.com/getnvoi/host0/internal/scm/github"
 	"github.com/getnvoi/host0/internal/shared/naming"
 	"github.com/getnvoi/host0/internal/stream"
-	"github.com/getnvoi/host0/internal/tools"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
 )
@@ -61,49 +59,50 @@ func main() {
 		CAFile:    "/run/servicedns-ca/trust-bundle.pem",
 		TokenFile: "/var/run/secrets/ateapi/token",
 		Router:    "atenet-router.ate-system.svc.cluster.local:8081",
-		Atespace:  "hz",
+		Atespace:  "h0",
 		// The bucket in the cluster's own S3 store (rustfs in ate-system); substrate names every bucket gs://.
-		Snapshots: "gs://ate-snapshots/hz/",
+		Snapshots: "gs://ate-snapshots/h0/",
 	})
 	if err != nil {
 		log.Fatalf("substrate: %v", err)
 	}
-	pools, err := kube.InCluster("hz")
+	pools, err := kube.InCluster("h0")
 	if err != nil {
 		log.Fatalf("kube: %v", err)
 	}
 	// The sealing key, mounted from the plane secret's seal by the install.
-	key, err := os.ReadFile("/etc/hz/seal")
+	key, err := os.ReadFile("/etc/h0/seal")
 	if err != nil {
 		log.Fatalf("sealing key: %v", err)
 	}
-	gdb, err := db.Open("/var/lib/hz/hz.db", key)
+	gdb, err := db.Open("/var/lib/h0/h0.db", key)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if err := db.Migrate(gdb); err != nil {
 		log.Fatal(err)
 	}
-	cluster, zone := must("HZ_CLUSTER"), must("HZ_ZONE")
-	cl, init, err := workerCloud("/etc/hz/cloud")
+	cluster, zone := must("H0_CLUSTER"), must("H0_ZONE")
+	cl, init, err := workerCloud("/etc/h0/cloud")
 	if err != nil {
 		log.Fatalf("cloud: %v", err)
 	}
-	p := wire(gdb, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("HZ_PREVIEW_SUFFIX"), must("HZ_BOX_TOKEN"))
+	p := wire(gdb, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("H0_PREVIEW_SUFFIX"), must("H0_BOX_TOKEN"))
 	p.Pods = pools
 	p.sc.Cloud, p.sc.WorkerInit = cl, init
-	p.ws.Pin, p.ws.BoxImage = substrate.PinDockerHub, must("HZ_BOXD_IMAGE")
+	p.ws.Pin, p.ws.BoxImage = substrate.PinDockerHub, must("H0_BOXD_IMAGE")
 	api, app := p.Host("api"), p.Host("app")
 	for _, h := range []string{api, app} {
 		go route(p.Edge, h)
 	}
+	// Made before Recover: a decision it carries out again calls a tool, which the API serves.
+	handler := p.Handler(api, app, must("H0_TOKEN_SHA256"))
 	p.ws.Recover()
 	go p.ws.Stale()
 	go p.sc.Scale(context.Background())
 	go p.Sample(context.Background())
 	log.Printf("plane on :8080, api at https://%s, app at https://%s", api, app)
-	srv := &http.Server{Addr: ":8080", Handler: p.Handler(api, app, must("HZ_TOKEN_SHA256")),
-		ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
+	srv := &http.Server{Addr: ":8080", Handler: handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
 	log.Fatal(srv.ListenAndServe())
 }
 
@@ -125,7 +124,7 @@ type plane struct {
 	DB        *gorm.DB
 	Sandboxes sandbox.Sandboxes
 	Pools     workers.Pools
-	// Reads any pod and its log, for hz pods and hz logs.
+	// Reads any pod and its log, for h0 pods and h0 logs.
 	Pods    Pods
 	Edge    edge.Router
 	Cluster string
@@ -142,6 +141,8 @@ type plane struct {
 	app string
 	// The routes served outside Huma, as "<mux> <pattern>".
 	raw []string
+	// The API's operations as the agents' tools, read when the API is made.
+	tools toolbox
 }
 
 type Pods interface {
@@ -156,30 +157,17 @@ var runners = []llm.Runner{claude.Runner{}, codex.Runner{}}
 func wire(gdb *gorm.DB, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router, cluster, zone, suffix, boxToken string) *plane {
 	bus := stream.New(workspace.Update{Kind: "reset"})
 	sc := &workers.Scaler{Sandboxes: sb, Pools: pools, DB: gdb, Cluster: cluster}
-	ws := &workspace.Workspace{Sandboxes: sb, DB: gdb, Edge: e, Workers: sc, Tools: toolbox{github.Forge{}}, Bus: bus,
-		Runners: runners, BoxToken: boxToken, Cluster: cluster, Zone: zone, Suffix: suffix}
-	sc.Named, sc.Woken = ws.Named, ws.Unkeyed
-	return &plane{DB: gdb, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
-		ws: ws, sc: sc, auth: &auth.Auth{DB: gdb}, gate: preview.Gate{Secret: boxToken}, bus: bus}
+	p := &plane{DB: gdb, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
+		sc: sc, auth: &auth.Auth{DB: gdb}, gate: preview.Gate{Secret: boxToken}, bus: bus}
+	p.ws = &workspace.Workspace{Sandboxes: sb, DB: gdb, Edge: e, Workers: sc, Tools: &p.tools, Forge: github.Forge{},
+		Bus: bus, Runners: runners, BoxToken: boxToken, Cluster: cluster, Zone: zone, Suffix: suffix}
+	sc.Named, sc.Woken = p.ws.Named, p.ws.Unkeyed
+	return p
 }
 
 // One label under the zone, which its universal certificate covers: api-dev.nvoi.to.
 func (p *plane) Host(name string) string {
 	return naming.Host(naming.Cluster{Name: p.Cluster}, name, p.Zone)
-}
-
-// The tools package, as the workspace asks for it.
-type toolbox struct{ forge scm.Forge }
-
-func (toolbox) Spec() []map[string]any    { return tools.Spec() }
-func (toolbox) Policy(name string) string { return tools.Policy(name) }
-
-func (t toolbox) Do(ctx context.Context, w *workspace.Target, name, input string) string {
-	c := &tools.Call{Box: w.Box, Forge: t.forge, Token: w.Token, Dir: w.Dir, Repo: w.Repo, Base: w.Base, Branch: w.Branch,
-		Title: w.Title, Started: w.Started}
-	out := tools.Do(ctx, c, name, input)
-	w.Title = c.Title
-	return out
 }
 
 // The cloud the plane makes worker servers on, from the Secret install mounts at dir; none on a cluster without one.
@@ -228,15 +216,15 @@ func route(e edge.Router, host string) {
 
 // The edge the install deployed beside the plane, named by its Deployment.
 func selectEdge(k *kube.Client, cluster, zone string) edge.Router {
-	switch e := must("HZ_EDGE"); e {
+	switch e := must("H0_EDGE"); e {
 	case "cloudflared":
 		return cloudflare.Router{Token: must("CLOUDFLARE_API_TOKEN"), Zone: zone, TunnelToken: must("TUNNEL_TOKEN")}
 	case "proxy":
 		var creds map[string]string
-		if err := json.Unmarshal([]byte(must("HZ_DNS_CREDS")), &creds); err != nil {
-			log.Fatalf("HZ_DNS_CREDS: %v", err)
+		if err := json.Unmarshal([]byte(must("H0_DNS_CREDS")), &creds); err != nil {
+			log.Fatalf("H0_DNS_CREDS: %v", err)
 		}
-		z, err := dns.Open(must("HZ_DNS_PROVIDER"), creds, zone)
+		z, err := dns.Open(must("H0_DNS_PROVIDER"), creds, zone)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -244,12 +232,12 @@ func selectEdge(k *kube.Client, cluster, zone string) edge.Router {
 		if err != nil {
 			log.Fatal(err)
 		}
-		suffix, node := must("HZ_PREVIEW_SUFFIX"), must("HZ_NODE")
+		suffix, node := must("H0_PREVIEW_SUFFIX"), must("H0_NODE")
 		return dns.Public{Zone: z, Owner: c.Owner(),
 			Owns:      func(host string) bool { return naming.Owns(c, suffix, zone, host) },
 			Addresses: func(ctx context.Context) ([]string, error) { return k.Addresses(ctx, node) }}
 	default:
-		log.Fatalf("HZ_EDGE %q: neither cloudflared nor proxy", e)
+		log.Fatalf("H0_EDGE %q: neither cloudflared nor proxy", e)
 		return nil
 	}
 }
