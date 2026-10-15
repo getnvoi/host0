@@ -1,4 +1,4 @@
-# hz cluster install -f examples/scaleway.yml: the cluster on Scaleway, its location a zone.
+# h0 cluster install -f examples/scaleway.yml: the cluster on Scaleway, its location a zone.
 name: dev
 cloud: { provider: scaleway, location: fr-par-2, credentials: { secret_key: SCW_SECRET_KEY, project_id: SCW_DEFAULT_PROJECT_ID } }
 control: { type: POP2-4C-16G }
