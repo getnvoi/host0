@@ -32,9 +32,9 @@ plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep
 | 1 | `go build -o bin/h0 ./cmd/h0`; `go test ./...` | builds, tests pass |
 | 2 | `install` | ends with `api at https://api-dev.hostzero.app` |
 | 3 | `./bin/h0 credentials && ./bin/h0 env apply examples/dummy-rails.yml` | no output, exit 0 |
-| 4 | `./bin/h0 env seed dummy` | `seed ready:` link in about 2 min |
+| 4 | `./bin/h0 env seed dummy` | step `cloning benbonnet/dummy-rails@main` (the plane fetches), then `unpacking benbonnet/dummy-rails@main` (the sandbox takes the bundle); `seed ready:` link in about 2 min |
 | 5 | Gate, with the link h0 printed and nothing else: `./bin/h0 preview "<the seed ready: link from stage 4>" --check` right after stage 4, and with each session's `preview` link from `session start` | `no token 401`, the link sets the cookie, `cookie 200` |
-| 6 | Fork: `./bin/h0 session start dummy "Reply ok."` | `session <id> on h0/<id>`; `forked in` under 10 s; ends `idle` |
+| 6 | Fork: `./bin/h0 session start dummy "Run printenv GITHUB_TOKEN GH_TOKEN, then git -C /workspace/app remote -v. Reply with what each printed."` | `session <id> on h0/<id>`; `forked in` under 10 s; printenv prints nothing; origin is `https://github.com/benbonnet/dummy-rails` with no credential in it; ends `idle` |
 | 7 | `./bin/h0 session start dummy --agent gitops "<task that ends in a pull request>"` | calls `session_title` and `session_push` at once, stops at `awaiting_approval` on `session_pr`; the agent sees only gitops's six tools |
 | 8 | `./bin/h0 cluster db` | `ok true`: `plain` and `foreign` empty, `found 0` of `markers`, `sealed` counted and `unsealed` empty |
 | 9 | Search: `./bin/h0 search "<a word from stage 7's prompt>"` | a row names stage 7's session, the word in `**` in its snippet |
