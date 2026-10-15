@@ -36,6 +36,7 @@ type h0 struct {
 	Columns []string
 	Field   string
 	By      []string
+	Words   string // the query parameter the arguments after Args fill, joined by spaces
 }
 
 // A query or body field, as a flag: string, int, bool, list (repeated) or map (repeated KEY=VALUE).
@@ -64,9 +65,14 @@ func (o operation) command() *cobra.Command {
 	for _, a := range o.Args {
 		use += " <" + a + ">"
 	}
+	n := cobra.ExactArgs(len(o.Args))
+	if o.H0.Words != "" {
+		use += " <" + o.H0.Words + ">..."
+		n = cobra.MinimumNArgs(len(o.Args) + 1)
+	}
 	var output string
 	values := map[string]any{}
-	cmd := &cobra.Command{Use: use, Short: o.Short, Args: cobra.ExactArgs(len(o.Args))}
+	cmd := &cobra.Command{Use: use, Short: o.Short, Args: n}
 	f := cmd.Flags()
 	for _, fl := range append(append([]param{}, o.Query...), o.Body...) {
 		switch fl.Kind {
@@ -92,6 +98,10 @@ func (o operation) command() *cobra.Command {
 			return err
 		}
 		query := url.Values{}
+		if o.H0.Words != "" {
+			query.Set(o.H0.Words, strings.Join(args[len(o.Args):], " "))
+			args = args[:len(o.Args)]
+		}
 		for _, fl := range o.Query {
 			if f.Changed(fl.Name) {
 				v, err := value(fl, values[fl.Name])

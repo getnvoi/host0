@@ -448,6 +448,17 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:     "search",
+		Short:  "Sessions' titles, events, queued messages and notes holding every word, the best match first; removed sessions too",
+		Method: "GET",
+		Route:  "/search",
+		H0:     h0{Output: "table", Columns: []string{"session", "env", "removed", "in", "kind", "position", "snippet"}, Words: "q"},
+		Query:  []param{{Name: "limit", Kind: "int", Help: "The most hits answered"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.Search(ctx, &client.SearchParams{}, edit)
+		},
+	},
+	{
 		ID:     "session.changes",
 		Short:  "What the session changed against its environment's branch",
 		Method: "GET",

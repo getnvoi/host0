@@ -1,0 +1,13 @@
+> GET /search?q=%22the+cart%22
+[
+  {
+    "session": "a1b2c3d4",
+    "env": "shop",
+    "in": "event",
+    "kind": "message",
+    "position": 3,
+    "snippet": "the **deploy** **failed** on migrate",
+    "at": "2026-10-01T09:00:00Z"
+  }
+]
+

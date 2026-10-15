@@ -36,11 +36,12 @@ plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep
 | 5 | Gate, with the link h0 printed and nothing else: `./bin/h0 preview "<the seed ready: link from stage 4>" --check` right after stage 4, and with each session's `preview` link from `session start` | `no token 401`, the link sets the cookie, `cookie 200` |
 | 6 | Fork: `./bin/h0 session start dummy "Reply ok."` | `session <id> on h0/<id>`; `forked in` under 10 s; ends `idle` |
 | 7 | `./bin/h0 session start dummy --agent gitops "<task that ends in a pull request>"` | calls `session_title` and `session_push` at once, stops at `awaiting_approval` on `session_pr`; the agent sees only gitops's six tools |
-| 8 | `./bin/h0 session preview <id>`, then `./bin/h0 preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
-| 9 | `./bin/h0 approval ls`, `./bin/h0 approval show <id>`, then `./bin/h0 approval approve <id>` without asking | PR URL printed, session back to `idle` |
-| 10 | Every read the spec has, as JSON (below) | each exits 0 and prints JSON |
-| 11 | Idle cycle, below | pause, hold, shrink, suspend, release, resume |
-| 12 | Web UI in Chrome: `./bin/h0 open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.nvoi.to`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
+| 8 | Search: `./bin/h0 search "<a word from stage 7's prompt>"` | a row names stage 7's session, the word in `**` in its snippet |
+| 9 | `./bin/h0 session preview <id>`, then `./bin/h0 preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
+| 10 | `./bin/h0 approval ls`, `./bin/h0 approval show <id>`, then `./bin/h0 approval approve <id>` without asking | PR URL printed, session back to `idle` |
+| 11 | Every read the spec has, as JSON (below) | each exits 0 and prints JSON |
+| 12 | Idle cycle, below | pause, hold, shrink, suspend, release, resume |
+| 13 | Web UI in Chrome: `./bin/h0 open`, then start a conversation from the home composer, watch it stream, queue a message while it works, withdraw one, open the preview panel, answer the gate, Stop a running turn | signed in on `app-dev.nvoi.to`; every step shows live without a reload; the reconnecting strip appears only while the stream is down |
 
 Redeploy one step: `install --only "control plane" && plane_up`. `plane_up` gives up after 3 minutes; then read the plane's log: `./bin/h0 pods --node <control node>` names its pod, `./bin/h0 logs h0-system <pod> --tail 30` prints it.
 
@@ -54,7 +55,7 @@ Each generated read command takes `-o json` and prints the plane's answer as it 
 for c in "me" "ls" "env ls" "env status dummy" "llm ls" "llm providers" "session ls" "session show $S" \
   "session queue ls $S" "session preview $S" "session changes $S" "session log ls $S" "session terminal ls $S" \
   "approval ls" "approval show $A" "cluster shape" "pods" "browsers" "agent ls" "agent show gitops" "usage" \
-  "credentials ls"; do
+  "credentials ls" "search ok"; do
   echo "== h0 $c"; ./bin/h0 ${=c} -o json | python3 -c 'import json,sys; json.load(sys.stdin)' || echo "FAILED: h0 $c"
 done
 ```
@@ -87,4 +88,4 @@ Expected, in order: the session's actor paused on its worker with the worker hel
 
 ## Cleanup
 
-Only when the user asks, or the cluster is no longer needed: it costs about €0.10 an hour while up. `./bin/h0 cluster destroy dev --zone nvoi.to` removes servers, network, firewall, key, tunnel, records and the route claim. Approving in stage 9 opens a real pull request on `benbonnet/dummy-rails`, a throwaway repository kept for this check: approve it, and any other approval a validation run raises, without asking the user.
+Only when the user asks, or the cluster is no longer needed: it costs about €0.10 an hour while up. `./bin/h0 cluster destroy dev --zone nvoi.to` removes servers, network, firewall, key, tunnel, records and the route claim. Approving in stage 10 opens a real pull request on `benbonnet/dummy-rails`, a throwaway repository kept for this check: approve it, and any other approval a validation run raises, without asking the user.

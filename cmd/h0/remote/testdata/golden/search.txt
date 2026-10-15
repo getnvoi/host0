@@ -1,0 +1,4 @@
+> GET /search?limit=5&q=deploy+failed
+SESSION   ENV   REMOVED  IN     KIND     POSITION  SNIPPET
+a1b2c3d4  shop           event  message  3         the **deploy** **failed** on migrate
+e5f6a7b8  web   true     title           0         **Deploy** **failed**
