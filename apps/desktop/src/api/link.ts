@@ -1,6 +1,7 @@
-// h0:// links, which the hub's GitHub callback sends the browser back with: `h0://auth?code=<code>&state=<state>`, or
-// `?error=<reason>&state=<state>` when GitHub refused. A return wakes the sign-in waiting on its state.
+// `<scheme>://auth?code=<code>&state=<state>` (h0, h0-dev in development), where the hub's GitHub callback sends the
+// browser, or `?error=<reason>&state=<state>` when GitHub refused. A return wakes the sign-in waiting on its state.
 import * as native from "@/native";
+import { scheme } from "./client";
 
 export type Return = { code?: string; error?: string };
 
@@ -29,7 +30,7 @@ function opened(address: string) {
   } catch {
     return;
   }
-  if (url.protocol !== "h0:" || url.host !== "auth") return;
+  if (url.protocol !== `${scheme}:` || url.host !== "auth") return;
   const state = url.searchParams.get("state");
   if (!state) return;
   returns.set(state, { code: url.searchParams.get("code") ?? undefined, error: url.searchParams.get("error_description") ?? url.searchParams.get("error") ?? undefined });
