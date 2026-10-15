@@ -148,7 +148,33 @@ func main() {
 	addr := or("H0_HUB_ADDR", "127.0.0.1:5490")
 	log.Printf("hub on %s, at %s; sign-in returns to %s; workspaces under %s", addr, hubURL, h.Redirect, h.Zone)
 	srv := &http.Server{Addr: addr, Handler: h.Handler(), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
+	go reachable(hubURL)
 	log.Fatal(srv.ListenAndServe())
+}
+
+// Whether the hub answers at its URL, as the app and GitHub reach it: the hub's own refusal of a request without a token.
+func reachable(hubURL string) {
+	last := ""
+	for deadline := time.Now().Add(2 * time.Minute); time.Now().Before(deadline); time.Sleep(3 * time.Second) {
+		res, err := outbound.Get(hubURL + "/v1/me")
+		got := ""
+		if err != nil {
+			got = err.Error()
+		} else {
+			b, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+			got = res.Status + " " + string(b)
+			if res.StatusCode == http.StatusUnauthorized && strings.Contains(got, "no device token") {
+				log.Printf("%s answers: the hub is reachable", hubURL)
+				return
+			}
+		}
+		if got != last {
+			log.Printf("%s: %s", hubURL, got)
+			last = got
+		}
+	}
+	log.Printf("%s does not reach this hub after 2m; last: %s. h0 local up --zone <zone> routes it through the tunnel", hubURL, last)
 }
 
 // The hub's sealing key, 32 bytes at path, minted on the first start; the database opens with nothing else.
