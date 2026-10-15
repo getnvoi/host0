@@ -480,10 +480,11 @@ func output(ctx context.Context, e *infra.Env, cmd string) (string, error) {
 	return strings.TrimSpace(b.String()), err
 }
 
-// ko builds for the nodes' arch and pushes through the registry tunnel.
+// ko builds for the nodes' arch and pushes through the registry tunnel. No git stamp: a commit that leaves boxd's
+// code alone keeps its digest, and with it every seed built on it.
 func ko(e *infra.Env) []string {
 	return []string{"KO_DOCKER_REPO=" + naming.LocalRegistry(), "KO_DEFAULTPLATFORMS=linux/" + e.Config.Arch,
-		"KUBECONFIG=" + e.Vars["kubeconfig"], "NO_DEV_ENV=true"}
+		"KUBECONFIG=" + e.Vars["kubeconfig"], "NO_DEV_ENV=true", "GOFLAGS=-buildvcs=false"}
 }
 
 func resolve(ctx context.Context, e *infra.Env, dir string, stdin string, args ...string) (string, error) {
