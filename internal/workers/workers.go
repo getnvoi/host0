@@ -302,7 +302,9 @@ func (s *Scaler) pausedOn(ctx context.Context) (map[string]bool, error) {
 		if err != nil {
 			return nil, fmt.Errorf("node of paused %s: %w", actor, err)
 		}
-		out[node] = true
+		if node != "" {
+			out[node] = true
+		}
 	}
 	return out, nil
 }

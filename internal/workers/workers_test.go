@@ -162,6 +162,17 @@ func TestRetireKeepsThePausedActorsNode(t *testing.T) {
 	}
 }
 
+func TestRetireDropsTheNodeOfAPausedActorNoWorkerHolds(t *testing.T) {
+	cl := servers("hz-dev-w1")
+	pools := &fakePools{nodes: []kube.Node{node("hz-dev-w1")}}
+	p := workerScaler(t, cl, pools, sandbox.Route{Actor: "a", Port: 3000, Tier: "medium"})
+	p.Sandboxes = pausedOn{&fakeSandboxes{states: map[string]string{"a": "paused"}}, ""}
+	fl.free["hz-dev-w1"] = time.Now().Add(-time.Hour)
+	if err := p.retire(context.Background()); err != nil || !slices.Equal(cl.deleted, []string{"hz-dev-w1"}) {
+		t.Fatalf("deleted %v: %v", cl.deleted, err)
+	}
+}
+
 type pausedOn struct {
 	*fakeSandboxes
 	node string

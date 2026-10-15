@@ -200,7 +200,11 @@ func (c *Client) Node(ctx context.Context, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	w, err := c.api.GetWorker(ctx, &pb.GetWorkerRequest{Worker: a.GetStatus().GetWorkerAssignment().GetWorker()})
+	ref := a.GetStatus().GetWorkerAssignment().GetWorker()
+	if ref.GetName() == "" {
+		return "", nil
+	}
+	w, err := c.api.GetWorker(ctx, &pb.GetWorkerRequest{Worker: ref})
 	if err != nil {
 		return "", fmt.Errorf("worker of %s: %w", name, err)
 	}

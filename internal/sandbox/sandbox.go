@@ -26,7 +26,7 @@ type Sandboxes interface {
 	Pause(ctx context.Context, name string) error
 	// running, paused, suspended, or the state in transit.
 	State(ctx context.Context, name string) (string, error)
-	// The node a running actor is on; a pause leaves its snapshot there.
+	// The node a running actor is on; a pause leaves its snapshot there. Empty when no worker holds it.
 	Node(ctx context.Context, name string) (string, error)
 	Workers(ctx context.Context) ([]Worker, error)
 	Suspend(ctx context.Context, name string) error
