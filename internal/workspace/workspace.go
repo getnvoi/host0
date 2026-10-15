@@ -29,12 +29,16 @@ import (
 )
 
 const (
-	App     = "/workspace/app"
-	Home    = "/workspace/.h0/home"
-	Boxd    = "/workspace/.h0/bin/boxd"
-	Ready   = "/workspace/.h0/ready"
-	Runs    = "/workspace/.h0/runs"
-	pathEnv = Home + "/.local/bin:/usr/local/bundle/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	App   = "/workspace/app"
+	Home  = "/workspace/.h0/home"
+	Boxd  = "/workspace/.h0/bin/boxd"
+	Ready = "/workspace/.h0/ready"
+	Runs  = "/workspace/.h0/runs"
+	// The environment's branch as the plane fetched it; the seed script unpacks it into App and removes it.
+	checkoutBundle = "/workspace/.h0/checkout.bundle"
+	// The session's HEAD as the sandbox bundles it for the plane to push; each push overwrites it.
+	pushBundle = "/workspace/.h0/push.bundle"
+	pathEnv    = Home + "/.local/bin:/usr/local/bundle/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 )
 
 type Workspace struct {
@@ -200,18 +204,19 @@ func (ws *Workspace) containers(ctx context.Context, env Environment) ([]sandbox
 	return cs, nil
 }
 
-// Clone, install the agent CLI, run the environment's setup; the services start once it is done.
+// Unpack the plane's bundle, install the agent CLI, run the environment's setup; the services start once it is done.
 func seedScript(env Environment, runners []llm.Runner) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "set -e\nmkdir -p %s\n", Home)
 	fmt.Fprintf(&b, "git config --global user.name h0 && git config --global user.email agent@nvoi.to\n")
 	fmt.Fprintf(&b, "git config --global --add safe.directory '*'\n")
-	b.WriteString(announce(fmt.Sprintf("cloning %s@%s", env.Repo, env.Branch)))
-	fmt.Fprintf(&b, "[ -d %s/.git ] || git clone -q --branch %s \"https://x-access-token:$GITHUB_TOKEN@github.com/%s\" %s\n", App, env.Branch, env.Repo, App)
-	fmt.Fprintf(&b, "git -C %s remote set-url origin https://github.com/%s\n", App, env.Repo)
+	b.WriteString(announce(fmt.Sprintf("unpacking %s@%s", env.Repo, env.Branch)))
+	ref := "refs/heads/" + env.Branch
+	fmt.Fprintf(&b, "[ -d %s/.git ] || git clone -q --branch %s %s %s\n", App, env.Branch, checkoutBundle, App)
 	// A rebuild starts from the branch as it is now, not the checkout the last build left.
-	fmt.Fprintf(&b, "git -C %s fetch -q \"https://x-access-token:$GITHUB_TOKEN@github.com/%s\" %s && git -C %s reset -q --hard FETCH_HEAD\n",
-		App, env.Repo, env.Branch, App)
+	fmt.Fprintf(&b, "git -C %s fetch -q %s +%s:refs/remotes/origin/%s && git -C %s reset -q --hard refs/remotes/origin/%s\n",
+		App, checkoutBundle, ref, env.Branch, App, env.Branch)
+	fmt.Fprintf(&b, "git -C %s remote set-url origin https://github.com/%s\nrm -f %s\n", App, env.Repo, checkoutBundle)
 	// Every runner, so a credential moved to another provider finds its CLI in the seed.
 	for _, r := range runners {
 		b.WriteString(announce("installing " + r.Key()))
@@ -513,12 +518,18 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 		return fail(err)
 	}
 	stop()
+	if err := step(fmt.Sprintf("cloning %s@%s", env.Repo, env.Branch)); err != nil {
+		return fail(err)
+	}
+	if err := ws.checkout(ctx, bx, creds.GitHub, env, g.say); err != nil {
+		return fail(err)
+	}
 	seed.Run = "seed-" + id()
 	if err := step("running the seed script"); err != nil {
 		return fail(err)
 	}
 	var lost error
-	run := box.Run{Argv: sh(seedScript(env, ws.Runners)), Dir: "/workspace", Env: map[string]string{"GITHUB_TOKEN": creds.GitHub}}
+	run := box.Run{Argv: sh(seedScript(env, ws.Runners)), Dir: "/workspace"}
 	err = bx.Must(ctx, seed.Run, run, func(l string) {
 		log.Printf("seed %s | %s", name, l)
 		if what, ok := strings.CutPrefix(l, stepMark); ok {

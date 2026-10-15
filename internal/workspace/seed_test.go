@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,20 +55,40 @@ func (seeder) Template(context.Context, string, sandbox.Tier, []sandbox.Containe
 func (seeder) Suspend(context.Context, string) error     { return nil }
 func (seeder) Tag(context.Context, string, string) error { return nil }
 
+// What a seed build handed boxd: the script and environment of its run, and the files it wrote.
+type seedRun struct {
+	mu     sync.Mutex
+	script string
+	env    map[string]string
+	files  map[string]string
+}
+
 // A boxd whose seed script prints the steps it announces and one line of its own, then exits 0.
-func seedBoxd(script *string) http.HandlerFunc {
+func seedBoxd(seen *seedRun) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		seen.mu.Lock()
+		defer seen.mu.Unlock()
 		switch {
+		case r.Method == "PUT" && r.URL.Path == "/file":
+			b, _ := io.ReadAll(r.Body)
+			if seen.files == nil {
+				seen.files = map[string]string{}
+			}
+			seen.files[r.URL.Query().Get("path")] = string(b)
+			w.WriteHeader(http.StatusNoContent)
 		case r.Method == "PUT" && strings.HasPrefix(r.URL.Path, "/run/"):
-			var run struct{ Argv []string }
+			var run struct {
+				Argv []string
+				Env  map[string]string
+			}
 			json.NewDecoder(r.Body).Decode(&run)
-			*script = run.Argv[2]
+			seen.script, seen.env = run.Argv[2], run.Env
 		case strings.HasSuffix(r.URL.Path, "/log"):
 			w.Header().Set("X-Exit", "0")
 			if r.URL.Query().Get("offset") != "0" {
 				return
 			}
-			for _, l := range strings.Split(*script, "\n") {
+			for _, l := range strings.Split(seen.script, "\n") {
 				if what, ok := strings.CutPrefix(l, "echo '"+stepMark); ok {
 					w.Write([]byte(stepMark + strings.TrimSuffix(what, "'") + "\n"))
 				}
@@ -81,7 +103,7 @@ func seedBoxd(script *string) http.HandlerFunc {
 }
 
 func TestSeedAnnouncesEachStep(t *testing.T) {
-	var script string
+	var script seedRun
 	srv := httptest.NewServer(seedBoxd(&script))
 	t.Cleanup(srv.Close)
 	p := newWorkspace(t, seeder{&fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}})
@@ -97,8 +119,8 @@ func TestSeedAnnouncesEachStep(t *testing.T) {
 	}
 	got := strings.Join(steps(all), "\n")
 	for _, want := range []string{"starting", "reading the environment", "resolving images", "building the template",
-		"starting the sandbox, services: web", "waiting for boxd", "running the seed script", "cloning acme/shop@main",
-		"setup: npm ci", "waiting for the app on port 3000", "snapshotting tpl", "tagging tpl-", "routing "} {
+		"starting the sandbox, services: web", "waiting for boxd", "cloning acme/shop@main", "running the seed script",
+		"unpacking acme/shop@main", "setup: npm ci", "waiting for the app on port 3000", "snapshotting tpl", "tagging tpl-", "routing "} {
 		i := strings.Index(got, want)
 		if i < 0 {
 			t.Fatalf("no step %q in\n%s", want, got)
@@ -111,7 +133,7 @@ func TestSeedAnnouncesEachStep(t *testing.T) {
 func TestSeedSilentStepFails(t *testing.T) {
 	silence = 200 * time.Millisecond
 	t.Cleanup(func() { silence = 10 * time.Second })
-	var script string
+	var script seedRun
 	cancelled := make(chan string, 1)
 	speak := seedBoxd(&script)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +235,7 @@ func (*named) Tag(context.Context, string, string) error { return nil }
 // A restart over a ready seed, with a boxd built since, builds nothing; env suspend takes the routed actor; a
 // rebuild then deletes the actor it replaces.
 func TestRestartAfterSeedBuildsNothing(t *testing.T) {
-	var script string
+	var script seedRun
 	srv := httptest.NewServer(seedBoxd(&script))
 	t.Cleanup(srv.Close)
 	sb := &named{fakeSandbox: &fakeSandbox{boxed: boxed{addr: srv.Listener.Addr().String()}}}

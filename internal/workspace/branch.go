@@ -2,8 +2,9 @@ package workspace
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/getnvoi/host0/internal/box"
@@ -32,7 +33,29 @@ type Page struct {
 	Path string `json:"path" doc:"Its path, from / (/health)"`
 }
 
-// Pushes the session's committed work to its branch on GitHub. The token stays in git's environment, never on disk.
+// Fetches the environment's branch on the plane and writes it into the actor as a bundle: the token never enters it.
+func (ws *Workspace) checkout(ctx context.Context, bx box.Client, token string, env Environment, line func(string)) error {
+	dir, err := os.MkdirTemp("", "h0-checkout-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	path := filepath.Join(dir, "checkout.bundle")
+	if err := ws.Forge.Bundle(ctx, token, env.Repo, env.Branch, path, line); err != nil {
+		return err
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	line(fmt.Sprintf("writing %d bytes to %s", len(b), checkoutBundle))
+	if err := bx.Write(ctx, checkoutBundle, 0o600, b); err != nil {
+		return fmt.Errorf("writing the checkout into the sandbox: %w", err)
+	}
+	return nil
+}
+
+// Pushes the session's committed work to its branch on GitHub: the sandbox bundles HEAD, the plane pushes it.
 func (ws *Workspace) Push(ctx context.Context, sid string) (Pushed, error) {
 	s, env, err := ws.Awake(ctx, sid)
 	if err != nil {
@@ -47,14 +70,26 @@ func (ws *Workspace) Push(ctx context.Context, sid string) (Pushed, error) {
 		return Pushed{}, err
 	}
 	defer release()
-	// The credential goes in git's environment config, not its arguments, which any process in the box can list.
-	script := `git push --no-verify -q -f origin "HEAD:refs/heads/$BRANCH"`
-	auth := "Authorization: Basic " + base64.StdEncoding.EncodeToString([]byte("x-access-token:"+creds.GitHub))
+	bx := ws.box(s.Actor)
 	run := "push-" + id()
 	started(ctx, run)
-	if err := ws.box(s.Actor).Must(ctx, run, box.Run{Argv: []string{"sh", "-c", script}, Dir: App,
-		Env: map[string]string{"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "http.extraheader", "GIT_CONFIG_VALUE_0": auth,
-			"BRANCH": s.Branch, "GIT_TERMINAL_PROMPT": "0"}}, nil); err != nil {
+	script := fmt.Sprintf("rm -f %[1]s && git bundle create -q %[1]s HEAD", pushBundle)
+	if err := bx.Must(ctx, run, box.Run{Argv: sh(script), Dir: App}, nil); err != nil {
+		return Pushed{}, fmt.Errorf("bundling %s: %w", s.Branch, err)
+	}
+	f, err := os.CreateTemp("", "h0-push-*.bundle")
+	if err != nil {
+		return Pushed{}, err
+	}
+	defer os.Remove(f.Name())
+	err = bx.Read(ctx, pushBundle, f)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return Pushed{}, fmt.Errorf("reading the bundle of %s: %w", s.Branch, err)
+	}
+	if err := ws.Forge.Push(ctx, creds.GitHub, env.Repo, f.Name(), s.Branch); err != nil {
 		return Pushed{}, fmt.Errorf("push %s: %w", s.Branch, err)
 	}
 	return Pushed{Branch: s.Branch}, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -85,9 +86,45 @@ func (b *bus) tap(t *testing.T) chan Update {
 	return c
 }
 
+// A forge whose bundle of repo@branch is that text; it keeps the token each call took and each bundle pushed.
+type forge struct {
+	mu     sync.Mutex
+	tokens []string
+	pushed map[string]string // branch: the bundle's bytes
+}
+
+func (f *forge) PullRequest(_ context.Context, token, repo, head, _, _, _ string) (string, error) {
+	f.took(token)
+	return "https://github.com/" + repo + "/pull/" + head, nil
+}
+
+func (f *forge) Bundle(_ context.Context, token, repo, branch, out string, line func(string)) error {
+	f.took(token)
+	line("Receiving objects: 100%")
+	return os.WriteFile(out, []byte(repo+"@"+branch), 0o600)
+}
+
+func (f *forge) Push(_ context.Context, token, _, bundle, branch string) error {
+	f.took(token)
+	b, err := os.ReadFile(bundle)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.pushed == nil {
+		f.pushed = map[string]string{}
+	}
+	f.pushed[branch] = string(b)
+	return err
+}
+
+func (f *forge) took(token string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.tokens = append(f.tokens, token)
+}
+
 // A workspace on sb, its rows in memory. Its turns run claude's real parsing of what the fake boxd prints.
 func newWorkspace(t *testing.T, sb sandbox.Sandboxes) *Workspace {
-	return &Workspace{DB: newDB(t), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{},
+	return &Workspace{DB: newDB(t), Cluster: "dev", Zone: "nvoi.to", BoxToken: "box", Edge: edgeless{}, Forge: &forge{},
 		Sandboxes: sb, Workers: roomy{sb}, Tools: idle{}, Bus: &bus{}, Runners: []llm.Runner{claude.Runner{}},
 		Pin: func(_ context.Context, image string) (string, error) { return image, nil }}
 }
