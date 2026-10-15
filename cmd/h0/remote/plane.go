@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -146,16 +147,21 @@ func link(host string) string {
 func preview() *cobra.Command {
 	var check bool
 	cmd := &cobra.Command{
-		Use:   "preview <host>",
+		Use:   "preview <host or link>",
 		Short: "A 12-hour link to a preview; --check opens it as a visitor would",
-		Args:  cobra.ExactArgs(1),
+		Long: "A 12-hour link to a preview; --check opens it as a visitor would.\n\n" +
+			"Given a link h0 printed (env seed, session start), --check opens that link as it is.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cc *cobra.Command, args []string) error {
-			u, err := previewLink(cc.Context(), args[0])
-			if err != nil {
-				return err
+			host, u := target(args[0])
+			if u == "" {
+				var err error
+				if u, err = previewLink(cc.Context(), host); err != nil {
+					return err
+				}
 			}
 			if check {
-				return visit(args[0], u, cc.OutOrStdout())
+				return visit(host, u, cc.OutOrStdout())
 			}
 			fmt.Fprintln(cc.OutOrStdout(), u)
 			return nil
@@ -163,6 +169,14 @@ func preview() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&check, "check", false, "the gate refuses no token, the link sets the cookie, the cookie opens the app")
 	return cmd
+}
+
+// The host, and the link when arg is one h0 printed; a bare host has no link yet.
+func target(arg string) (host, link string) {
+	if l, err := url.Parse(arg); err == nil && l.Scheme == "https" && l.Host != "" {
+		return l.Host, arg
+	}
+	return arg, ""
 }
 
 // nil is http.DefaultTransport; tests trust their own server with theirs.

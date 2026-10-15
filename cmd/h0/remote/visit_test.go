@@ -49,3 +49,14 @@ func TestVisitOpenGate(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+// A link h0 printed is opened as it is; a host gets a link minted for it.
+func TestTarget(t *testing.T) {
+	link := "https://dummy-dev-preview.nvoi.to/?token=t"
+	if h, l := target(link); h != "dummy-dev-preview.nvoi.to" || l != link {
+		t.Fatalf("link: %s %s", h, l)
+	}
+	if h, l := target("dummy-dev-preview.nvoi.to"); h != "dummy-dev-preview.nvoi.to" || l != "" {
+		t.Fatalf("host: %s %s", h, l)
+	}
+}

@@ -33,7 +33,7 @@ plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep
 | 2 | `install` | ends with `api at https://api-dev.nvoi.to` |
 | 3 | `./bin/h0 credentials && ./bin/h0 env apply examples/dummy-rails.yml` | no output, exit 0 |
 | 4 | `./bin/h0 env seed dummy` | `seed ready:` link in about 2 min |
-| 5 | Gate, right after stage 4, on the host h0 reports for the seed, then on each session's: `./bin/h0 preview "$(./bin/h0 env status dummy -o json \| jq -r .preview)" --check`, `./bin/h0 preview "$(./bin/h0 session show $S -o json \| jq -r .preview)" --check` | `no token 401`, the link sets the cookie, `cookie 200` |
+| 5 | Gate, with the link h0 printed and nothing else: `./bin/h0 preview "<the seed ready: link from stage 4>" --check` right after stage 4, and with each session's `preview` link from `session start` | `no token 401`, the link sets the cookie, `cookie 200` |
 | 6 | Fork: `./bin/h0 session start dummy "Reply ok."` | `session <id> on h0/<id>`; `forked in` under 10 s; ends `idle` |
 | 7 | `./bin/h0 session start dummy --agent gitops "<task that ends in a pull request>"` | calls `session_title` and `session_push` at once, stops at `awaiting_approval` on `session_pr`; the agent sees only gitops's six tools |
 | 8 | `./bin/h0 session preview <id>`, then `./bin/h0 preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
@@ -46,7 +46,7 @@ Redeploy one step: `install --only "control plane" && plane_up`. `plane_up` give
 
 ## Every read, as JSON
 
-Stage 5 runs on the seed's host on every run, including the first one after a destroy and install: an environment's host is the same name every time, a session's is new. The host is always the one h0 reports, never one written by hand. A `no such host` there fails the stage: record `./bin/h0 cluster records` beside it, run the check again on a session's host, and report both; it is not explained away.
+Stage 5 runs on the seed's host on every run, including the first one after a destroy and install: an environment's host is the same name every time, a session's is new. The check takes the link exactly as h0 printed it, in the order a person would open it: no host written by hand, no link minted again, no retry until it passes. A step that only passes when forced is a failure of the flow, and is reported as one. A `no such host` there fails the stage: record `./bin/h0 cluster records` beside it, run the check again on a session's host, and report both; it is not explained away.
 
 Each generated read command takes `-o json` and prints the plane's answer as it is. With a session `$S` and an approval `$A` from the stages above:
 
