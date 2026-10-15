@@ -51,10 +51,13 @@ Each generated read command takes `-o json` and prints the plane's answer as it 
 ```sh
 for c in "me" "ls" "env ls" "env status dummy" "llm ls" "llm providers" "session ls" "session show $S" \
   "session queue ls $S" "session preview $S" "session changes $S" "session log ls $S" "session terminal ls $S" \
-  "approval ls" "cluster shape" "pods" "browsers"; do
-  echo "== h0 $c"; ./bin/h0 $c -o json >/dev/null || echo "FAILED: h0 $c"
+  "approval ls" "approval show $A" "cluster shape" "pods" "browsers" "agent ls" "agent show gitops" "usage" \
+  "credentials ls"; do
+  echo "== h0 $c"; ./bin/h0 ${=c} -o json | python3 -c 'import json,sys; json.load(sys.stdin)' || echo "FAILED: h0 $c"
 done
 ```
+
+`${=c}` splits the command under zsh, the shell here; a bare `$c` passes it as one word and every read fails.
 
 Passes when no line says `FAILED`. A read this list misses is one `h0 --help` shows and the spec names under `x-h0` with an output.
 
