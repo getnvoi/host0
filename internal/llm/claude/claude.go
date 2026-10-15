@@ -2,8 +2,12 @@
 package claude
 
 import (
+	"bytes"
+	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -20,7 +24,10 @@ var credential = map[string]string{
 	"bearer":  "ANTHROPIC_AUTH_TOKEN",
 }
 
-type Runner struct{}
+type Runner struct {
+	// Where Verify asks when the credential has no base_url; https://api.anthropic.com when empty.
+	API string
+}
 
 func (Runner) Key() string   { return "claude_code" }
 func (Runner) Label() string { return "Claude Code" }
@@ -42,6 +49,29 @@ func (Runner) Fields() []llm.Field {
 
 func (Runner) Install() string {
 	return "command -v claude >/dev/null || curl -fsSL https://claude.ai/install.sh | bash"
+}
+
+// The request the claude CLI's quota check sends: one token from a small model, oauth-2025-04-20 with an OAuth token.
+func (r Runner) Verify(ctx context.Context, v map[string]string) error {
+	base := cmp.Or(v["base_url"], r.API, "https://api.anthropic.com")
+	body, _ := json.Marshal(map[string]any{"model": "claude-haiku-4-5", "max_tokens": 1,
+		"messages": []map[string]string{{"role": "user", "content": "quota"}}})
+	req, err := http.NewRequest("POST", strings.TrimSuffix(base, "/")+"/v1/messages", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("anthropic-version", "2023-06-01")
+	switch v["kind"] {
+	case "api_key":
+		req.Header.Set("x-api-key", v["token"])
+	case "oauth":
+		req.Header.Set("anthropic-beta", "oauth-2025-04-20")
+		req.Header.Set("authorization", "Bearer "+v["token"])
+	default:
+		req.Header.Set("authorization", "Bearer "+v["token"])
+	}
+	return llm.Ask(ctx, req)
 }
 
 // IS_SANDBOX lets bypassPermissions run as root.
