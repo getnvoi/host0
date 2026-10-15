@@ -33,7 +33,11 @@ func (Runner) Install() string {
 }
 
 func (Runner) Env(v map[string]string) map[string]string {
+	// A token that is JSON is a ChatGPT sign-in's auth.json; anything else is an API key.
 	env := map[string]string{"CODEX_API_KEY": v["token"]}
+	if json.Valid([]byte(strings.TrimSpace(v["token"]))) {
+		env = map[string]string{"HZ_CODEX_AUTH": v["token"]}
+	}
 	if v["base_url"] != "" {
 		env["OPENAI_BASE_URL"] = v["base_url"]
 	}
@@ -41,7 +45,7 @@ func (Runner) Env(v map[string]string) map[string]string {
 }
 
 func (Runner) Argv(t llm.Turn) []string {
-	argv := []string{"codex", "exec"}
+	argv := []string{"sh", "-c", boot, "codex", "exec"}
 	if t.Session != "" {
 		argv = append(argv, "resume")
 	}
@@ -61,6 +65,10 @@ func (Runner) Argv(t llm.Turn) []string {
 	}
 	return append(argv, t.Prompt)
 }
+
+// codex refreshes a sign-in and rewrites auth.json, so the plane's copy is written only where there is none.
+const boot = `mkdir -p "$HOME/.codex"; [ -z "$HZ_CODEX_AUTH" ] || [ -f "$HOME/.codex/auth.json" ] || ` +
+	`printf %s "$HZ_CODEX_AUTH" > "$HOME/.codex/auth.json"; unset HZ_CODEX_AUTH; exec codex "$@"`
 
 // A JSON string is a TOML basic string: the same quotes and escapes.
 func toml(s string) string {

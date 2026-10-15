@@ -65,9 +65,19 @@ func TestFailed(t *testing.T) {
 	}
 }
 
+func TestEnvTellsASignInFromAKey(t *testing.T) {
+	if env := (Runner{}).Env(map[string]string{"token": "sk-x"}); env["CODEX_API_KEY"] != "sk-x" || len(env) != 1 {
+		t.Fatalf("key: %v", env)
+	}
+	auth := `{"tokens":{"refresh_token":"r"}}`
+	if env := (Runner{}).Env(map[string]string{"token": auth}); env["HZ_CODEX_AUTH"] != auth || len(env) != 1 {
+		t.Fatalf("sign-in: %v", env)
+	}
+}
+
 func TestArgv(t *testing.T) {
 	got := Runner{}.Argv(llm.Turn{Prompt: "hi", Session: "s1", Model: "gpt-5", Instructions: `say "x"`, MCP: "/boxd"})
-	want := []string{"codex", "exec", "resume", "--json", "--skip-git-repo-check", "--ignore-user-config",
+	want := []string{"sh", "-c", boot, "codex", "exec", "resume", "--json", "--skip-git-repo-check", "--ignore-user-config",
 		"--dangerously-bypass-approvals-and-sandbox", "-c", `mcp_servers.hz.command="/boxd"`, "-c", `mcp_servers.hz.args=["mcp"]`,
 		"-c", `mcp_servers.hz.env_vars=["HZ_TOOLS"]`, "-m", "gpt-5", "-c", `developer_instructions="say \"x\""`, "s1", "hi"}
 	if !reflect.DeepEqual(got, want) {
