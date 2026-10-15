@@ -70,9 +70,29 @@ func problem(err error) error {
 	return refusal(status(err), err.Error())
 }
 
-// Writes p, for the routes outside Huma.
-func writeProblem(w http.ResponseWriter, p huma.StatusError) {
+// Writes sp, masked, for the routes outside Huma.
+func (p *plane) writeProblem(w http.ResponseWriter, sp huma.StatusError) {
 	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(p.GetStatus())
-	json.NewEncoder(w).Encode(p)
+	w.WriteHeader(sp.GetStatus())
+	json.NewEncoder(w).Encode(p.masked(sp))
+}
+
+// A refusal with every credential the plane holds masked; any other body as it is.
+func (p *plane) masked(v any) any {
+	e, ok := v.(*huma.ErrorModel)
+	if !ok {
+		return v
+	}
+	c := *e
+	c.Detail = p.ws.Mask(c.Detail)
+	c.Errors = nil
+	for _, d := range e.Errors {
+		m := *d
+		m.Message = p.ws.Mask(m.Message)
+		// The value the request sent, echoed back; only a string can be masked.
+		s, _ := m.Value.(string)
+		m.Value = p.ws.Mask(s)
+		c.Errors = append(c.Errors, &m)
+	}
+	return &c
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -92,6 +93,10 @@ func main() {
 		log.Fatalf("cloud: %v", err)
 	}
 	p := wire(gdb, sb, pools, selectEdge(pools, cluster, zone), cluster, zone, must("H0_PREVIEW_SUFFIX"), must("H0_BOX_TOKEN"))
+	if err := p.ws.Remask(); err != nil {
+		log.Fatal(err)
+	}
+	log.SetOutput(maskedLog{p.ws, os.Stderr})
 	p.Pods = pools
 	p.DBPath = dbPath
 	p.sc.Cloud, p.sc.WorkerInit = cl, init
@@ -110,6 +115,19 @@ func main() {
 	log.Printf("plane on :8080, api at https://%s, app at https://%s", api, app)
 	srv := &http.Server{Addr: ":8080", Handler: handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
 	log.Fatal(srv.ListenAndServe())
+}
+
+// The plane's log, each line with every credential the plane holds masked.
+type maskedLog struct {
+	ws *workspace.Workspace
+	w  io.Writer
+}
+
+func (l maskedLog) Write(b []byte) (int, error) {
+	if _, err := io.WriteString(l.w, l.ws.Mask(string(b))); err != nil {
+		return 0, err
+	}
+	return len(b), nil
 }
 
 // Writes the API's spec to the file named, or to stdout.

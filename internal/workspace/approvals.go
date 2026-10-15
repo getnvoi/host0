@@ -43,7 +43,7 @@ func (ws *Workspace) approvalOf(tx *gorm.DB, r db.Approval) (Approval, error) {
 		return Approval{}, fmt.Errorf("approval %s: who decided it: %w", r.PublicID, err)
 	}
 	a := Approval{ID: r.PublicID, Session: s.PublicID, Turn: r.Turn, Tool: r.Tool, ToolID: r.ToolID, Input: fromJSON(r.Input),
-		State: r.State, Outcome: fromJSON(r.Outcome), At: r.AskedAt, By: by, Allow: r.Allow}
+		Call: r.Call, State: r.State, Outcome: fromJSON(r.Outcome), At: r.AskedAt, By: by, Allow: r.Allow}
 	if r.DecidedAt != nil {
 		a.Decided = *r.DecidedAt
 	}
@@ -102,8 +102,13 @@ func (ws *Workspace) putApproval(a Approval) error {
 		if err != nil {
 			return err
 		}
-		r.PublicID, r.SessionID, r.Turn, r.Tool, r.ToolID, r.Input = a.ID, s.ID, a.Turn, a.Tool, a.ToolID, asJSON(a.Input)
-		r.State, r.Outcome, r.DecidedByID, r.AskedAt, r.Allow = a.State, asJSON(a.Outcome), by, a.At, a.Allow
+		shown := ws.Mask(a.Input)
+		if a.Call == "" && shown != a.Input {
+			a.Call = a.Input
+		}
+		r.PublicID, r.SessionID, r.Turn, r.Tool, r.ToolID, r.Input = a.ID, s.ID, a.Turn, a.Tool, a.ToolID, asJSON(shown)
+		r.Call = a.Call
+		r.State, r.Outcome, r.DecidedByID, r.AskedAt, r.Allow = a.State, asJSON(ws.Mask(a.Outcome)), by, a.At, a.Allow
 		r.DecidedAt = nil
 		if !a.Decided.IsZero() {
 			d := a.Decided

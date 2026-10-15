@@ -137,26 +137,26 @@ func (p *plane) terminal(appHost string) http.HandlerFunc {
 		p.ws.ActorToken)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if o := r.Header.Get("Origin"); o != "" && o != "https://"+appHost {
-			writeProblem(w, refusal(http.StatusForbidden, "origin "+o+" is not the app's"))
+			p.writeProblem(w, refusal(http.StatusForbidden, "origin "+o+" is not the app's"))
 			return
 		}
 		if !box.TerminalID.MatchString(r.PathValue("tid")) {
-			writeProblem(w, refusal(http.StatusBadRequest, box.ErrBadTerminal.Error()))
+			p.writeProblem(w, refusal(http.StatusBadRequest, box.ErrBadTerminal.Error()))
 			return
 		}
 		s, env, err := p.ws.Awake(r.Context(), r.PathValue("id"))
 		if err != nil {
-			writeProblem(w, refusal(status(err), err.Error()))
+			p.writeProblem(w, refusal(status(err), err.Error()))
 			return
 		}
 		release, err := p.sc.Enter(r.Context(), s.Actor, env.Tier)
 		if err != nil {
-			writeProblem(w, refusal(status(err), err.Error()))
+			p.writeProblem(w, refusal(status(err), err.Error()))
 			return
 		}
 		defer release()
 		if err := p.ws.Keyed(r.Context(), s.Actor); err != nil {
-			writeProblem(w, refusal(status(err), err.Error()))
+			p.writeProblem(w, refusal(status(err), err.Error()))
 			return
 		}
 		relay.ServeHTTP(w, r.WithContext(box.ForActor(r.Context(), s.Actor)))

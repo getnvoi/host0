@@ -186,7 +186,7 @@ func (ws *Workspace) store(e, old Environment) error {
 	if err := ws.valid(e); err != nil {
 		return Invalid{err}
 	}
-	return ws.DB.Transaction(func(tx *gorm.DB) error {
+	return ws.remasked(ws.DB.Transaction(func(tx *gorm.DB) error {
 		// An archived row under the name comes back: its sessions' history is the environment's again.
 		var row db.Environment
 		if err := tx.Where("name = ?", e.Name).First(&row).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -222,7 +222,7 @@ func (ws *Workspace) store(e, old Environment) error {
 			}
 		}
 		return nil
-	})
+	}))
 }
 
 func (ws *Workspace) valid(e Environment) error {

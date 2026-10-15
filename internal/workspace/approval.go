@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"sort"
@@ -46,7 +47,7 @@ func (ws *Workspace) act(s *Session, name, input string) string {
 	if halted {
 		return name + ": stopped by the user"
 	}
-	return out
+	return ws.Mask(out)
 }
 
 // Tells the tool being carried out under ctx, if any, of the boxd run it waits on, so a stop can end it.
@@ -126,9 +127,9 @@ func (ws *Workspace) decide(a Approval, approve bool) {
 	case !approve:
 		a.Outcome, a.State = a.Tool+": denied by the user", "denied"
 	case err != nil:
-		a.Outcome, a.State = a.Tool+": failed: "+err.Error(), "failed"
+		a.Outcome, a.State = a.Tool+": failed: "+ws.Mask(err.Error()), "failed"
 	default:
-		a.Outcome, a.State = ws.act(&s, a.Tool, a.Input), "done"
+		a.Outcome, a.State = ws.act(&s, a.Tool, cmp.Or(a.Call, a.Input)), "done"
 		if failed(a.Outcome) {
 			a.State = "failed"
 		} else if strings.HasSuffix(a.Outcome, ": stopped by the user") {

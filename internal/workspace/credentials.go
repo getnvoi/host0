@@ -25,10 +25,10 @@ func (ws *Workspace) credentials() (Credentials, error) {
 // Replaces the credentials: one given empty is removed.
 func (ws *Workspace) PutCredentials(in Credentials) error {
 	if in.GitHub == "" {
-		return ws.DB.Where("name = ?", "github").Delete(&db.Credential{}).Error
+		return ws.remasked(ws.DB.Where("name = ?", "github").Delete(&db.Credential{}).Error)
 	}
-	return ws.DB.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "name"}}, DoUpdates: clause.AssignmentColumns([]string{"value"})}).
-		Create(&db.Credential{Name: "github", Value: in.GitHub}).Error
+	return ws.remasked(ws.DB.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "name"}}, DoUpdates: clause.AssignmentColumns([]string{"value"})}).
+		Create(&db.Credential{Name: "github", Value: in.GitHub}).Error)
 }
 
 func (ws *Workspace) StoredCredentials() (CredentialsSet, error) {
@@ -49,5 +49,5 @@ func (ws *Workspace) RemoveCredential(name string) error {
 	if !known {
 		return NotFound{fmt.Errorf("no credential %s: the plane holds %v", name, credentialNames)}
 	}
-	return ws.DB.Where("name = ?", name).Delete(&db.Credential{}).Error
+	return ws.remasked(ws.DB.Where("name = ?", name).Delete(&db.Credential{}).Error)
 }

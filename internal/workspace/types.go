@@ -199,6 +199,7 @@ type Approval struct {
 	Tool    string    `json:"tool"`
 	ToolID  string    `json:"tool_id,omitempty"` // the tool_use that asked for it
 	Input   string    `json:"input"`
+	Call    string    `json:"-"`     // the input the tool runs on, when Input shows it masked
 	State   string    `json:"state"` // pending, deciding, denied, done, stopped, failed
 	Outcome string    `json:"outcome,omitempty"`
 	At      time.Time `json:"at"`

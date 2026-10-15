@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gorm.io/gorm"
@@ -26,6 +27,7 @@ import (
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/scm"
+	"github.com/getnvoi/host0/internal/shared/mask"
 )
 
 const (
@@ -62,6 +64,8 @@ type Workspace struct {
 	Suffix   string
 	// Decisions carried out after their request answered; Wait returns once none is running.
 	background sync.WaitGroup
+	// The masker of the credentials held when it was last built; every write of one builds it again.
+	masks atomic.Pointer[mask.Masker]
 }
 
 // What a turn, a fork or a seed build needs of the worker pools: a tier's size, and an actor running.
@@ -418,9 +422,10 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 		if ctx.Err() != nil && errors.Is(err, ctx.Err()) {
 			err = context.Cause(ctx)
 		}
+		err = ws.MaskErr(err)
 		seed.State, seed.Error = "failed", err.Error()
 		if perr := ws.saveSeed(&seed); perr != nil {
-			log.Printf("seed %s: %v", name, perr)
+			log.Printf("seed %s: %v", name, ws.MaskErr(perr))
 			ws.Bus.Publish(Update{Kind: "seed", Seed: &seed})
 		}
 		log.Printf("seed %s: %v", name, err)
@@ -488,6 +493,10 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 	if err := step("starting the sandbox, services: " + strings.Join(services, ", ")); err != nil {
 		return fail(err)
 	}
+	// Its actor is on the row now, so the token it is given is masked from here on.
+	if err := ws.Remask(); err != nil {
+		return fail(err)
+	}
 	stop := observe()
 	// A build that crashed leaves its actor crashed, and a crashed actor never resumes: this build starts over.
 	if state, err := ws.Sandboxes.State(ctx, seed.Actor); err == nil && state == "crashed" {
@@ -521,7 +530,7 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 	if err := step(fmt.Sprintf("cloning %s@%s", env.Repo, env.Branch)); err != nil {
 		return fail(err)
 	}
-	if err := ws.checkout(ctx, bx, creds.GitHub, env, g.say); err != nil {
+	if err := ws.checkout(ctx, bx, creds.GitHub, env, func(l string) { g.say(ws.Mask(l)) }); err != nil {
 		return fail(err)
 	}
 	seed.Run = "seed-" + id()
@@ -531,6 +540,7 @@ func (ws *Workspace) Seed(ctx context.Context, name string) error {
 	var lost error
 	run := box.Run{Argv: sh(seedScript(env, ws.Runners)), Dir: "/workspace"}
 	err = bx.Must(ctx, seed.Run, run, func(l string) {
+		l = ws.Mask(l)
 		log.Printf("seed %s | %s", name, l)
 		if what, ok := strings.CutPrefix(l, stepMark); ok {
 			if err := step(what); err != nil && lost == nil {
