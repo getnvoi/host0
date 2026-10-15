@@ -181,7 +181,6 @@ func credentialsLs() *cobra.Command {
 	return cmd
 }
 
-// CLAUDE_CODE_OAUTH_TOKEN, or a new one from claude setup-token, which opens a browser and prints the token last.
 // OPENAI_API_KEY, else a copy of this machine's ChatGPT sign-in.
 func codexToken() (string, error) {
 	if t := os.Getenv("OPENAI_API_KEY"); t != "" {
@@ -198,6 +197,7 @@ func codexToken() (string, error) {
 	return string(auth), err
 }
 
+// CLAUDE_CODE_OAUTH_TOKEN, or a new one from claude setup-token, which opens a browser and prints the token last.
 func claudeToken() (string, error) {
 	if t := os.Getenv("CLAUDE_CODE_OAUTH_TOKEN"); t != "" {
 		return t, nil

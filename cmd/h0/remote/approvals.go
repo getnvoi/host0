@@ -18,7 +18,8 @@ func init() {
 }
 
 func approvalShow() *cobra.Command {
-	return &cobra.Command{
+	var output string
+	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "One approval in full, decided or not",
 		Args:  cobra.ExactArgs(1),
@@ -31,10 +32,15 @@ func approvalShow() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if output != "" {
+				return asJSON(c.OutOrStdout(), output, a)
+			}
 			showApproval(c.OutOrStdout(), a)
 			return nil
 		},
 	}
+	outputFlag(cmd, &output)
+	return cmd
 }
 
 // approve or deny: the decision, then the session followed while it carries the action out.
