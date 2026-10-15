@@ -1,6 +1,6 @@
 import {
   AppWindow, Archive, ArrowDown, ArrowLeft, Bold, Heading2, Italic, ListOrdered, Minus, Quote, SquareCode, Strikethrough, Underline, ArrowDownToLine, ArrowUp, ArrowUpRight, Asterisk, AtSign, ChartColumn, Check, ChevronDown,
-  ChevronLeft, ChevronRight, CircleSlash, Clock, ClockArrowDown, Code, CornerDownRight, Columns3, Copy, Cpu, CreditCard, Diff, Ellipsis, EllipsisVertical, File,
+  ChevronLeft, ChevronRight, CircleSlash, Clock, ClockArrowDown, CornerDownRight, Columns3, Copy, Cpu, CreditCard, Diff, Ellipsis, EllipsisVertical, File,
   FileText, FileUp, Folder, GripVertical, GitBranch, Globe, Hand, House, Image, Inbox, Info, Key, KeyRound, Layers2, Link, List, Lock, LogOut, Maximize2,
   Menu, MessageCircleQuestionMark, MessagesSquare, Mic, Minimize2, Palette, PanelLeft, Paperclip, Pencil, Pin, Play, Reply, RotateCw, ScanLine, Search, Send, Server,
   Moon, Settings, Sparkles, Square, SquareArrowOutUpRight, Sun, SquarePlay, SquareTerminal, Terminal, Trash, Undo2, Unlink, Users,
@@ -11,6 +11,12 @@ import { cn } from "./cn";
 
 // Lucide's plus as one path: its two strokes drawn apart leave a seam where they cross between pixels.
 const Plus = createLucideIcon("plus", [["path", { d: "M5 12h14M12 5v14", key: "plus" }]]);
+
+// GitHub's mark in Lucide's strokes: Lucide 1 ships no brand icons.
+const Github = createLucideIcon("github", [
+  ["path", { d: "M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4", key: "mark" }],
+  ["path", { d: "M9 18c-4.51 2-5-2-7-2", key: "tail" }],
+]);
 
 // Interface glyphs under the names the components use.
 export const glyphs: Record<string, LucideIcon> = {
@@ -84,7 +90,7 @@ export const glyphs: Record<string, LucideIcon> = {
   run: Terminal,
   key: Key,
   server: Server,
-  github: Code,
+  github: Github,
   link: Link,
   unlink: Unlink,
   expand: Maximize2,

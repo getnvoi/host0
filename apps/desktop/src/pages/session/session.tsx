@@ -10,7 +10,7 @@ import {
 import { openUrl } from "../../api/client";
 import { stale, useApi, useReconnecting, useWrite } from "../../api/live";
 import type { Approval, Changes, PreviewStatus, Session } from "../../api/models";
-import { message, sessionOf, sessions as api, turnsOf } from "../../api/session";
+import { message, pullRequestOf, sessionOf, sessions as api, turnsOf } from "../../api/session";
 import { useShellTransport } from "../../api/shell";
 import { store } from "../../store";
 import { useStarting } from "./sessions";
@@ -37,6 +37,7 @@ export function SessionPage() {
   const write = useWrite((work: () => Promise<unknown>) => work());
   const [refused, setRefused] = useState<string>();
   const [changes, setChanges] = useState<Load<ChangesRecord>>("loading");
+  const [changed, setChanged] = useState(0);
   // The plane serves no file listing: Files says so.
   const files: Load<FilesRecord> = load.failed("Files are not served by this workspace yet.");
   // The preview's signed link, asked for once the app answers, and when it was minted.
@@ -74,7 +75,7 @@ export function SessionPage() {
   const detail: SessionDetail | undefined =
     s && session
       ? {
-          session: { ...session, worktree: { ...session.worktree, serving: up } },
+          session: { ...session, worktree: { ...session.worktree, serving: up, pullRequest: pullRequestOf(s, changed) } },
           agent: agents[0] ?? { id: "", name: "Agent", slug: "agent" },
           repo: repos.find((r) => r.id === environment?.repo) ?? { id: "", name: s.env, owner: "", environments: [{ id: s.env, name: s.env, providerName: "" }] },
           turns: [...turns.map(ahead), ...waiting],
@@ -90,15 +91,22 @@ export function SessionPage() {
   const loadChanges = () =>
     api
       .changes(id)
-      .then((c: Changes) => setChanges(load.value({ patch: c.patch ?? "", patchAt: c.at, baseRef: c.base })))
+      .then((c: Changes) => {
+        setChanged(c.files?.length ?? 0);
+        setChanges(load.value({ patch: c.patch ?? "", patchAt: c.at, baseRef: c.base }));
+      })
       .catch((e) => setChanges(failed(e)));
 
-  // A turn that ended may have changed files: Changes reads again if it is open.
+  // The pull request button counts the changed files: they are read on opening, and again when a turn ends.
+  useEffect(() => {
+    setChanged(0);
+    void loadChanges();
+  }, [id]);
   const was = useRef<string>(undefined);
   useEffect(() => {
     const prior = was.current;
     was.current = s?.state;
-    if (prior && prior !== "idle" && s?.state === "idle" && view === 3) void loadChanges();
+    if (prior && prior !== "idle" && s?.state === "idle") void loadChanges();
   }, [s?.state]);
 
   // Runs an action; a failure is shown as `what`, then the plane's sentence. The session is read again after it.

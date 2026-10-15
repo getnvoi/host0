@@ -10,9 +10,9 @@ const you = "0191c1a2-0000-7000-8000-000000000001";
 
 const members: Member[] = [
   { id: "0191c1a2-1000-7000-8000-000000000001", userId: you, email: "ben@dee.mx", role: "admin", createdAt: ago(243) },
-  { id: "0191c1a2-1000-7000-8000-000000000002", userId: "0191c1a2-0000-7000-8000-000000000002", email: "ana@nvoi.local", role: "admin", createdAt: ago(92) },
-  { id: "0191c1a2-1000-7000-8000-000000000003", userId: "0191c1a2-0000-7000-8000-000000000003", email: "tom@nvoi.local", role: "manager", createdAt: ago(12) },
-  { id: "0191c1a2-1000-7000-8000-000000000004", userId: "0191c1a2-0000-7000-8000-000000000004", email: "lea@nvoi.local", role: "editor", createdAt: ago(2) },
+  { id: "0191c1a2-1000-7000-8000-000000000002", userId: "0191c1a2-0000-7000-8000-000000000002", email: "ana@northwind.dev", role: "admin", createdAt: ago(92) },
+  { id: "0191c1a2-1000-7000-8000-000000000003", userId: "0191c1a2-0000-7000-8000-000000000003", email: "tom@northwind.dev", role: "manager", createdAt: ago(12) },
+  { id: "0191c1a2-1000-7000-8000-000000000004", userId: "0191c1a2-0000-7000-8000-000000000004", email: "lea@northwind.dev", role: "editor", createdAt: ago(2) },
 ];
 
 const workspaces = [
@@ -28,14 +28,14 @@ const whoami: WhoamiModel = {
 
 const staging: UsageEnvironment = { id: "env-staging", name: "staging", repo: "benbonnet/dummy-rails", shape: "4x8" };
 const production: UsageEnvironment = { id: "env-production", name: "production", repo: "benbonnet/dummy-rails", shape: "2x4" };
-const nvoiStaging: UsageEnvironment = { id: "env-nvoi", name: "staging", repo: "northwind/nvoi", shape: "8x16" };
+const webStaging: UsageEnvironment = { id: "env-web", name: "staging", repo: "northwind/web", shape: "8x16" };
 const preview: UsageEnvironment = { id: "env-preview", name: "preview", repo: "northwind/billing", shape: "2x4" };
 
 const ranges = [7, 14, 30, 90];
 
 // A range of days, oldest first, with spend that rises on weekdays; the totals add up from the days.
 function usage(days = 30): UsageReport {
-  const shares: [string, number][] = [[staging.id, 0.46], [nvoiStaging.id, 0.28], [production.id, 0.16], [preview.id, 0.07], ["", 0.03]];
+  const shares: [string, number][] = [[staging.id, 0.46], [webStaging.id, 0.28], [production.id, 0.16], [preview.id, 0.07], ["", 0.03]];
   const byDay: UsageDay[] = Array.from({ length: days }, (_, i) => {
     const date = ago(days - 1 - i);
     const weekend = date.getDay() === 0 || date.getDay() === 6;
@@ -61,21 +61,21 @@ function usage(days = 30): UsageReport {
     running: 3, machinesAtOnce: 20, sessions: Math.round(75 * scale), byDay,
     environments: [
       line(staging, Math.round(total(staging.id) * 0.08), Math.floor(38 * scale)),
-      line(nvoiStaging, Math.round(total(nvoiStaging.id) * 0.12), Math.floor(21 * scale)),
+      line(webStaging, Math.round(total(webStaging.id) * 0.12), Math.floor(21 * scale)),
       line(production, Math.round(total(production.id) * 0.05), Math.floor(12 * scale)),
       line(preview, total(preview.id), 0),
       line(undefined, 0, 0),
     ],
     repositories: [
       { repo: staging.repo, cents: total(staging.id) + total(production.id), environments: 2 },
-      { repo: nvoiStaging.repo, cents: total(nvoiStaging.id), environments: 1 },
+      { repo: webStaging.repo, cents: total(webStaging.id), environments: 1 },
       { repo: preview.repo, cents: total(preview.id), environments: 1 },
     ],
     machines: [
-      { setup: false, branch: "nvoi/health-endpoint", environment: staging, session: { id: "s-health", title: "Health endpoint" }, cents: 2_184 * scale, running: 26.3 * scale },
-      { setup: false, branch: "nvoi/billing-webhooks", environment: nvoiStaging, session: { id: "s-webhooks", title: "Billing webhooks" }, cents: 1_642 * scale, running: 9.9 * scale },
-      { setup: true, environment: nvoiStaging, cents: 870 * scale, running: 5.2 * scale },
-      { setup: false, branch: "nvoi/rotate-preview-secrets", environment: production, cents: 412 * scale, running: 9.9 * scale },
+      { setup: false, branch: "hz/health-endpoint", environment: staging, session: { id: "s-health", title: "Health endpoint" }, cents: 2_184 * scale, running: 26.3 * scale },
+      { setup: false, branch: "hz/billing-webhooks", environment: webStaging, session: { id: "s-webhooks", title: "Billing webhooks" }, cents: 1_642 * scale, running: 9.9 * scale },
+      { setup: true, environment: webStaging, cents: 870 * scale, running: 5.2 * scale },
+      { setup: false, branch: "hz/rotate-preview-secrets", environment: production, cents: 412 * scale, running: 9.9 * scale },
       { setup: true, environment: preview, cents: 96, running: 0.4 },
     ],
     storage: [
@@ -138,10 +138,10 @@ const billingTrial: BillingAccount = { ...billingEmpty, spendable: true, trialUn
 
 const history: CreditLine[] = [
   { createdAt: ago(0), kind: "debit", note: "dummy-rails-k2w8q1, 185 minutes", cents: -128 },
-  { createdAt: ago(0), kind: "debit", note: "nvoi-staging-seed, 40 minutes", cents: -55 },
+  { createdAt: ago(0), kind: "debit", note: "web-staging-seed, 40 minutes", cents: -55 },
   { createdAt: ago(1), kind: "debit", note: "dummy-rails-k2w8q1, 312 minutes", cents: -216 },
   { createdAt: ago(3), kind: "grant", note: "Top-up, 5 × 10 EUR", cents: 5_000 },
-  { createdAt: ago(2), kind: "debit", note: "nvoi-staging-seed, 9 minutes", cents: -6.6 },
+  { createdAt: ago(2), kind: "debit", note: "web-staging-seed, 9 minutes", cents: -6.6 },
   { createdAt: ago(2), kind: "debit", note: "dummy-rails-k2w8q1, 20 minutes", cents: -25 },
   { createdAt: ago(2), kind: "debit", note: "dummy-rails-k2w8q1, 1 minute", cents: -0.4 },
   { createdAt: ago(20), kind: "trial", note: "dummy-rails-k2w8q1, 90 minutes", cents: -62 },

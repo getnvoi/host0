@@ -1,6 +1,6 @@
-// The stub hub the e2e tests run the app against: README.md's hub routes, and the plane's behind
-// /v1/workspaces/{ws}/plane, answering from e2e/recorded. POST /__scenario resets it ("fresh" or "ready"); GET /__log
-// lists the writes it took; POST /__push sends the recorded streamed event on the plane's stream.
+// The stub hub: README.md's hub routes, and the plane's behind /v1/workspaces/{ws}/plane, from e2e/recorded. POST
+// /__scenario resets it ("fresh" or "ready"); GET /__log lists its writes; POST /__push streams the recorded event, or
+// with {"event":"opened"} the prompt carrying a pull request's outcome.
 import hubRecorded from "./recorded/hub.json";
 import planeRecorded from "./recorded/plane.json";
 
@@ -139,6 +139,10 @@ async function plane(method: string, route: string, url: URL, body: unknown): Pr
       return state.sessions.has(parts[1]) ? json(state.sessions.get(parts[1])) : said(`session ${parts[1]} not found`, 404);
     case "GET sessions/*/queue":
       return json([]);
+    case "GET sessions/*/changes":
+      return json(planeRecorded.changes);
+    case "POST sessions/*/turns":
+      return new Response(null, { status: 204, headers: cors });
     case "GET sessions/*/preview":
       return json({ up: false });
     case "GET sessions/*/terminals":
@@ -178,9 +182,10 @@ Bun.serve({
     if (path === "/__push") {
       const s = state.sessions.get(planeRecorded.session.id)!;
       const from = s.events.length;
-      s.events.push(planeRecorded.streamed);
-      s.last = planeRecorded.streamed.at;
-      broadcast({ kind: "session", session: summaryOf(s), from, events: [planeRecorded.streamed] });
+      const event = (body as { event?: "opened" } | undefined)?.event === "opened" ? planeRecorded.opened : planeRecorded.streamed;
+      s.events.push(event);
+      s.last = event.at;
+      broadcast({ kind: "session", session: summaryOf(s), from, events: [event] });
       return json({ ok: true });
     }
     if (method !== "GET") state.log.push({ method, path, body });

@@ -12,7 +12,7 @@ export type Signal = "TERM" | "KILL";
 // A stop asked of a process from the machine's menu, waiting on its confirm.
 export type ProcessStop = { process: ProcessRecord; signal: Signal };
 
-// What nvoi's own processes are, by their `role`.
+// What hz's own processes are, by their `role`.
 export const processRoles: Record<string, string> = {
   turn: "Agent turn",
   preview: "Preview server",
@@ -50,7 +50,7 @@ export const machineWords = {
   cpu: (p: ProcessRecord) => `${p.cpu.toFixed(p.cpu >= 10 ? 0 : 1)}% CPU`,
   // Its pid, memory and CPU, and whose it is when it cannot be stopped.
   detail: (p: ProcessRecord, still = false) =>
-    [still ? "Still running" : undefined, String(p.pid), machineWords.bytes(p.rss), machineWords.cpu(p), !p.killable ? (p.role ? "nvoi" : p.user) : undefined]
+    [still ? "Still running" : undefined, String(p.pid), machineWords.bytes(p.rss), machineWords.cpu(p), !p.killable ? (p.role ? "hz" : p.user) : undefined]
       .filter(Boolean)
       .join(" · "),
 };
@@ -69,7 +69,7 @@ export type MachineEntriesOptions = {
 
 // The machine's processes as menu rows, for the session head's machine menu: a header with memory, load and uptime,
 // then the processes by memory with their pid, memory and CPU. A row opens its details; its buttons stop it (asked
-// first; nvoi's own and other users' cannot be stopped) and open its details. Undefined is not read yet.
+// first; hz's own and other users' cannot be stopped) and open its details. Undefined is not read yet.
 export function machineEntries(machine: Load<MachineRecord> | undefined, options: MachineEntriesOptions = {}): MenuEntry[] {
   const { ask, details, start, retry, stop } = options;
   if (!machine || machine === "loading") return [menu.header("Machine", "Reading its processes", { visual: "server" })];
@@ -137,7 +137,7 @@ export function ProcessDrawer({
   let content: ReactNode;
   if (output === "loading" || held) content = <LoadingState text="Reading its log" />;
   else if ("failed" in output) content = <ErrorState title="The log did not load" message={output.failed} retry={refresh} />;
-  else if (!output.value.source) content = <EmptyState glyph="doc" title="No logs for this process" text="nvoi did not start it, so its output is not kept." />;
+  else if (!output.value.source) content = <EmptyState glyph="doc" title="No logs for this process" text="hz did not start it, so its output is not kept." />;
   else if (output.value.lines.length === 0) content = <EmptyState glyph="doc" title="Nothing logged yet" text="Its output shows here once it writes some." />;
   else content = <TerminalBlock lines={output.value.lines.map((text) => ({ text }))} />;
   return (

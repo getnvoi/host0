@@ -69,7 +69,7 @@ export type Update =
   | { kind: "seed"; seed: Seed }
   | { kind: "reset" };
 
-export type Changes = { base: string; at: string; added: number; removed: number; truncated?: boolean; files: unknown[]; patch: string };
+export type Changes = { base: string; at: string; added: number; removed: number; truncated?: boolean; files: unknown[] | null; patch: string };
 
 export type Field = { key: string; label: string; type: "text" | "password" | "select"; secret?: boolean; required?: boolean; options?: { value: string; label: string }[]; default?: string; placeholder?: string; help?: string };
 export type Provider = { key: string; label: string; fields: Field[] };
