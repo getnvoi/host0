@@ -33,7 +33,7 @@ plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep
 | 2 | `install` | ends with `api at https://api-dev.nvoi.to` |
 | 3 | `./bin/h0 credentials && ./bin/h0 env apply examples/dummy-rails.yml` | no output, exit 0 |
 | 4 | `./bin/h0 env seed dummy` | `seed ready:` link in about 2 min |
-| 5 | Gate: `./bin/h0 preview dummy-dev-preview.nvoi.to --check` | `no token 401`, the link sets the cookie, `cookie 200` |
+| 5 | Gate, right after stage 4: `./bin/h0 preview dummy-<cluster>-preview.nvoi.to --check`; also on every session's host after stage 7 | `no token 401`, the link sets the cookie, `cookie 200` |
 | 6 | Fork: `./bin/h0 session start dummy "Reply ok."` | `session <id> on h0/<id>`; `forked in` under 10 s; ends `idle` |
 | 7 | `./bin/h0 session start dummy --agent gitops "<task that ends in a pull request>"` | calls `session_title` and `session_push` at once, stops at `awaiting_approval` on `session_pr`; the agent sees only gitops's six tools |
 | 8 | `./bin/h0 session preview <id>`, then `./bin/h0 preview <id>-dev-preview.nvoi.to --check` while it runs | `up true`; the agent's change is live with no restart |
@@ -45,6 +45,8 @@ plane_up() { for i in $(seq 90); do ./bin/h0 me >/dev/null 2>&1 && return; sleep
 Redeploy one step: `install --only "control plane" && plane_up`. `plane_up` gives up after 3 minutes; then read the plane's log: `./bin/h0 pods --node <control node>` names its pod, `./bin/h0 logs h0-system <pod> --tail 30` prints it.
 
 ## Every read, as JSON
+
+Stage 5 runs on the seed's host on every run, including the first one after a destroy and install, since the seed's host is the same name every time. A `no such host` there fails the stage: record `./bin/h0 cluster records` beside it, run the check again on a session's host, and report both; it is not explained away.
 
 Each generated read command takes `-o json` and prints the plane's answer as it is. With a session `$S` and an approval `$A` from the stages above:
 
