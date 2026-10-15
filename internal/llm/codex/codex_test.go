@@ -67,7 +67,7 @@ func TestFailed(t *testing.T) {
 
 func TestArgv(t *testing.T) {
 	got := Runner{}.Argv(llm.Turn{Prompt: "hi", Session: "s1", Model: "gpt-5", Instructions: `say "x"`, MCP: "/boxd"})
-	want := []string{"sh", "-c", boot, "codex", "exec", "resume", "--json", "--skip-git-repo-check", "--ignore-user-config",
+	want := []string{"codex", "exec", "resume", "--json", "--skip-git-repo-check", "--ignore-user-config",
 		"--dangerously-bypass-approvals-and-sandbox", "-c", `mcp_servers.hz.command="/boxd"`, "-c", `mcp_servers.hz.args=["mcp"]`,
 		"-c", `mcp_servers.hz.env_vars=["HZ_TOOLS"]`, "-m", "gpt-5", "-c", `developer_instructions="say \"x\""`, "s1", "hi"}
 	if !reflect.DeepEqual(got, want) {

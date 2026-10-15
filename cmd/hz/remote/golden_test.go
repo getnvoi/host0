@@ -102,7 +102,7 @@ var goldens = []golden{
 	{"credentials-rm", []string{"credentials", "rm", "github"}, "DELETE /credentials/github", nil},
 	{"llm-ls", []string{"llm", "ls"}, "GET /llm/configs", []workspace.LLMConfig{
 		{Name: "Claude Code", Provider: "claude_code", Values: map[string]string{"kind": "oauth"}, Stored: []string{"token"}, Main: true},
-		{Name: "OpenAI", Provider: "codex", Values: map[string]string{"kind": "api_key", "model": "gpt-5"}, Stored: []string{"token"},
+		{Name: "OpenAI", Provider: "codex", Values: map[string]string{"model": "gpt-5"}, Stored: []string{"token"},
 			Archived: &archived}}},
 	{"llm-providers", []string{"llm", "providers"}, "GET /llm/providers", []llm.Provider{{Key: "claude_code", Label: "Claude Code"}}},
 	{"llm-rm", []string{"llm", "rm", "Claude Code", "--remove"}, "DELETE /llm/configs/{name}", nil},

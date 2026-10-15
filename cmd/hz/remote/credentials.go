@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -27,11 +26,11 @@ func credentials() *cobra.Command {
 	var set, secret []string
 	cmd := &cobra.Command{
 		Use:   "credentials",
-		Short: "Hand the plane a GitHub token (default: gh auth token) and the agent's credential (default: claude setup-token, or codex's sign-in)",
+		Short: "Hand the plane a GitHub token (default: gh auth token) and the agent's credential (default: claude setup-token, or OPENAI_API_KEY for codex)",
 		Example: `  hz credentials --set kind=api_key --secret token=ANTHROPIC_API_KEY
   hz credentials --set kind=bearer --set base_url=https://api.z.ai/api/anthropic --secret token=ZAI_API_KEY
   hz credentials --llm codex
-  hz credentials --llm codex --set kind=api_key --secret token=OPENAI_API_KEY --set model=gpt-5`,
+  hz credentials --llm codex --secret token=OPENAI_API_KEY --set model=gpt-5`,
 		Args: cobra.NoArgs,
 		RunE: func(cc *cobra.Command, _ []string) error {
 			ctx := cc.Context()
@@ -69,15 +68,9 @@ func credentials() *cobra.Command {
 					}
 					l.Values["kind"], l.Values["token"] = "oauth", token
 				case "codex":
-					home, err := os.UserHomeDir()
-					if err != nil {
-						return err
+					if l.Values["token"] = os.Getenv("OPENAI_API_KEY"); l.Values["token"] == "" {
+						return fmt.Errorf("OPENAI_API_KEY is not set in this shell; or --secret token=VARIABLE")
 					}
-					auth, err := os.ReadFile(filepath.Join(home, ".codex", "auth.json"))
-					if err != nil {
-						return fmt.Errorf("codex sign-in: %w (run codex login)", err)
-					}
-					l.Values["kind"], l.Values["token"] = "chatgpt", string(auth)
 				}
 			}
 			pl, err := api()

@@ -20,11 +20,7 @@ func (Runner) Label() string { return "Codex" }
 
 func (Runner) Fields() []llm.Field {
 	return []llm.Field{
-		{Key: "kind", Label: "Credential kind", Type: "select", Required: true,
-			Help:    "chatgpt for a ChatGPT sign-in, api_key for an OpenAI key",
-			Options: []llm.Option{{Value: "chatgpt", Label: "ChatGPT sign-in"}, {Value: "api_key", Label: "OpenAI API key"}}},
-		{Key: "token", Label: "Token", Type: "password", Required: true, Secret: true, Placeholder: "sk-...",
-			Help: "For a ChatGPT sign-in, the whole of ~/.codex/auth.json."},
+		{Key: "token", Label: "OpenAI API key", Type: "password", Required: true, Secret: true, Placeholder: "sk-..."},
 		{Key: "base_url", Label: "Base URL", Type: "text", Placeholder: "https://api.openai.com/v1",
 			Help: "Only for an OpenAI-compatible endpoint. Leave empty for OpenAI."},
 		{Key: "model", Label: "Model", Type: "text", Placeholder: "gpt-5",
@@ -37,25 +33,15 @@ func (Runner) Install() string {
 }
 
 func (Runner) Env(v map[string]string) map[string]string {
-	env := map[string]string{}
-	switch v["kind"] {
-	case "api_key":
-		env["CODEX_API_KEY"] = v["token"]
-	case "chatgpt":
-		env["HZ_CODEX_AUTH"] = v["token"]
-	}
+	env := map[string]string{"CODEX_API_KEY": v["token"]}
 	if v["base_url"] != "" {
 		env["OPENAI_BASE_URL"] = v["base_url"]
 	}
 	return env
 }
 
-// codex refreshes its sign-in and rewrites auth.json, so the plane's copy is written only where there is none.
-const boot = `mkdir -p "$HOME/.codex"; [ -z "$HZ_CODEX_AUTH" ] || [ -f "$HOME/.codex/auth.json" ] || ` +
-	`printf %s "$HZ_CODEX_AUTH" > "$HOME/.codex/auth.json"; unset HZ_CODEX_AUTH; exec codex "$@"`
-
 func (Runner) Argv(t llm.Turn) []string {
-	argv := []string{"sh", "-c", boot, "codex", "exec"}
+	argv := []string{"codex", "exec"}
 	if t.Session != "" {
 		argv = append(argv, "resume")
 	}
