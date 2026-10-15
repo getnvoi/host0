@@ -20,7 +20,8 @@ type h0 struct {
 	Columns []string `json:"columns,omitempty"`
 	Field   string   `json:"field,omitempty"`
 	By      []string `json:"by,omitempty"`
-	Tool    string   `json:"tool,omitempty"` // the level "default" grants it at: auto or approval
+	Words   string   `json:"words,omitempty"` // the query parameter the command's arguments fill, joined by spaces
+	Tool    string   `json:"tool,omitempty"`  // the level "default" grants it at: auto or approval
 	// Never an agent's tool: no agent can be granted it.
 	NoTool bool `json:"noTool,omitempty"`
 }
@@ -81,6 +82,7 @@ func (p *plane) API(mux *http.ServeMux) huma.API {
 	p.previews(a)
 	p.usage(a)
 	p.agents(a)
+	p.search(a)
 	p.tools.load(a, mux)
 	return a
 }

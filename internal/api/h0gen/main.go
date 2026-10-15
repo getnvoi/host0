@@ -1,5 +1,5 @@
 // Writes h0's commands from the plane's spec: one per operation, its path the operation id split on dots, its
-// path parameters as arguments, its query and body fields as flags, its output as the x-h0 extension says.
+// path parameters then x-h0's words as arguments, its other query and body fields as flags, its output as the x-h0 extension says.
 //
 //	go run ./h0gen <spec> <out.go>
 package main
@@ -76,6 +76,7 @@ type h0 struct {
 	Columns []string `yaml:"columns"`
 	Field   string   `yaml:"field"`
 	By      []string `yaml:"by"`
+	Words   string   `yaml:"words"`
 }
 
 // A flag's kind: string, int, bool, a list of strings, or a map of strings given as KEY=VALUE.
@@ -167,6 +168,9 @@ func Generate(raw []byte) ([]byte, error) {
 		if len(op.H0.By) > 0 {
 			x = append(x, "By: "+strs(op.H0.By))
 		}
+		if op.H0.Words != "" {
+			x = append(x, fmt.Sprintf("Words: %q", op.H0.Words))
+		}
 		fmt.Fprintf(&b, "H0: h0{%s},\n", strings.Join(x, ", "))
 		var args, query []parameter
 		headers := false
@@ -192,12 +196,22 @@ func Generate(raw []byte) ([]byte, error) {
 			fmt.Fprintf(&b, "Args: %s,\n", strs(names))
 		}
 		var flags []string
+		words := op.H0.Words == ""
 		for _, p := range query {
+			if p.Name == op.H0.Words {
+				if words = p.Schema.Type == "string"; !words {
+					return nil, fmt.Errorf("%s: words %s is a %s, not a string", op.ID, p.Name, p.Schema.Type)
+				}
+				continue
+			}
 			k, ok := kind(p.Schema)
 			if !ok {
 				return nil, fmt.Errorf("%s: query %s is a %s, which no flag takes", op.ID, p.Name, p.Schema.Type)
 			}
 			flags = append(flags, fmt.Sprintf("{Name: %q, Kind: %q, Help: %q}", p.Name, k, p.Description))
+		}
+		if !words {
+			return nil, fmt.Errorf("%s: words names %s, which is no query parameter", op.ID, op.H0.Words)
 		}
 		if len(flags) > 0 {
 			fmt.Fprintf(&b, "Query: []param{%s},\n", strings.Join(flags, ", "))

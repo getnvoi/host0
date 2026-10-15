@@ -146,6 +146,8 @@ var goldens = []golden{
 		{"namespace": "wt-1a2b", "name": "wt-1a2b-0", "node": "w1", "phase": "Running"}}},
 	{"logs", []string{"logs", "h0", "plane-7c9", "--tail", "2"}, "GET /cluster/pods/h0/plane-7c9/log",
 		map[string]string{"log": "listening on :8080\nserving api-dev.nvoi.to\n"}},
+	{"search", []string{"search", "deploy", "failed", "--limit", "5"}, "GET /search", searchHits},
+	{"search-json", []string{"search", `"the cart"`, "-o", "json"}, "GET /search", searchHits[:1]},
 	{"cluster-shape", []string{"cluster", "shape"}, "GET /cluster/shape", map[string]any{
 		"workers": map[string]any{"type": "cx33", "location": "nbg1", "max": 2, "idle": 600000000000},
 		"tiers":   []map[string]any{{"name": "medium", "cpu": "2", "memory": "4Gi", "cpuRequest": "500m", "default": true}}}},
@@ -155,3 +157,8 @@ var goldens = []golden{
 }
 
 var archived = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+
+var searchHits = []workspace.Hit{
+	{Session: "a1b2c3d4", Env: "shop", In: "event", Kind: "message", Position: 3, Snippet: "the **deploy** **failed** on migrate", At: archived},
+	{Session: "e5f6a7b8", Env: "web", In: "title", Snippet: "**Deploy** **failed**", Removed: true, At: archived},
+}

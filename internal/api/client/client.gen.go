@@ -272,6 +272,18 @@ type Grant struct {
 	Tool  string `json:"tool"`
 }
 
+// Hit defines model for Hit.
+type Hit struct {
+	At       time.Time `json:"at"`
+	Env      string    `json:"env"`
+	In       string    `json:"in"`
+	Kind     *string   `json:"kind,omitempty"`
+	Position int64     `json:"position"`
+	Removed  *bool     `json:"removed,omitempty"`
+	Session  string    `json:"session"`
+	Snippet  string    `json:"snippet"`
+}
+
 // Host defines model for Host.
 type Host struct {
 	Error *string `json:"error,omitempty"`
@@ -627,6 +639,15 @@ type LogsParams struct {
 type LlmRmParams struct {
 	// Remove Delete it rather than archive it
 	Remove *bool `form:"remove,omitempty" json:"remove,omitempty"`
+}
+
+// SearchParams defines parameters for Search.
+type SearchParams struct {
+	// Q Words, or "quoted phrases", that must all match
+	Q string `form:"q" json:"q"`
+
+	// Limit The most hits answered
+	Limit *int64 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // SessionLsParams defines parameters for SessionLs.
@@ -1062,6 +1083,11 @@ type ClientInterface interface {
 	//
 	// Corresponds with POST /previews (the `Preview` operationId).
 	Preview(ctx context.Context, body PreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// Search Sessions' titles, events, queued messages and notes holding every word, the best match first; removed sessions too
+	//
+	// Corresponds with GET /search (the `Search` operationId).
+	Search(ctx context.Context, params *SearchParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EnvSuspend Suspend the actor the environment's preview routes to, freeing its worker
 	//
@@ -1993,6 +2019,21 @@ func (c *Client) PreviewWithBody(ctx context.Context, contentType string, body i
 // Corresponds with POST /previews (the `Preview` operationId).
 func (c *Client) Preview(ctx context.Context, body PreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPreviewRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// Search Sessions' titles, events, queued messages and notes holding every word, the best match first; removed sessions too
+//
+// Corresponds with GET /search (the `Search` operationId).
+func (c *Client) Search(ctx context.Context, params *SearchParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -3918,6 +3959,68 @@ func NewPreviewRequestWithBody(server string, contentType string, body io.Reader
 	return req, nil
 }
 
+// NewSearchRequest constructs an http.Request for the Search method
+func NewSearchRequest(server string, params *SearchParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/search")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "q", params.Q, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewEnvSuspendRequest constructs an http.Request for the EnvSuspend method
 func NewEnvSuspendRequest(server string, name string) (*http.Request, error) {
 	var err error
@@ -5231,6 +5334,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Corresponds with POST /previews (the `Preview` operationId).
 	PreviewWithResponse(ctx context.Context, body PreviewJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewResponse, error)
+
+	// SearchWithResponse Sessions' titles, events, queued messages and notes holding every word, the best match first; removed sessions too
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with GET /search (the `Search` operationId).
+	SearchWithResponse(ctx context.Context, params *SearchParams, reqEditors ...RequestEditorFn) (*SearchResponse, error)
 
 	// EnvSuspendWithResponse Suspend the actor the environment's preview routes to, freeing its worker
 	//
@@ -7231,6 +7341,54 @@ func (r PreviewResponse) ContentType() string {
 	return ""
 }
 
+type SearchResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *[]Hit
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SearchResponse) GetJSON200() *[]Hit {
+	return r.JSON200
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r SearchResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r SearchResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SearchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SearchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SearchResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type EnvSuspendResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8869,6 +9027,19 @@ func (c *ClientWithResponses) PreviewWithResponse(ctx context.Context, body Prev
 	return ParsePreviewResponse(rsp)
 }
 
+// SearchWithResponse Sessions' titles, events, queued messages and notes holding every word, the best match first; removed sessions too
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with GET /search (the `Search` operationId).
+func (c *ClientWithResponses) SearchWithResponse(ctx context.Context, params *SearchParams, reqEditors ...RequestEditorFn) (*SearchResponse, error) {
+	rsp, err := c.Search(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSearchResponse(rsp)
+}
+
 // EnvSuspendWithResponse Suspend the actor the environment's preview routes to, freeing its worker
 //
 // Returns a wrapper object for the known response body format(s).
@@ -10463,6 +10634,39 @@ func ParsePreviewResponse(rsp *http.Response) (*PreviewResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PreviewLink
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSearchResponse parses an HTTP response from a SearchWithResponse call
+func ParseSearchResponse(rsp *http.Response) (*SearchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SearchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Hit
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
