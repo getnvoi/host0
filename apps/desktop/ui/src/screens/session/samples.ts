@@ -26,7 +26,7 @@ const tom: AuthorRecord = { id: "u-tom", name: "Tom Weber" };
 
 const repos: RepoRecord[] = [
   { id: "r-dummy", name: "benbonnet/dummy-rails", owner: "benbonnet", defaultBranch: "main", environments: [{ id: "e-dummy-dev", name: "development", providerName: "daytona" }, { id: "e-dummy-staging", name: "staging", providerName: "daytona" }] },
-  { id: "r-nvoi", name: "northwind/nvoi", owner: "northwind", defaultBranch: "main", environments: [{ id: "e-nvoi-dev", name: "development", providerName: "daytona" }, { id: "e-nvoi-preview", name: "preview", providerName: "hetzner" }] },
+  { id: "r-web", name: "northwind/web", owner: "northwind", defaultBranch: "main", environments: [{ id: "e-web-dev", name: "development", providerName: "daytona" }, { id: "e-web-preview", name: "preview", providerName: "hetzner" }] },
   { id: "r-billing", name: "northwind/billing", owner: "northwind", defaultBranch: "trunk", environments: [{ id: "e-billing-dev", name: "development", providerName: "daytona" }] },
   { id: "r-infra", name: "northwind/infra", owner: "northwind", defaultBranch: null, environments: [] },
 ];
@@ -46,17 +46,17 @@ function session(id: string, title: string, status: string, repo: string, env: s
 }
 
 const health = session("health", "Health endpoint", "waiting", "r-dummy", "e-dummy-dev",
-  worktree("health", "r-dummy", "e-dummy-dev", "dummy-rails-4f2a91", "running", { hostname: "dummy-rails-4f2a91.nvoi.dev", serving: true, pr: { changed: 3 } }), at(10, 46));
+  worktree("health", "r-dummy", "e-dummy-dev", "dummy-rails-4f2a91", "running", { hostname: "dummy-rails-4f2a91.preview.example.com", serving: true, pr: { changed: 3 } }), at(10, 46));
 const billing = session("billing", "Billing webhooks", "running", "r-billing", "e-billing-dev",
   worktree("billing", "r-billing", "e-billing-dev", "billing-77c0de", "running", { pr: { changed: 2 } }), at(10, 44));
-const sandbox = session("sandbox", "Add a sandbox check to the README", "running", "r-nvoi", "e-nvoi-dev",
-  worktree("sandbox", "r-nvoi", "e-nvoi-dev", "nvoi-1b9e40", "starting", { pr: { changed: 0 } }), at(10, 47));
+const sandbox = session("sandbox", "Add a sandbox check to the README", "running", "r-web", "e-web-dev",
+  worktree("sandbox", "r-web", "e-web-dev", "web-1b9e40", "starting", { pr: { changed: 0 } }), at(10, 47));
 const secrets = session("secrets", "Rotate preview secrets", "idle", "r-dummy", "e-dummy-staging",
   worktree("secrets", "r-dummy", "e-dummy-staging", "dummy-rails-a03f55", "failed", { pr: { changed: 0 } }), at(9, 31));
-const readme = session("readme", "Note README check, push PR", "idle", "r-nvoi", "e-nvoi-dev",
-  worktree("readme", "r-nvoi", "e-nvoi-dev", "nvoi-5d21aa", "paused", { pr: { url: "https://github.com/northwind/nvoi/pull/212", state: "merged", changed: 1 }, days: 1 }), at(17, 12, 0, 1));
-const darkMode = session("dark", "Dark mode for the settings page", "idle", "r-nvoi", "e-nvoi-preview",
-  worktree("dark", "r-nvoi", "e-nvoi-preview", "nvoi-c8e112", "paused", { pr: { url: "https://github.com/northwind/nvoi/pull/214", state: "open", changed: 6 }, days: 3 }), at(9, 2, 0, 3));
+const readme = session("readme", "Note README check, push PR", "idle", "r-web", "e-web-dev",
+  worktree("readme", "r-web", "e-web-dev", "web-5d21aa", "paused", { pr: { url: "https://github.com/northwind/web/pull/212", state: "merged", changed: 1 }, days: 1 }), at(17, 12, 0, 1));
+const darkMode = session("dark", "Dark mode for the settings page", "idle", "r-web", "e-web-preview",
+  worktree("dark", "r-web", "e-web-preview", "web-c8e112", "paused", { pr: { url: "https://github.com/northwind/web/pull/214", state: "open", changed: 6 }, days: 3 }), at(9, 2, 0, 3));
 const flaky = session("flaky", "Flaky spec in checkout_test", "idle", "r-dummy", "e-dummy-dev",
   worktree("flaky", "r-dummy", "e-dummy-dev", "dummy-rails-90ab31", "paused", { pr: { changed: 1 }, days: 16 }), at(11, 20, 0, 16));
 const old = session("old", "Upgrade to Rails 8", "idle", "r-dummy", "e-dummy-dev",
@@ -76,7 +76,7 @@ const served: Record<string, [string, string?]> = {
   provision__checkout: ["Setting up your checkout", "name"], provision__setup: ["Running setup", "name"],
 };
 function named(tool: string | null | undefined, input: string): Pick<EventRecord, "label" | "command"> {
-  const [label, key] = served[(tool ?? "").replace("mcp__nvoi__", "")] ?? [tool ?? ""];
+  const [label, key] = served[(tool ?? "").replace("mcp__hz__", "")] ?? [tool ?? ""];
   const value = key ? (JSON.parse(input || "{}") as Record<string, unknown>)[key] : undefined;
   return { label, command: value === undefined ? "" : String(value) };
 }
@@ -89,7 +89,7 @@ const said = (content: string, time: string): EventRecord => ({ id: id(), kind: 
 const status = (time: string): EventRecord => ({ id: id(), kind: "status", content: "init", createdAt: time });
 const turn = (t: Omit<TurnRecord, "events"> & { events?: EventRecord[] }): TurnRecord => ({ events: [], ...t });
 
-const mcp = "mcp__nvoi__";
+const mcp = "mcp__hz__";
 
 const askAccess = `{"questions":[{"question":"Who can reach /health?","header":"Access","multiSelect":false,"options":[{"label":"Public","description":"Load balancers probe it without a token"},{"label":"Signed in","description":"Only members"}]}]}`;
 const askRetries = `{"questions":[{"question":"How many times should a failed webhook be retried?","header":"Retries","multiSelect":false,"options":[{"label":"3 times","description":"Over about ten minutes"},{"label":"8 times","description":"Over a day, as Stripe does"}]}]}`;
@@ -225,7 +225,7 @@ const idle = detail(darkMode, repos[1], [
       result("d2", "ok", day(14, 41, 2, d3)),
       call(mcp + "create_screenshot", `{"url":"/settings","label":"Settings, dark"}`, day(14, 42, 0, d3), "d3"),
       result("d3", "ok", day(14, 42, 6, d3)),
-      call(mcp + "create_pull_request", `{"title":"Dark mode for settings","body":"The settings page follows the system appearance.\\n\\nContrast of disabled buttons is 4.6:1 in dark mode."}`, day(14, 43, 0, d3), "d4", { approval: "approved", outcome: "pull request opened: https://github.com/northwind/nvoi/pull/214", by: ben, decided: day(14, 50, 0, d3) }),
+      call(mcp + "create_pull_request", `{"title":"Dark mode for settings","body":"The settings page follows the system appearance.\\n\\nContrast of disabled buttons is 4.6:1 in dark mode."}`, day(14, 43, 0, d3), "d4", { approval: "approved", outcome: "pull request opened: https://github.com/northwind/web/pull/214", by: ben, decided: day(14, 50, 0, d3) }),
       said("The pull request is open: the settings page follows the system appearance.", day(14, 51, 0, d3)),
     ],
   }),
@@ -321,9 +321,9 @@ const browsed = detail({ ...health, title: "Members page spacing", status: "idle
 const sub = (kind: string, content: string, time: string, o: Partial<EventRecord>): EventRecord =>
   ({ id: id(), kind, content, createdAt: time, ...(kind === "tool_use" ? named(o.tool, content) : {}), ...o });
 
-// An app made in nvoi, its agent working through two sub-agents: the head ships instead of opening a pull request.
+// An app made in hz, its agent working through two sub-agents: the head ships instead of opening a pull request.
 const delegating = detail(
-  session("app", "Translate the app", "running", "r-nvoi", "e-nvoi-dev", worktree("app", "r-nvoi", "e-nvoi-dev", "nvoi-7e01bc", "running", { pr: { changed: 5, ship: true } }), at(10, 46)),
+  session("app", "Translate the app", "running", "r-web", "e-web-dev", worktree("app", "r-web", "e-web-dev", "web-7e01bc", "running", { pr: { changed: 5, ship: true } }), at(10, 46)),
   repos[1],
   [
     turn({
@@ -428,7 +428,7 @@ new file mode 100644
 @@ -0,0 +1,9 @@
 +class HealthController < ApplicationController
 +  def show
-+    render json: { version: Nvoi::VERSION, database: database? }
++    render json: { version: DummyRails::VERSION, database: database? }
 +  end
 +
 +  private
@@ -472,7 +472,7 @@ const file: FileRecord = {
   size: 214,
   text: `class HealthController < ApplicationController
   def show
-    render json: { version: Nvoi::VERSION, database: database? }
+    render json: { version: DummyRails::VERSION, database: database? }
   end
 
   private
@@ -484,7 +484,7 @@ end`,
 const logs: LogsRecord = {
   logs: [
     { step: "Starting your machine", createdAt: at(10, 46, 2) },
-    { step: "box", output: "daytona: workspace nvoi-1b9e40 created\ndaytona: workspace started", createdAt: at(10, 46, 40) },
+    { step: "box", output: "daytona: workspace web-1b9e40 created\ndaytona: workspace started", createdAt: at(10, 46, 40) },
     { step: "Setting up your checkout", createdAt: at(10, 46, 43) },
     { step: "git clone", output: "Cloning into '/workspace'...\nreceiving objects: 64% (1210/1890)", createdAt: at(10, 47, 10) },
   ],
@@ -518,15 +518,15 @@ const inbox: InboxItem[] = [
   { kind: "call", event: call(mcp + "create_pull_request", `{"title":"Add /health endpoint"}`, at(10, 45), "i1", { approval: "pending" }), place: place(health) },
   { kind: "call", event: call(mcp + "ask_user", askRetries, at(10, 31), "i2", { approval: "pending" }), place: place(billing) },
   { kind: "mention", id: "m-1", author: maya, text: "@Ben Load balancer probes hit it every 5s, keep it public and cheap.", handled: false, createdAt: at(10, 46), place: place(health) },
-  { kind: "call", event: call(mcp + "create_pull_request", `{"title":"Dark mode for settings"}`, day(14, 43, 0, d1), "i3", { approval: "approved", outcome: "Opened northwind/nvoi#214", by: ben, decided: day(14, 50, 0, d1) }), place: place(darkMode) },
+  { kind: "call", event: call(mcp + "create_pull_request", `{"title":"Dark mode for settings"}`, day(14, 43, 0, d1), "i3", { approval: "approved", outcome: "Opened northwind/web#214", by: ben, decided: day(14, 50, 0, d1) }), place: place(darkMode) },
   { kind: "call", event: call(mcp + "push_branch", "{}", day(16, 2, 0, d1), "i4", { approval: "rejected", by: maya, decided: day(16, 5, 0, d1) }), place: place(readme) },
   {
     kind: "call",
     event: call(mcp + "ask_user", `{"questions":[{"question":"Keep the old /up route?","header":"Route","multiSelect":false,"options":[{"label":"Keep","description":""},{"label":"Remove","description":""}]}]}`, day(9, 12, 0, d3), "i5", { approval: "approved", outcome: "Keep", by: ben, decided: day(9, 20, 0, d3) }),
     place: place(flaky),
   },
-  { kind: "health", id: "h-1", environmentId: "e-production", environment: "production", repo: "northwind/nvoi", owner: "northwind", status: "degraded", reasons: ["web: CrashLoopBackOff", "web: 1 of 2 replicas ready"], resolved: false, createdAt: at(10, 40) },
-  { kind: "health", id: "h-2", environmentId: "e-production", environment: "production", repo: "northwind/nvoi", owner: "northwind", status: "down", reasons: ["no node is ready"], resolved: true, createdAt: day(11, 0, 0, d1) },
+  { kind: "health", id: "h-1", environmentId: "e-production", environment: "production", repo: "northwind/web", owner: "northwind", status: "degraded", reasons: ["web: CrashLoopBackOff", "web: 1 of 2 replicas ready"], resolved: false, createdAt: at(10, 40) },
+  { kind: "health", id: "h-2", environmentId: "e-production", environment: "production", repo: "northwind/web", owner: "northwind", status: "down", reasons: ["no node is ready"], resolved: true, createdAt: day(11, 0, 0, d1) },
   { kind: "mention", id: "m-2", author: tom, text: "@Ben can you check the staging variables before I rotate them?", handled: true, createdAt: day(9, 0, 0, d3), place: place(secrets) },
 ];
 
@@ -569,7 +569,7 @@ const machine: MachineRecord = {
   processes: [
     proc(903, 902, "deploy", "npm", "npm test -- --runInBand", 96.4, 612),
     proc(701, 700, "deploy", "ruby", "bin/rails server -p 3000", 4.2, 402, "preview"),
-    proc(902, 901, "deploy", "node", "/opt/nvoi/node/bin/node /opt/nvoi/node/bin/claude -p Add a health endpoint", 22.5, 296, "turn"),
+    proc(902, 901, "deploy", "node", "/opt/hz/node/bin/node /opt/hz/node/bin/claude -p Add a health endpoint", 22.5, 296, "turn"),
     proc(4121, 1, "deploy", "node", "node scripts/watch.js --port 4000", 1.8, 188),
     proc(4200, 1, "browser", "chromium", "/mnt/data/playwright/chromium-1187/chrome-linux/chrome --headless", 0.6, 142),
     proc(4300, 1, "postgres", "postgres", "postgres: 16/main: checkpointer", 0.1, 64),
