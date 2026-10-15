@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -24,6 +26,8 @@ type Client struct {
 	Zone   string
 	Suffix string // preview hosts are <name>-<cluster><Suffix>; that route is claimed with no Worker, so nothing on the zone intercepts them
 	Say    func(string, ...any)
+	// Host to service, served ahead of the plane on the same tunnel, each with its record: h0 local's hub.
+	Hosts map[string]string
 }
 
 // Scoped to the cluster, so a broader route on the zone (another app's *-preview Worker) keeps the rest.
@@ -154,14 +158,22 @@ func (c Client) Tunnel(ctx context.Context, cl naming.Cluster, service string) (
 	if err := c.claim(ctx, cl); err != nil {
 		return "", err
 	}
-	// Every request on this tunnel goes to the plane, which reads the host.
-	ingress := map[string]any{"config": map[string]any{"ingress": []map[string]any{{"service": service}}}}
-	if err := c.do(ctx, "PUT", "/accounts/"+acc+"/cfd_tunnel/"+id+"/configurations", ingress, nil); err != nil {
+	if err := c.do(ctx, "PUT", "/accounts/"+acc+"/cfd_tunnel/"+id+"/configurations", ingress(c.Hosts, service), nil); err != nil {
 		return "", err
 	}
 	var token string
 	err = c.do(ctx, "GET", "/accounts/"+acc+"/cfd_tunnel/"+id+"/token", nil, &token)
 	return token, err
+}
+
+// Each of hosts to its service, sorted; every other request goes to the plane, which reads the host.
+func ingress(hosts map[string]string, service string) map[string]any {
+	var rules []map[string]any
+	for _, h := range slices.Sorted(maps.Keys(hosts)) {
+		rules = append(rules, map[string]any{"hostname": h, "service": hosts[h]})
+	}
+	rules = append(rules, map[string]any{"service": service})
+	return map[string]any{"config": map[string]any{"ingress": rules}}
 }
 
 // The tunnel dials out: nothing is opened on the node.
@@ -179,6 +191,12 @@ func (c Client) Serve(ctx context.Context, cl naming.Cluster, service string, _ 
 	token, err := c.Tunnel(ctx, cl, service)
 	if err != nil {
 		return nil, err
+	}
+	for _, h := range slices.Sorted(maps.Keys(c.Hosts)) {
+		c.Say("record %s, to %s", h, c.Hosts[h])
+		if err := (Router{Token: c.Token, Zone: c.Zone, TunnelToken: token}).Route(ctx, h); err != nil {
+			return nil, err
+		}
 	}
 	return map[string]map[string]string{"cloudflared": {"token": token}, "cloudflare": {"token": c.Token, "zone": c.Zone}}, nil
 }
