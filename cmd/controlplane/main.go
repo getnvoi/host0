@@ -29,11 +29,9 @@ import (
 	"github.com/getnvoi/host0/internal/preview"
 	"github.com/getnvoi/host0/internal/sandbox"
 	"github.com/getnvoi/host0/internal/sandbox/substrate"
-	"github.com/getnvoi/host0/internal/scm"
 	"github.com/getnvoi/host0/internal/scm/github"
 	"github.com/getnvoi/host0/internal/shared/naming"
 	"github.com/getnvoi/host0/internal/stream"
-	"github.com/getnvoi/host0/internal/tools"
 	"github.com/getnvoi/host0/internal/workers"
 	"github.com/getnvoi/host0/internal/workspace"
 )
@@ -97,13 +95,14 @@ func main() {
 	for _, h := range []string{api, app} {
 		go route(p.Edge, h)
 	}
+	// Made before Recover: a decision it carries out again calls a tool, which the API serves.
+	handler := p.Handler(api, app, must("HZ_TOKEN_SHA256"))
 	p.ws.Recover()
 	go p.ws.Stale()
 	go p.sc.Scale(context.Background())
 	go p.Sample(context.Background())
 	log.Printf("plane on :8080, api at https://%s, app at https://%s", api, app)
-	srv := &http.Server{Addr: ":8080", Handler: p.Handler(api, app, must("HZ_TOKEN_SHA256")),
-		ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
+	srv := &http.Server{Addr: ":8080", Handler: handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
 	log.Fatal(srv.ListenAndServe())
 }
 
@@ -142,6 +141,8 @@ type plane struct {
 	app string
 	// The routes served outside Huma, as "<mux> <pattern>".
 	raw []string
+	// The API's operations as the agents' tools, read when the API is made.
+	tools toolbox
 }
 
 type Pods interface {
@@ -156,30 +157,17 @@ var runners = []llm.Runner{claude.Runner{}, codex.Runner{}}
 func wire(gdb *gorm.DB, sb sandbox.Sandboxes, pools workers.Pools, e edge.Router, cluster, zone, suffix, boxToken string) *plane {
 	bus := stream.New(workspace.Update{Kind: "reset"})
 	sc := &workers.Scaler{Sandboxes: sb, Pools: pools, DB: gdb, Cluster: cluster}
-	ws := &workspace.Workspace{Sandboxes: sb, DB: gdb, Edge: e, Workers: sc, Tools: toolbox{github.Forge{}}, Bus: bus,
-		Runners: runners, BoxToken: boxToken, Cluster: cluster, Zone: zone, Suffix: suffix}
-	sc.Named, sc.Woken = ws.Named, ws.Unkeyed
-	return &plane{DB: gdb, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
-		ws: ws, sc: sc, auth: &auth.Auth{DB: gdb}, gate: preview.Gate{Secret: boxToken}, bus: bus}
+	p := &plane{DB: gdb, Sandboxes: sb, Pools: pools, Edge: e, Cluster: cluster, Zone: zone,
+		sc: sc, auth: &auth.Auth{DB: gdb}, gate: preview.Gate{Secret: boxToken}, bus: bus}
+	p.ws = &workspace.Workspace{Sandboxes: sb, DB: gdb, Edge: e, Workers: sc, Tools: &p.tools, Forge: github.Forge{},
+		Bus: bus, Runners: runners, BoxToken: boxToken, Cluster: cluster, Zone: zone, Suffix: suffix}
+	sc.Named, sc.Woken = p.ws.Named, p.ws.Unkeyed
+	return p
 }
 
 // One label under the zone, which its universal certificate covers: api-dev.nvoi.to.
 func (p *plane) Host(name string) string {
 	return naming.Host(naming.Cluster{Name: p.Cluster}, name, p.Zone)
-}
-
-// The tools package, as the workspace asks for it.
-type toolbox struct{ forge scm.Forge }
-
-func (toolbox) Spec() []map[string]any    { return tools.Spec() }
-func (toolbox) Policy(name string) string { return tools.Policy(name) }
-
-func (t toolbox) Do(ctx context.Context, w *workspace.Target, name, input string) string {
-	c := &tools.Call{Box: w.Box, Forge: t.forge, Token: w.Token, Dir: w.Dir, Repo: w.Repo, Base: w.Base, Branch: w.Branch,
-		Title: w.Title, Started: w.Started}
-	out := tools.Do(ctx, c, name, input)
-	w.Title = c.Title
-	return out
 }
 
 // The cloud the plane makes worker servers on, from the Secret install mounts at dir; none on a cluster without one.

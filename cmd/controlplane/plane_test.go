@@ -238,7 +238,7 @@ func TestEnvironmentCRUD(t *testing.T) {
 		return res.Code, res.Body.String()
 	}
 	if code, body := api("PUT", "/environments/web", `{"repo":"o/r","branch":"main","image":"ruby","preview":3000,
-		"secrets":{"TOKEN":"s1"},"tools":{"push_branch":"approval"}}`); code != 204 {
+		"secrets":{"TOKEN":"s1"}}`); code != 204 {
 		t.Fatalf("put: %d %s", code, body)
 	}
 	code, body := api("GET", "/environments/web", "")
@@ -247,7 +247,7 @@ func TestEnvironmentCRUD(t *testing.T) {
 	if code != 200 || strings.Contains(body, "s1") || !reflect.DeepEqual(e.Secrets, map[string]string{"TOKEN": ""}) || e.Repo != "o/r" {
 		t.Fatalf("get: %d %s", code, body)
 	}
-	if code, body := api("PATCH", "/environments/web", `{"image":"ruby:3","env":{"A":"1","B":"2"},"tools":{"push_branch":"deny"}}`); code != 200 || strings.Contains(body, "s1") {
+	if code, body := api("PATCH", "/environments/web", `{"image":"ruby:3","env":{"A":"1","B":"2"}}`); code != 200 || strings.Contains(body, "s1") {
 		t.Fatalf("patch: %d %s", code, body)
 	}
 	if code, body := api("PATCH", "/environments/web", `{"env":{"A":null}}`); code != 200 {
@@ -255,11 +255,11 @@ func TestEnvironmentCRUD(t *testing.T) {
 	}
 	stored, err := p.ws.Environment("web")
 	if err != nil || stored.Image != "ruby:3" || !reflect.DeepEqual(stored.Env, map[string]string{"B": "2"}) ||
-		stored.Tools["push_branch"] != "deny" || secret(t, p, "TOKEN") != "s1" || stored.Preview != 3000 {
+		secret(t, p, "TOKEN") != "s1" || stored.Preview != 3000 {
 		t.Fatalf("after patches: %+v %v", stored, err)
 	}
 	for _, bad := range []string{`{"imagee":"x"}`, `{"Image":"x"}`, `{"services":[{"name":"w","bogus":1}]}`, `{"tier":"huge"}`,
-		`{"tools":{"x":"maybe"}}`, `{"secrets":{"NEW":""}}`, `{"name":"other"}`, `[1]`,
+		`{"tools":{"x":"auto"}}`, `{"secrets":{"NEW":""}}`, `{"name":"other"}`, `[1]`,
 		`{"services":[{"name":"w","command":"a"},{"name":"w","command":"b"}]}`} {
 		if code, body := api("PATCH", "/environments/web", bad); code != 400 {
 			t.Errorf("patch %s: %d %s, want 400", bad, code, body)

@@ -13,12 +13,14 @@ import (
 )
 
 // How hz shows an operation: its x-hz extension, which internal/api/hzgen reads. Output is table, fields, raw or
-// none; Field picks the part of the answer shown; By names the hand-written commands that stand for it.
+// none; Field picks the part of the answer shown; By names the hand-written commands that stand for it. Tool is its
+// level as an agent's tool when the agent has no rule for it; empty is auto for a read, approval for a write.
 type hz struct {
 	Output  string   `json:"output,omitempty"`
 	Columns []string `json:"columns,omitempty"`
 	Field   string   `json:"field,omitempty"`
 	By      []string `json:"by,omitempty"`
+	Tool    string   `json:"tool,omitempty"`
 }
 
 // An operation; its id is the hz command, split on dots.
@@ -76,6 +78,8 @@ func (p *plane) API(mux *http.ServeMux) huma.API {
 	p.cluster(a)
 	p.previews(a)
 	p.usage(a)
+	p.agents(a)
+	p.tools.load(a, mux)
 	return a
 }
 

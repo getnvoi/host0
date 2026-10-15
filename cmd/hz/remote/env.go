@@ -27,7 +27,6 @@ func init() {
 		"env setup ls": setupLs, "env setup add": setupAdd, "env setup rm": setupRm,
 		"env service ls": serviceLs, "env service add": func() *cobra.Command { return serviceEdit(true) },
 		"env service set": func() *cobra.Command { return serviceEdit(false) }, "env service rm": serviceRm,
-		"env tool set": toolSet, "env tool rm": toolRm,
 	} {
 		written[path] = c
 	}
@@ -35,7 +34,6 @@ func init() {
 	groups["secret"] = "The environment's secrets; values are never shown"
 	groups["setup"] = "The commands the seed runs in the checkout, in order"
 	groups["service"] = "The processes the seed starts and every fork keeps running"
-	groups["tool"] = "What a session's tool does when called: auto, approval or deny"
 }
 
 // An environment as a YAML file holds it: secrets by name, their values read from the shell that applies it.
@@ -187,9 +185,6 @@ func describe(out io.Writer, e workspace.Environment) error {
 	}
 	for _, s := range e.Services {
 		fmt.Fprintf(w, "service\t%s\n", service(s))
-	}
-	for _, k := range keys(e.Tools) {
-		fmt.Fprintf(w, "tool\t%s %s\n", k, e.Tools[k])
 	}
 	return w.Flush()
 }
@@ -492,33 +487,4 @@ func serviceEdit(add bool) *cobra.Command {
 		}
 	}
 	return cmd
-}
-
-func toolSet() *cobra.Command {
-	return &cobra.Command{
-		Use:   "set <env> <tool> <auto|approval|deny>",
-		Short: "Set the tool's policy",
-		Args:  cobra.ExactArgs(3),
-		RunE: func(c *cobra.Command, args []string) error {
-			return patch(c.Context(), args[0], map[string]any{"tools": map[string]any{args[1]: args[2]}})
-		},
-	}
-}
-
-func toolRm() *cobra.Command {
-	return &cobra.Command{
-		Use:   "rm <env> <tool>",
-		Short: "Back to the tool's default policy",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(c *cobra.Command, args []string) error {
-			e, err := getEnv(c.Context(), args[0])
-			if err != nil {
-				return err
-			}
-			if _, ok := e.Tools[args[1]]; !ok {
-				return fmt.Errorf("environment %s sets no policy for %s", args[0], args[1])
-			}
-			return patch(c.Context(), args[0], map[string]any{"tools": map[string]any{args[1]: nil}})
-		},
-	}
 }

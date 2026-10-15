@@ -1,5 +1,22 @@
 components:
   schemas:
+    Agent:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        tools:
+          items:
+            $ref: "#/components/schemas/Grant"
+          nullable: true
+          type: array
+      required:
+        - slug
+        - name
+        - tools
+      type: object
     Approval:
       additionalProperties: false
       properties:
@@ -174,10 +191,6 @@ components:
           type: array
         tier:
           type: string
-        tools:
-          additionalProperties:
-            type: string
-          type: object
       type: object
     EnvironmentInput:
       additionalProperties: false
@@ -213,10 +226,6 @@ components:
           type: array
         tier:
           type: string
-        tools:
-          additionalProperties:
-            type: string
-          type: object
       type: object
     EnvironmentPatch:
       additionalProperties: false
@@ -251,10 +260,6 @@ components:
           type: array
         tier:
           type: string
-        tools:
-          additionalProperties:
-            type: string
-          type: object
       type: object
     EnvironmentSummary:
       additionalProperties: false
@@ -402,6 +407,20 @@ components:
         - removed
         - binary
       type: object
+    Grant:
+      additionalProperties: false
+      properties:
+        level:
+          type: string
+        rule:
+          type: boolean
+        tool:
+          type: string
+      required:
+        - tool
+        - level
+        - rule
+      type: object
     Host:
       additionalProperties: false
       properties:
@@ -472,6 +491,18 @@ components:
           writeOnly: true
       required:
         - values
+      type: object
+    Level:
+      additionalProperties: false
+      properties:
+        level:
+          enum:
+            - auto
+            - approval
+            - deny
+          type: string
+      required:
+        - level
       type: object
     Log:
       additionalProperties: false
@@ -569,6 +600,15 @@ components:
       x-go-type: llm.Option
       x-go-type-import:
         path: github.com/getnvoi/host0/internal/llm
+    Page:
+      additionalProperties: false
+      properties:
+        path:
+          description: Its path, from / (/health)
+          type: string
+      required:
+        - path
+      type: object
     Pod:
       additionalProperties: false
       properties:
@@ -663,6 +703,34 @@ components:
       x-go-type: llm.Provider
       x-go-type-import:
         path: github.com/getnvoi/host0/internal/llm
+    PullRequest:
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+      required:
+        - url
+      type: object
+    PullRequestInput:
+      additionalProperties: false
+      properties:
+        body:
+          description: What it changes
+          type: string
+        title:
+          description: The pull request's title
+          type: string
+      required:
+        - title
+      type: object
+    Pushed:
+      additionalProperties: false
+      properties:
+        branch:
+          type: string
+      required:
+        - branch
+      type: object
     Rest:
       additionalProperties: false
       properties:
@@ -767,6 +835,8 @@ components:
       properties:
         actor:
           type: string
+        agent:
+          type: string
         at:
           format: date-time
           type: string
@@ -814,6 +884,7 @@ components:
       required:
         - id
         - env
+        - agent
         - actor
         - branch
         - preview
@@ -957,6 +1028,15 @@ components:
       x-go-type: sandbox.Tier
       x-go-type-import:
         path: github.com/getnvoi/host0/internal/sandbox
+    Title:
+      additionalProperties: false
+      properties:
+        title:
+          description: The task in a few words
+          type: string
+      required:
+        - title
+      type: object
     Update:
       additionalProperties: false
       properties:
@@ -1143,6 +1223,148 @@ info:
   version: "1"
 openapi: 3.0.3
 paths:
+  /agents:
+    get:
+      operationId: agent.ls
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Agent"
+                nullable: true
+                type: array
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: The agents sessions run as
+      x-hz:
+        columns:
+          - slug
+          - name
+        output: table
+  /agents/{slug}:
+    get:
+      operationId: agent.show
+      parameters:
+        - description: The agent's slug
+          in: path
+          name: slug
+          required: true
+          schema:
+            description: The agent's slug
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "The agent's level for every tool: its rule, or the tool's default"
+      x-hz:
+        columns:
+          - tool
+          - level
+          - rule
+        field: tools
+        output: table
+  /agents/{slug}/tools/{tool}:
+    delete:
+      operationId: agent.tool.rm
+      parameters:
+        - description: The agent's slug
+          in: path
+          name: slug
+          required: true
+          schema:
+            description: The agent's slug
+            type: string
+        - description: "The tool's name: an operation id, dots as underscores (session_push)"
+          in: path
+          name: tool
+          required: true
+          schema:
+            description: "The tool's name: an operation id, dots as underscores (session_push)"
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: "Drop the agent's rule for a tool: its default applies"
+      x-hz:
+        columns:
+          - tool
+          - level
+          - rule
+        field: tools
+        output: table
+        tool: deny
+    put:
+      operationId: agent.tool.set
+      parameters:
+        - description: The agent's slug
+          in: path
+          name: slug
+          required: true
+          schema:
+            description: The agent's slug
+            type: string
+        - description: "The tool's name: an operation id, dots as underscores (session_push)"
+          in: path
+          name: tool
+          required: true
+          schema:
+            description: "The tool's name: an operation id, dots as underscores (session_push)"
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Level"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Set the agent's level for a tool
+      x-hz:
+        columns:
+          - tool
+          - level
+          - rule
+        field: tools
+        output: table
+        tool: deny
   /approvals:
     get:
       operationId: approval.ls
@@ -1238,6 +1460,7 @@ paths:
       x-hz:
         by:
           - approval approve
+        tool: deny
   /approvals/{id}/deny:
     post:
       operationId: approval.deny
@@ -1266,6 +1489,7 @@ paths:
       x-hz:
         by:
           - approval deny
+        tool: deny
   /browsers:
     delete:
       operationId: logout.all
@@ -1645,7 +1869,6 @@ paths:
           - env service add
           - env service set
           - env service rm
-          - env tool rm
     patch:
       operationId: env.set
       parameters:
@@ -1687,8 +1910,6 @@ paths:
           - env service add
           - env service set
           - env service rm
-          - env tool set
-          - env tool rm
         output: none
     put:
       operationId: env.put
@@ -2323,6 +2544,40 @@ paths:
       x-hz:
         by:
           - session log show
+  /sessions/{id}/navigate:
+    post:
+      operationId: session.navigate
+      parameters:
+        - description: The session's id
+          in: path
+          name: id
+          required: true
+          schema:
+            description: The session's id
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Page"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Show a page of the session's app in its preview
+      x-hz:
+        output: fields
+        tool: auto
   /sessions/{id}/preview:
     get:
       operationId: session.preview
@@ -2348,6 +2603,66 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Whether the session's app answers, waking it first
+      x-hz:
+        output: fields
+  /sessions/{id}/pull-request:
+    post:
+      operationId: session.pr
+      parameters:
+        - description: The session's id
+          in: path
+          name: id
+          required: true
+          schema:
+            description: The session's id
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PullRequestInput"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequest"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Push the session's branch and open a pull request onto its environment's branch
+      x-hz:
+        output: fields
+  /sessions/{id}/push:
+    post:
+      operationId: session.push
+      parameters:
+        - description: The session's id
+          in: path
+          name: id
+          required: true
+          schema:
+            description: The session's id
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pushed"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Push the session's committed work to its branch on GitHub
       x-hz:
         output: fields
   /sessions/{id}/queue:
@@ -2531,6 +2846,36 @@ paths:
       summary: End a terminal
       x-hz:
         output: none
+  /sessions/{id}/title:
+    put:
+      operationId: session.title
+      parameters:
+        - description: The session's id
+          in: path
+          name: id
+          required: true
+          schema:
+            description: The session's id
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Title"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Name the session's task in a few words
+      x-hz:
+        output: none
+        tool: auto
   /sessions/{id}/turns:
     post:
       operationId: session.say
@@ -2588,6 +2933,7 @@ paths:
       x-hz:
         by:
           - env seed
+        tool: deny
   /usage:
     get:
       operationId: usage

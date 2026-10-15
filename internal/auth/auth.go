@@ -165,14 +165,20 @@ type whoKey struct{}
 
 type doorKey struct{}
 
-// How a request came in: the CLI's bearer token, or a signed-in browser's cookie.
+// How a request came in: the CLI's bearer token, a signed-in browser's cookie, or a session's agent calling a tool.
 const (
 	ByToken  = "bearer"
 	ByCookie = "cookie"
+	ByAgent  = "agent"
 )
 
 func through(ctx context.Context, door, who string) context.Context {
 	return context.WithValue(context.WithValue(ctx, doorKey{}, door), whoKey{}, who)
+}
+
+// A request a session's agent makes through one of its tools, served in-process: it never crosses the network.
+func AsAgent(ctx context.Context, agent, sid string) context.Context {
+	return through(ctx, ByAgent, fmt.Sprintf("agent %s, session %s", agent, sid))
 }
 
 // The door the request came in by; empty when it came by neither.

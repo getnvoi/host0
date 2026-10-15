@@ -14,6 +14,51 @@ import (
 
 var operations = []operation{
 	{
+		ID:     "agent.ls",
+		Short:  "The agents sessions run as",
+		Method: "GET",
+		Route:  "/agents",
+		HZ:     hz{Output: "table", Columns: []string{"slug", "name"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.AgentLs(ctx, edit)
+		},
+	},
+	{
+		ID:     "agent.show",
+		Short:  "The agent's level for every tool: its rule, or the tool's default",
+		Method: "GET",
+		Route:  "/agents/{slug}",
+		HZ:     hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
+		Args:   []string{"slug"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.AgentShow(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "agent.tool.rm",
+		Short:  "Drop the agent's rule for a tool: its default applies",
+		Method: "DELETE",
+		Route:  "/agents/{slug}/tools/{tool}",
+		HZ:     hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
+		Args:   []string{"slug", "tool"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.AgentToolRm(ctx, args[0], args[1], edit)
+		},
+	},
+	{
+		ID:          "agent.tool.set",
+		Short:       "Set the agent's level for a tool",
+		Method:      "PUT",
+		Route:       "/agents/{slug}/tools/{tool}",
+		HZ:          hz{Output: "table", Columns: []string{"tool", "level", "rule"}, Field: "tools"},
+		Args:        []string{"slug", "tool"},
+		ContentType: "application/json",
+		Body:        []param{{Name: "level", Kind: "string", Help: ""}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.AgentToolSetWithBody(ctx, args[0], args[1], "application/json", body, edit)
+		},
+	},
+	{
 		ID:     "approval.approve",
 		Short:  "Carry the action out; the outcome turn follows, and the stream tells how it went",
 		Method: "POST",
@@ -126,7 +171,7 @@ var operations = []operation{
 		Short:  "The environment, its secrets' values left out",
 		Method: "GET",
 		Route:  "/environments/{name}",
-		HZ:     hz{By: []string{"env get", "env var rm", "env secret rm", "env setup ls", "env setup add", "env setup rm", "env service ls", "env service add", "env service set", "env service rm", "env tool rm"}},
+		HZ:     hz{By: []string{"env get", "env var rm", "env secret rm", "env setup ls", "env setup add", "env setup rm", "env service ls", "env service add", "env service set", "env service rm"}},
 		Args:   []string{"name"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.EnvGet(ctx, args[0], edit)
@@ -150,7 +195,7 @@ var operations = []operation{
 		HZ:          hz{By: []string{"env apply", "env create"}},
 		Args:        []string{"name"},
 		ContentType: "application/json",
-		Body:        []param{{Name: "branch", Kind: "string", Help: ""}, {Name: "env", Kind: "map", Help: ""}, {Name: "image", Kind: "string", Help: ""}, {Name: "name", Kind: "string", Help: ""}, {Name: "preview", Kind: "int", Help: ""}, {Name: "repo", Kind: "string", Help: ""}, {Name: "secrets", Kind: "map", Help: ""}, {Name: "setup", Kind: "list", Help: ""}, {Name: "tier", Kind: "string", Help: ""}, {Name: "tools", Kind: "map", Help: ""}},
+		Body:        []param{{Name: "branch", Kind: "string", Help: ""}, {Name: "env", Kind: "map", Help: ""}, {Name: "image", Kind: "string", Help: ""}, {Name: "name", Kind: "string", Help: ""}, {Name: "preview", Kind: "int", Help: ""}, {Name: "repo", Kind: "string", Help: ""}, {Name: "secrets", Kind: "map", Help: ""}, {Name: "setup", Kind: "list", Help: ""}, {Name: "tier", Kind: "string", Help: ""}},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.EnvPutWithBody(ctx, args[0], "application/json", body, edit)
 		},
@@ -182,10 +227,10 @@ var operations = []operation{
 		Short:       "Change the environment's fields; hz env seed rebuilds its seed",
 		Method:      "PATCH",
 		Route:       "/environments/{name}",
-		HZ:          hz{Output: "none", By: []string{"env var set", "env var rm", "env secret set", "env secret rm", "env setup add", "env setup rm", "env service add", "env service set", "env service rm", "env tool set", "env tool rm"}},
+		HZ:          hz{Output: "none", By: []string{"env var set", "env var rm", "env secret set", "env secret rm", "env setup add", "env setup rm", "env service add", "env service set", "env service rm"}},
 		Args:        []string{"name"},
 		ContentType: "application/merge-patch+json",
-		Body:        []param{{Name: "branch", Kind: "string", Help: ""}, {Name: "env", Kind: "map", Help: ""}, {Name: "image", Kind: "string", Help: ""}, {Name: "preview", Kind: "int", Help: ""}, {Name: "repo", Kind: "string", Help: ""}, {Name: "setup", Kind: "list", Help: ""}, {Name: "tier", Kind: "string", Help: ""}, {Name: "tools", Kind: "map", Help: ""}},
+		Body:        []param{{Name: "branch", Kind: "string", Help: ""}, {Name: "env", Kind: "map", Help: ""}, {Name: "image", Kind: "string", Help: ""}, {Name: "preview", Kind: "int", Help: ""}, {Name: "repo", Kind: "string", Help: ""}, {Name: "setup", Kind: "list", Help: ""}, {Name: "tier", Kind: "string", Help: ""}},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.EnvSetWithBody(ctx, args[0], "application/merge-patch+json", body, edit)
 		},
@@ -424,6 +469,32 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:          "session.navigate",
+		Short:       "Show a page of the session's app in its preview",
+		Method:      "POST",
+		Route:       "/sessions/{id}/navigate",
+		HZ:          hz{Output: "fields"},
+		Args:        []string{"id"},
+		ContentType: "application/json",
+		Body:        []param{{Name: "path", Kind: "string", Help: "Its path, from / (/health)"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionNavigateWithBody(ctx, args[0], "application/json", body, edit)
+		},
+	},
+	{
+		ID:          "session.pr",
+		Short:       "Push the session's branch and open a pull request onto its environment's branch",
+		Method:      "POST",
+		Route:       "/sessions/{id}/pull-request",
+		HZ:          hz{Output: "fields"},
+		Args:        []string{"id"},
+		ContentType: "application/json",
+		Body:        []param{{Name: "body", Kind: "string", Help: "What it changes"}, {Name: "title", Kind: "string", Help: "The pull request's title"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionPrWithBody(ctx, args[0], "application/json", body, edit)
+		},
+	},
+	{
 		ID:     "session.preview",
 		Short:  "Whether the session's app answers, waking it first",
 		Method: "GET",
@@ -432,6 +503,17 @@ var operations = []operation{
 		Args:   []string{"id"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.SessionPreview(ctx, args[0], edit)
+		},
+	},
+	{
+		ID:     "session.push",
+		Short:  "Push the session's committed work to its branch on GitHub",
+		Method: "POST",
+		Route:  "/sessions/{id}/push",
+		HZ:     hz{Output: "fields"},
+		Args:   []string{"id"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionPush(ctx, args[0], edit)
 		},
 	},
 	{
@@ -551,6 +633,19 @@ var operations = []operation{
 		Args:   []string{"id", "tid"},
 		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
 			return c.SessionTerminalRm(ctx, args[0], args[1], edit)
+		},
+	},
+	{
+		ID:          "session.title",
+		Short:       "Name the session's task in a few words",
+		Method:      "PUT",
+		Route:       "/sessions/{id}/title",
+		HZ:          hz{Output: "none"},
+		Args:        []string{"id"},
+		ContentType: "application/json",
+		Body:        []param{{Name: "title", Kind: "string", Help: "The task in a few words"}},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.SessionTitleWithBody(ctx, args[0], "application/json", body, edit)
 		},
 	},
 	{

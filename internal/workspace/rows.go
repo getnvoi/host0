@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"time"
@@ -67,7 +68,11 @@ func (ws *Workspace) session(tx *gorm.DB, r db.Session, events bool) (Session, e
 	if err != nil {
 		return Session{}, fmt.Errorf("session %s: who started it: %w", r.PublicID, err)
 	}
-	s := Session{ID: r.PublicID, Env: env.Name, Actor: "wt-" + r.PublicID, Branch: r.Branch, Preview: r.Preview,
+	var agent db.Agent
+	if err := tx.First(&agent, r.AgentID).Error; err != nil {
+		return Session{}, fmt.Errorf("session %s: its agent: %w", r.PublicID, err)
+	}
+	s := Session{ID: r.PublicID, Env: env.Name, Agent: agent.Slug, Actor: "wt-" + r.PublicID, Branch: r.Branch, Preview: r.Preview,
 		Transcript: r.Transcript, Turns: r.Turns, State: r.State, Title: r.Title, Error: r.Error, Mark: r.Mark,
 		Pending: r.Pending, Forked: r.Forked, Outcomes: r.Outcomes, By: by, At: r.StartedAt, Last: r.LastAt,
 		Events: []llm.Event{}}
@@ -99,8 +104,9 @@ func (ws *Workspace) write(s *Session) error {
 		} else if err != nil {
 			return err
 		}
-		r.Branch, r.Preview, r.Transcript, r.Turns, r.State, r.Title, r.Error = s.Branch, s.Preview, s.Transcript, s.Turns,
-			s.State, s.Title, s.Error
+		// The title is SetTitle's alone: a turn's copy of the session never writes it back.
+		r.Branch, r.Preview, r.Transcript, r.Turns, r.State, r.Error = s.Branch, s.Preview, s.Transcript, s.Turns,
+			s.State, s.Error
 		r.Mark, r.Pending, r.Forked, r.Outcomes, r.LastAt = s.Mark, s.Pending, s.Forked, s.Outcomes, s.Last
 		if err := tx.Save(&r).Error; err != nil {
 			return err
@@ -126,15 +132,16 @@ func (ws *Workspace) newSession(tx *gorm.DB, s *Session) (db.Session, error) {
 	if err != nil {
 		return db.Session{}, err
 	}
-	agent := db.Agent{Slug: agentSlug}
-	if err := tx.Where(&agent).Attrs(db.Agent{Name: agentSlug}).FirstOrCreate(&agent).Error; err != nil {
+	// A session that names no agent runs as the workspace's own.
+	agent, err := agentRow(tx, cmp.Or(s.Agent, agentSlug))
+	if err != nil {
 		return db.Session{}, err
 	}
 	by, err := member(tx, s.By)
 	if err != nil {
 		return db.Session{}, err
 	}
-	r := db.Session{PublicID: s.ID, AgentID: agent.ID, EnvironmentID: env.ID, MemberID: by, StartedAt: s.At}
+	r := db.Session{PublicID: s.ID, AgentID: agent.ID, EnvironmentID: env.ID, MemberID: by, StartedAt: s.At, Title: s.Title}
 	return r, tx.Create(&r).Error
 }
 

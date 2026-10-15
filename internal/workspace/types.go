@@ -30,8 +30,6 @@ type Environment struct {
 	Services []Service         `json:"services,omitempty" yaml:"services"`
 	Preview  int               `json:"preview,omitempty" yaml:"preview"`
 	Tier     string            `json:"tier,omitempty" yaml:"tier"` // small, medium (default) or large
-	// Tool name to policy: auto, approval or deny.
-	Tools map[string]string `json:"tools,omitempty" yaml:"tools"`
 }
 
 // An environment as PUT declares it: everything is replaced, but a secret given empty keeps its value.
@@ -48,7 +46,6 @@ type EnvironmentPatch struct {
 	Secrets  map[string]string `json:"secrets,omitempty" writeOnly:"true"`
 	Setup    []string          `json:"setup,omitempty"`
 	Services []Service         `json:"services,omitempty"`
-	Tools    map[string]string `json:"tools,omitempty"`
 }
 
 type Credentials struct {
@@ -107,6 +104,7 @@ type Seed struct {
 type Session struct {
 	ID         string      `json:"id"`
 	Env        string      `json:"env"`
+	Agent      string      `json:"agent"` // the slug of the agent it runs as
 	Actor      string      `json:"actor"`
 	Branch     string      `json:"branch"`
 	Preview    string      `json:"preview"`

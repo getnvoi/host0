@@ -31,7 +31,9 @@ func (p *plane) approvals(a huma.API) {
 	for _, d := range []string{"approve", "deny"} {
 		o := op("approval."+d, "POST", "/approvals/{id}/"+d,
 			map[string]string{"approve": "Carry the action out", "deny": "Refuse the action"}[d]+
-				"; the outcome turn follows, and the stream tells how it went", hz{By: []string{"approval " + d}})
+				"; the outcome turn follows, and the stream tells how it went",
+			// An agent never decides what it, or another agent, asked for.
+			hz{By: []string{"approval " + d}, Tool: "deny"})
 		o.DefaultStatus = http.StatusAccepted
 		huma.Register(a, o, func(ctx context.Context, in *approvalID) (*body[workspace.Approval], error) {
 			return answer(ws.Decide(in.ID, d == "approve", auth.Who(ctx)))

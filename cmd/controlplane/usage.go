@@ -183,7 +183,7 @@ func (p *plane) Usage(now time.Time, days int, by string) (workspace.Usage, erro
 				env(s.Env).Tokens += m.Tokens
 			case e.Kind == "prompt" && strings.HasPrefix(e.Content, workspace.Outcome):
 				for _, line := range strings.Split(e.Content, "\n") {
-					if strings.HasPrefix(line, "create_pull_request: opened") {
+					if strings.HasPrefix(line, `session_pr: {"url":`) {
 						day.PullRequests++
 						out.Totals.PullRequests++
 						env(s.Env).PullRequests++

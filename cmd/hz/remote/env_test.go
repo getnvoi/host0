@@ -16,8 +16,7 @@ import (
 func TestYAMLRoundTrip(t *testing.T) {
 	e := workspace.Environment{Name: "web", Repo: "o/r", Branch: "main", Image: "ruby", Preview: 3000, Tier: "large",
 		Env: map[string]string{"A": "1"}, Secrets: map[string]string{"TOKEN": "", "KEY": ""}, Setup: []string{"bundle"},
-		Services: []workspace.Service{{Name: "web", Command: "bin/rails s", Port: 3000, Early: true, Env: map[string]string{"X": "y"}}},
-		Tools:    map[string]string{"push_branch": "deny"}}
+		Services: []workspace.Service{{Name: "web", Command: "bin/rails s", Port: 3000, Early: true, Env: map[string]string{"X": "y"}}}}
 	b, err := encode(e)
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +84,6 @@ func TestEnvCommands(t *testing.T) {
 		{[]string{"service", "set", "web", "web", "--port", "3001"}, `{"services":[{"name":"web","command":"serve","port":3001}]}`},
 		{[]string{"service", "add", "web", "worker", "--command", "jobs", "--early"},
 			`{"services":[{"name":"web","command":"serve","port":3000},{"name":"worker","command":"jobs","early":true}]}`},
-		{[]string{"tool", "set", "web", "push_branch", "deny"}, `{"tools":{"push_branch":"deny"}}`},
 	} {
 		seen := fake(t, e)
 		if err := run(t, c.args...); err != nil {

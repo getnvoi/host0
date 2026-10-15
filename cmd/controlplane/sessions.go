@@ -25,7 +25,7 @@ type Log struct {
 func (p *plane) sessions(a huma.API) {
 	ws := p.ws
 	stream := op("stream", "GET", "/stream", "What happens, as server-sent events; Last-Event-ID resumes after it",
-		hz{By: []string{"env seed"}})
+		hz{By: []string{"env seed"}, Tool: "deny"})
 	stream.Responses = map[string]*huma.Response{"200": {Description: "One event per update, its id <epoch>-<n>",
 		Content: map[string]*huma.MediaType{"text/event-stream": {
 			Schema: a.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[workspace.Update](), true, "")}}}}
@@ -131,6 +131,35 @@ func (p *plane) sessions(a huma.API) {
 			TID string `path:"tid" doc:"The terminal's id"`
 		}) (*struct{}, error) {
 			return nil, problem(ws.Kill(ctx, in.ID, in.TID))
+		})
+	huma.Register(a, op("session.title", "PUT", "/sessions/{id}/title", "Name the session's task in a few words",
+		hz{Output: "none", Tool: "auto"}),
+		func(_ context.Context, in *struct {
+			ID   string `path:"id" doc:"The session's id"`
+			Body workspace.Title
+		}) (*struct{}, error) {
+			return nil, problem(ws.SetTitle(in.ID, in.Body.Title))
+		})
+	huma.Register(a, op("session.navigate", "POST", "/sessions/{id}/navigate", "Show a page of the session's app in its preview",
+		hz{Output: "fields", Tool: "auto"}),
+		func(_ context.Context, in *struct {
+			ID   string `path:"id" doc:"The session's id"`
+			Body workspace.Page
+		}) (*body[workspace.Page], error) {
+			return answer(ws.Navigate(in.ID, in.Body))
+		})
+	huma.Register(a, op("session.push", "POST", "/sessions/{id}/push", "Push the session's committed work to its branch on GitHub",
+		hz{Output: "fields"}),
+		func(ctx context.Context, in *sessionID) (*body[workspace.Pushed], error) {
+			return answer(ws.Push(ctx, in.ID))
+		})
+	huma.Register(a, op("session.pr", "POST", "/sessions/{id}/pull-request",
+		"Push the session's branch and open a pull request onto its environment's branch", hz{Output: "fields"}),
+		func(ctx context.Context, in *struct {
+			ID   string `path:"id" doc:"The session's id"`
+			Body workspace.PullRequestInput
+		}) (*body[workspace.PullRequest], error) {
+			return answer(ws.OpenPullRequest(ctx, in.ID, in.Body))
 		})
 	logShow := a.OpenAPI().Paths["/sessions/{id}/logs/{name}"].Get.Responses["200"]
 	logShow.Content = map[string]*huma.MediaType{"text/plain": {Schema: &huma.Schema{Type: "string"}}}

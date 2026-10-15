@@ -25,6 +25,7 @@ import (
 	"github.com/getnvoi/host0/internal/edge"
 	"github.com/getnvoi/host0/internal/llm"
 	"github.com/getnvoi/host0/internal/sandbox"
+	"github.com/getnvoi/host0/internal/scm"
 )
 
 const (
@@ -43,6 +44,8 @@ type Workspace struct {
 	Workers   Workers
 	Tools     Tools
 	Bus       Bus
+	// Opens pull requests on the environments' repositories.
+	Forge scm.Forge
 	// The agent CLIs a credential may name; a seed installs every one.
 	Runners  []llm.Runner
 	Pin      func(ctx context.Context, image string) (string, error)
@@ -64,24 +67,11 @@ type Workers interface {
 	Wake(ctx context.Context, actor string, tier sandbox.Tier) error
 }
 
-// The tools the agent sees, and what each does.
+// The plane's operations, each a tool an agent may call.
 type Tools interface {
-	Spec() []map[string]any
-	// The policy of a tool its environment leaves unset.
-	Policy(name string) string
-	Do(ctx context.Context, t *Target, name, input string) string
-}
-
-// What a tool acts on: the session's sandbox and branch, its environment's repository.
-type Target struct {
-	Box box.Client
-	// The GitHub token, which never enters the sandbox.
-	Token                   string
-	Dir, Repo, Base, Branch string
-	// The session's title, which a tool may change.
-	Title string
-	// Told each boxd run a tool starts, so a stop can end it.
-	Started func(run string)
+	List() []Tool
+	// Runs the tool as the session's agent. The answer is what the agent is told: "<name>: <what happened>".
+	Call(ctx context.Context, sid, agent, name, input string) string
 }
 
 // Where the UI hears of each change.

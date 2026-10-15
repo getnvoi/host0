@@ -22,7 +22,7 @@ func (p *plane) environments(a huma.API) {
 		})
 	huma.Register(a, op("env.get", "GET", "/environments/{name}", "The environment, its secrets' values left out",
 		hz{By: []string{"env get", "env var rm", "env secret rm", "env setup ls", "env setup add", "env setup rm",
-			"env service ls", "env service add", "env service set", "env service rm", "env tool rm"}}),
+			"env service ls", "env service add", "env service set", "env service rm"}}),
 		func(_ context.Context, in *environmentName) (*body[workspace.Environment], error) {
 			return answer(ws.Environment(in.Name))
 		})
@@ -37,7 +37,7 @@ func (p *plane) environments(a huma.API) {
 		})
 	huma.Register(a, op("env.set", "PATCH", "/environments/{name}", "Change the environment's fields; hz env seed rebuilds its seed",
 		hz{Output: "none", By: []string{"env var set", "env var rm", "env secret set", "env secret rm", "env setup add",
-			"env setup rm", "env service add", "env service set", "env service rm", "env tool set", "env tool rm"}}),
+			"env setup rm", "env service add", "env service set", "env service rm"}}),
 		func(_ context.Context, in *struct {
 			Name    string `path:"name" doc:"The environment's name"`
 			RawBody []byte `contentType:"application/merge-patch+json"`
