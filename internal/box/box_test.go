@@ -2,15 +2,39 @@ package box
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+// Read follows the offsets boxd answers until a read comes back empty.
+func TestRead(t *testing.T) {
+	const file = "a bundle's bytes"
+	c := client(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/tail" || r.URL.Query().Get("path") != "/workspace/.h0/push.bundle" {
+			http.NotFound(w, r)
+			return
+		}
+		at, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+		end := min(at+3, len(file))
+		w.Header().Set("X-Offset", strconv.Itoa(end))
+		io.WriteString(w, file[at:end])
+	})
+	var b strings.Builder
+	if err := c.Read(context.Background(), "/workspace/.h0/push.bundle", &b); err != nil || b.String() != file {
+		t.Fatalf("read %q, err %v", b.String(), err)
+	}
+	if err := c.Read(context.Background(), "/elsewhere", &b); !errors.Is(err, ErrMissing) {
+		t.Fatalf("a missing file: %v", err)
+	}
+}
 
 func client(t *testing.T, h http.HandlerFunc) Client {
 	srv := httptest.NewServer(h)

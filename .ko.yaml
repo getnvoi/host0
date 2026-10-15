@@ -1,3 +1,5 @@
-# boxd runs inside actors, whose image unpacker takes no device nodes; distroless static carries none.
 baseImageOverrides:
+  # boxd runs inside actors, whose image unpacker takes no device nodes; distroless static carries none.
   github.com/getnvoi/host0/cmd/boxd: gcr.io/distroless/static-debian12
+  # The plane runs git: it fetches and pushes for the sandboxes, which never hold the GitHub token.
+  github.com/getnvoi/host0/cmd/controlplane: cgr.dev/chainguard/git:latest

@@ -304,6 +304,23 @@ func (c Client) Tail(ctx context.Context, path string, offset int64) ([]byte, in
 
 var ErrMissing = errors.New("no such file")
 
+// The whole file at path, read a Tail at a time into w.
+func (c Client) Read(ctx context.Context, path string, w io.Writer) error {
+	for offset := int64(0); ; {
+		b, next, err := c.Tail(ctx, path, offset)
+		if err != nil {
+			return err
+		}
+		if len(b) == 0 {
+			return nil
+		}
+		if _, err := w.Write(b); err != nil {
+			return err
+		}
+		offset = next
+	}
+}
+
 type Terminal struct {
 	ID      string `json:"id"`
 	Command string `json:"command"`
