@@ -29,7 +29,7 @@ export type SplitDriver = {
 };
 export const SplitDrive = createContext<SplitDriver | null>(null);
 
-const saved = "nvoi.split";
+const saved = "hz.split";
 
 // The pane's width as last left, kept per viewer.
 function stored(): number | undefined {

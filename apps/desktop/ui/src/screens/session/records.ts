@@ -20,7 +20,7 @@ export const load = {
 export type AuthorRecord = { id: string; name: string; picture?: string };
 
 // `worktree.pull_request`: the link once one is open or merged, else the count of changed files. `ship`: an app
-// made in nvoi, whose button asks the agent to ship instead.
+// made in hz, whose button asks the agent to ship instead.
 export type PullRequestRecord = { url?: string | null; state?: string | null; changed: number; ship?: boolean };
 
 // `WorktreeResource`: the checkout a session runs in. `state` is new, starting, running, paused or failed.
@@ -139,9 +139,9 @@ export type CaptureRecord = {
 };
 
 // `TurnResource`: a message and what the agent did with it. `status`: queued, pending, running, succeeded, failed,
-// cancelled or awaiting_approval. `internal`: made by nvoi, no message is drawn. `conversation`: the sub-agent it
+// cancelled or awaiting_approval. `internal`: made by hz, no message is drawn. `conversation`: the sub-agent it
 // was written to. `folded`: the messages that started with it, read before the agent's work. `requestedBy`: whose
-// messages that work answers, once each; empty for a turn nvoi made. `files`: what its writer attached. `captures`:
+// messages that work answers, once each; empty for a turn hz made. `files`: what its writer attached. `captures`:
 // the pictures and videos its browser kept, in order.
 export type TurnRecord = {
   id: string;
@@ -197,7 +197,7 @@ export type FilesRecord = { paths: string[]; total: number; cut?: boolean; chang
 // `GET sessions/{id}/file`: one file's text, or why it is not shown.
 export type FileRecord = { path: string; size?: number | null; text?: string | null; refused?: string | null; message?: string | null };
 
-// One process of `GET sessions/{id}/machine`. `role` names what nvoi depends on (turn, preview, artifact, terminal,
+// One process of `GET sessions/{id}/machine`. `role` names what hz depends on (turn, preview, artifact, terminal,
 // proxy, sshd, init); `turn` is the agent's turn a process runs; `killable` says whether a member may stop it. Bytes for
 // `rss`, percents for `cpu` and `memory`.
 export type ProcessRecord = {
@@ -214,12 +214,12 @@ export type ProcessRecord = {
   role?: string | null;
   turn?: string | null;
   killable: boolean;
-  // It has a log to read (`GET sessions/{id}/machine/processes/{pid}/output`): nvoi started it.
+  // It has a log to read (`GET sessions/{id}/machine/processes/{pid}/output`): hz started it.
   logs?: boolean;
 };
 
 // `GET sessions/{id}/machine/processes/{pid}/output`: the last lines a process wrote, from its unit's journal or its
-// log file. `source` is null, with no lines, for a process nvoi did not start.
+// log file. `source` is null, with no lines, for a process hz did not start.
 // `follow`: how to stream it live, a socket of the terminal server (`socket + id`, `token` and `follow=<source>` in the
 // query) that sends its last lines, then each line as it is written.
 export type OutputRecord = {

@@ -15,7 +15,7 @@ const benRepositories: GithubRepository[] = [
 const northwindRepositories: GithubRepository[] = [
   { id: "7c2e9a10-1b3d-4f6e-8a9b-2c4d6e8f0a11", fullName: "northwind/billing", isPrivate: true, pushedAt: "2026-09-29T11:20:00.000Z" },
   { id: "7c2e9a10-1b3d-4f6e-8a9b-2c4d6e8f0a12", fullName: "northwind/infra", isPrivate: true, pushedAt: "2026-09-12T09:05:31.000Z" },
-  { id: "7c2e9a10-1b3d-4f6e-8a9b-2c4d6e8f0a13", fullName: "northwind/nvoi", isPrivate: true, pushedAt: "2026-10-01T07:58:12.000Z" },
+  { id: "7c2e9a10-1b3d-4f6e-8a9b-2c4d6e8f0a13", fullName: "northwind/web", isPrivate: true, pushedAt: "2026-10-01T07:58:12.000Z" },
   { id: "7c2e9a10-1b3d-4f6e-8a9b-2c4d6e8f0a14", fullName: "northwind/site", isPrivate: false, pushedAt: "2026-09-21T14:44:09.000Z" },
 ];
 
@@ -70,8 +70,8 @@ const dummyRails: Repo = {
   createdAt: "2026-02-03T10:04:00.000Z",
 };
 
-const nvoi: Repo = {
-  id: "1f0e2d3c-4b5a-4968-8776-655443322102", name: "northwind/nvoi", owner: "northwind", defaultBranch: "main", githubInstallationId: northwind.id,
+const web: Repo = {
+  id: "1f0e2d3c-4b5a-4968-8776-655443322102", name: "northwind/web", owner: "northwind", defaultBranch: "main", githubInstallationId: northwind.id,
   environments: [
     { id: "e1000000-0000-4000-8000-000000000003", name: "development", providerName: "daytona" },
     { id: "e1000000-0000-4000-8000-000000000004", name: "preview", providerName: "daytona" },
@@ -92,7 +92,7 @@ const infra: Repo = {
 
 const disk: OptionDisk = { min: 10, step: 5, default: 10, max: 15 };
 
-// What `GET environments/options` answers for nvoi.to's sandbox: the sizes the provider lists, then those on request.
+// What `GET environments/options` answers for northwind.example.com's sandbox: the sizes the provider lists, then those on request.
 const small: SandboxOption = { label: "S", provider: "daytona", cpu: 2, memory: 4, disk, onRequest: false, cost: 16.668, price: 41.67, currency: "EUR" };
 const medium: SandboxOption = { label: "M", provider: "daytona", cpu: 4, memory: 8, disk, onRequest: false, cost: 33.228, price: 83.07, currency: "EUR" };
 const large: SandboxOption = { label: "L", provider: "daytona", cpu: 8, memory: 16, onRequest: true, cost: 66.348, price: 165.87, currency: "EUR" };
@@ -113,7 +113,7 @@ const databaseOptions: DatabaseOption[] = [
   { label: "On the cluster", provider: "cloudnativepg", cpu: 1, memoryGb: 2, storageGb: 20, onRequest: false, currency: "EUR" },
 ];
 
-// What `GET environments/options` answers for nvoi.to's production servers, in the workspace's currency.
+// What `GET environments/options` answers for northwind.example.com's production servers, in the workspace's currency.
 const productionOptions: ProductionOption[] = [
   { label: "S", provider: "hetzner", type: "cax21", nodes: 1, cost: 1.04, price: 2.6, currency: "EUR" },
   { label: "M", provider: "hetzner", type: "cax31", nodes: 1, cost: 2.08, price: 5.2, currency: "EUR" },
@@ -183,9 +183,9 @@ const created: EnvironmentDetail = {
   branch: "main", previewPort: 3000, vars: [], commands: [], restricted: false, memberIds: [], createdAt: "2026-10-01T09:00:00.000Z",
 };
 
-const nvoiDevelopment: EnvironmentDetail = {
-  id: "e1000000-0000-4000-8000-000000000003", repoId: nvoi.id, name: "development", providerName: "daytona", shape: "8x16", disk: 15,
-  branch: "main", previewPort: 3000, manifest: "nvoi.yml", database: { engine: "postgres", version: "18", ready: true },
+const webDevelopment: EnvironmentDetail = {
+  id: "e1000000-0000-4000-8000-000000000003", repoId: web.id, name: "development", providerName: "daytona", shape: "8x16", disk: 15,
+  branch: "main", previewPort: 3000, manifest: "hz.yml", database: { engine: "postgres", version: "18", ready: true },
   vars: [{ key: "POSTGRES_HOST", value: "$PGHOST", secret: false }],
   commands: [
     { id: "c1000000-0000-4000-8000-000000000008", kind: "setup", name: "install", command: "bin/setup --skip-server", before: [], position: 0 },
@@ -196,8 +196,8 @@ const nvoiDevelopment: EnvironmentDetail = {
 };
 
 // No preview command: a dry run is refused.
-const nvoiPreview: EnvironmentDetail = {
-  id: "e1000000-0000-4000-8000-000000000004", repoId: nvoi.id, name: "preview", providerName: "daytona", shape: "2x4", disk: 10,
+const webPreview: EnvironmentDetail = {
+  id: "e1000000-0000-4000-8000-000000000004", repoId: web.id, name: "preview", providerName: "daytona", shape: "2x4", disk: 10,
   branch: "main", vars: [],
   commands: [{ id: "c1000000-0000-4000-8000-000000000010", kind: "setup", name: "install", command: "bin/setup", before: [], position: 0 }],
   restricted: false, memberIds: [],
@@ -232,9 +232,9 @@ const fieldErrors: CodeFieldErrors = {
 // The workspace's members, as the environment form's Access tab lists them.
 const accessMembers: AccessMember[] = [
   { id: "a1000000-0000-4000-8000-000000000001", email: "ben@dee.mx", name: "Ben Bonnet", role: "admin" },
-  { id: "a1000000-0000-4000-8000-000000000002", email: "ana@nvoi.local", role: "manager", you: true },
-  { id: "a1000000-0000-4000-8000-000000000003", email: "tom@nvoi.local", role: "editor" },
-  { id: "a1000000-0000-4000-8000-000000000004", email: "lea@nvoi.local", role: "editor" },
+  { id: "a1000000-0000-4000-8000-000000000002", email: "ana@northwind.dev", role: "manager", you: true },
+  { id: "a1000000-0000-4000-8000-000000000003", email: "tom@northwind.dev", role: "editor" },
+  { id: "a1000000-0000-4000-8000-000000000004", email: "lea@northwind.dev", role: "editor" },
 ];
 
 // An environment only some members reach.
@@ -250,10 +250,10 @@ export const codeSamples = {
   members: accessMembers, restrictedDevelopment, production, productionOk, productionDegraded, productionDown,
   benRepositories, northwindRepositories, ben, northwind, acme, installations: [ben, northwind, acme], variant, connector,
   connectors: [connector(acme), connector(ben), connector(variant(northwind, "syncing"))],
-  dummyRails, nvoi, billing, infra, repos: [dummyRails, billing, infra, nvoi],
+  dummyRails, web, billing, infra, repos: [dummyRails, billing, infra, web],
   options, optionsUnpriced, engines, databaseOptions, productionOptions,
-  development, staging, retired, partial, partialCreated, created, nvoiDevelopment, nvoiPreview, billingDevelopment,
-  environments: [development, staging, billingDevelopment, nvoiDevelopment, nvoiPreview],
+  development, staging, retired, partial, partialCreated, created, webDevelopment, webPreview, billingDevelopment,
+  environments: [development, staging, billingDevelopment, webDevelopment, webPreview],
   started,
   noPreview: codeError("Add a preview command first.", "no_preview_command"),
   // 422 of `PATCH environments/{id}` changing the size while checkouts run.

@@ -38,10 +38,10 @@ const tabs: TabInfo[] = [
   { title: "Health endpoint", tone: "yellow" },
   { title: "Billing webhooks", tone: "blue" },
   { title: "Rotate preview secrets", tone: "red" },
-  { title: "nvoi.to", glyph: "globe" },
+  { title: "northwind.example.com", glyph: "globe" },
 ];
 
-const badges: ComposerBadges = { agent: "Claude Code", repos: ["dummy-rails"], branch: "nvoi/health-endpoint", machine: { word: "Running", tone: "green" } };
+const badges: ComposerBadges = { agent: "Claude Code", repos: ["dummy-rails"], branch: "hz/health-endpoint", machine: { word: "Running", tone: "green" } };
 
 const people: Person[] = [{ initials: "TW", fill: slate }, { initials: "BB" }, { initials: "MA", fill: olive }];
 
@@ -72,7 +72,7 @@ const parts: Part[] = [
     summary: "Pushed the branch, asked to open a pull request",
     time: "3s",
     actions: [
-      { tool: "push", target: "nvoi/health-endpoint", outcome: { kind: "decision", word: "Pushed", tone: "green", by: "auto" } },
+      { tool: "push", target: "hz/health-endpoint", outcome: { kind: "decision", word: "Pushed", tone: "green", by: "auto" } },
       { tool: "pr", target: "Add /health endpoint", outcome: { kind: "decision", word: "Waiting", tone: "yellow" }, state: "waiting" },
     ],
   },
@@ -87,7 +87,7 @@ const conversation: ConversationModel = {
   workspace: "Northwind",
   initials: "BB",
   title: "Health endpoint",
-  branch: "nvoi/health-endpoint",
+  branch: "hz/health-endpoint",
   state: ["Needs your approval", "yellow"],
   changes: 4,
   parts,
@@ -103,7 +103,7 @@ const flowSteps = ["Plan", "Scaffold", "Migrate", "Build", "Test", "Lint", "Revi
 const repositories: RepositoryModel[] = [
   { name: "benbonnet/dummy-rails", branch: "main", host: "github", connection: "benbonnet", environments: [{ name: "development", option: "S" }, { name: "staging", option: "M" }], sessions: 34 },
   {
-    name: "northwind/nvoi",
+    name: "northwind/web",
     branch: "main",
     host: "github",
     connection: "northwind",
@@ -141,7 +141,7 @@ const environments: EnvironmentModel[] = [
     shape: "4x8",
     disk: 40,
     previewPort: 3000,
-    manifest: "nvoi.yml",
+    manifest: "hz.yml",
     database: { engine: "postgres", version: "16" },
     vars: [{ key: "RAILS_ENV", value: "staging" }, { key: "RAILS_MASTER_KEY", secret: true }, { key: "SENTRY_DSN", secret: true }],
     commands: [
@@ -152,13 +152,13 @@ const environments: EnvironmentModel[] = [
   },
   {
     name: "development",
-    repository: "northwind/nvoi",
+    repository: "northwind/web",
     branch: "main",
     option: "S",
     shape: "4x8",
     disk: 30,
     previewPort: 3000,
-    manifest: "nvoi.yml",
+    manifest: "hz.yml",
     database: { engine: "postgres", version: "17" },
     vars: [{ key: "DATABASE_URL", secret: true }],
     commands: [
@@ -168,13 +168,13 @@ const environments: EnvironmentModel[] = [
   },
   {
     name: "preview",
-    repository: "northwind/nvoi",
+    repository: "northwind/web",
     branch: "main",
     option: "S",
     shape: "2x4",
     disk: 20,
     previewPort: 3000,
-    manifest: "nvoi.yml",
+    manifest: "hz.yml",
     vars: [],
     commands: [{ kind: "preview", name: "web", command: "bin/dev", port: 3000 }],
   },
@@ -199,7 +199,7 @@ const members: MemberModel[] = [
   memberModel({ name: "Ben Bonnet", email: "ben@northwind.dev", initials: "BB", role: "Owner", repositories: "All repositories", joined: "8 months ago", seen: "Now", you: true }),
   memberModel({ name: "Maya Laurent", email: "maya@northwind.dev", initials: "ML", fill: olive, role: "Admin", repositories: "3 repositories", joined: "3 months ago", seen: "2h ago" }),
   memberModel({ name: "Tom Weber", email: "tom@northwind.dev", initials: "TW", fill: slate, role: "Member", repositories: "dummy-rails", joined: "12 days ago", seen: "Yesterday" }),
-  memberModel({ name: "Léa Martin", email: "lea@northwind.dev", initials: "LM", role: "Viewer", repositories: "nvoi", joined: "Invited", seen: "Invited" }),
+  memberModel({ name: "Léa Martin", email: "lea@northwind.dev", initials: "LM", role: "Viewer", repositories: "web", joined: "Invited", seen: "Invited" }),
 ];
 
 const sessions: [string, SessionSummary[]][] = [
@@ -213,7 +213,7 @@ const sessions: [string, SessionSummary[]][] = [
         reason: null,
         tone: "green",
         owner: "northwind",
-        repo: "nvoi",
+        repo: "web",
         environment: "production",
         age: "1h",
         people: [{ initials: "MA", fill: olive }, { initials: "BB" }, { initials: "TW", fill: slate }],
@@ -223,7 +223,7 @@ const sessions: [string, SessionSummary[]][] = [
   [
     "Yesterday",
     [
-      { title: "Add a sandbox check to the README", reason: null, tone: "grey", owner: "northwind", repo: "nvoi", environment: "staging", age: "1d", people: [{ initials: "BB" }] },
+      { title: "Add a sandbox check to the README", reason: null, tone: "grey", owner: "northwind", repo: "web", environment: "staging", age: "1d", people: [{ initials: "BB" }] },
       {
         title: "Rotate preview secrets",
         reason: "Setup failed at bundle install",
@@ -244,7 +244,7 @@ const commander: CommanderGroup[] = [
     rows: [
       { title: "Health endpoint", subtitle: "dummy-rails · staging · 4m", lead: "session", right: { pill: ["Needs your approval", "yellow"] } },
       { title: "Billing webhooks", subtitle: "dummy-rails · staging · 38m", lead: "session", right: { pill: ["Working", "blue"] } },
-      { title: "Note README check, push PR", subtitle: "nvoi · production · 1h", lead: "session", right: { pill: ["Done", "green"] } },
+      { title: "Note README check, push PR", subtitle: "web · production · 1h", lead: "session", right: { pill: ["Done", "green"] } },
     ],
   },
   {
@@ -278,7 +278,7 @@ export const samples = {
   // The window's tabs with `path` shown in the last one.
   settingsTabs(path?: string, title?: string): TabInfo[] {
     const d = path ? describe(path) : { title: "Settings", glyph: "gear" };
-    return [{ title: "Health endpoint", tone: "yellow" }, { title: "Billing webhooks", tone: "blue" }, { title: "nvoi.to", glyph: "globe" }, { title: title ?? d.title, glyph: d.glyph }];
+    return [{ title: "Health endpoint", tone: "yellow" }, { title: "Billing webhooks", tone: "blue" }, { title: "northwind.example.com", glyph: "globe" }, { title: title ?? d.title, glyph: d.glyph }];
   },
   badges,
   flow: {

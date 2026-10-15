@@ -363,7 +363,7 @@ const sprite = (() => {
   };
   const file = renderToStaticMarkup(<File size={13.5} strokeWidth={1.3} absoluteStrokeWidth />);
   const chevron = renderToStaticMarkup(<ChevronDown size={10.5} strokeWidth={1.3} absoluteStrokeWidth />);
-  return `<svg xmlns="http://www.w3.org/2000/svg" style="display:none">${symbol("nvoi-file", file)}${symbol("nvoi-chevron", chevron)}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" style="display:none">${symbol("hz-file", file)}${symbol("hz-chevron", chevron)}</svg>`;
 })();
 
 const changeStatus: Record<FileChange, GitStatusEntry["status"]> = { added: "added", modified: "modified", deleted: "deleted" };
@@ -422,7 +422,7 @@ function PathTree({ paths, changes = {}, query, selected, open }: {
     gitStatus: git,
     initialSelectedPaths: selected ? [selected] : [],
     fileTreeSearchMode: "hide-non-matches",
-    icons: { set: "none", spriteSheet: sprite, remap: { "file-tree-icon-file": { name: "nvoi-file", width: 13.5, height: 13.5, viewBox: "0 0 24 24" }, "file-tree-icon-chevron": { name: "nvoi-chevron", width: 10.5, height: 10.5, viewBox: "0 0 24 24" } } },
+    icons: { set: "none", spriteSheet: sprite, remap: { "file-tree-icon-file": { name: "hz-file", width: 13.5, height: 13.5, viewBox: "0 0 24 24" }, "file-tree-icon-chevron": { name: "hz-chevron", width: 10.5, height: 10.5, viewBox: "0 0 24 24" } } },
     unsafeCSS: treeCSS,
     onSelectionChange: (chosen) => {
       const path = chosen[chosen.length - 1];

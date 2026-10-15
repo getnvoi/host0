@@ -9,7 +9,7 @@ import { AnchoredMenu, Dropdown, menu, Tooltip, type MenuEntry } from "./menu";
 import { alpha, Button, Dot, edge, IconButton, Kbd, monoCaps, OnTone, RowMark, Rule, Spinner, tabStatus, Toggle, ToneStrip, type TabStatus } from "./primitives";
 import { edgeInset, markSlot, palette, textEdge, tone, toneEdge, type Tone } from "./tokens";
 
-// The composer's input asks for no autocorrection (nvoix's primitives hold this; nvoi design's do not).
+// The composer's input asks for no autocorrection.
 const plainText = { autoComplete: "off", autoCorrect: "off", autoCapitalize: "off", spellCheck: false, writingsuggestions: "false" } as const;
 
 // A file waiting to go with the next message. Always drawn as a square.

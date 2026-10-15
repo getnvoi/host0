@@ -61,7 +61,7 @@ export type SessionActions = {
   sendNote?: (noteId: string) => void;
   // `POST /worktrees/{worktree_id}/preview`.
   serve?: (worktreeId: string) => void;
-  // `POST /worktrees/{worktree_id}/ship`: a person merges the branch into main, on a repository nvoi hosts.
+  // `POST /worktrees/{worktree_id}/ship`: a person merges the branch into main, on a repository hz hosts.
   ship?: (worktreeId: string) => void;
   // `PATCH /sessions/{id}` with `archived: false`.
   restore?: () => void;
@@ -160,7 +160,7 @@ function fromDetail(detail: SessionDetail, tabs: TabInfo[], now: Date): SessionP
   const agent = detail.agent.name;
   const pr = s.worktree.pullRequest;
   const ship = pr?.ship ?? false;
-  // On a repository nvoi hosts the agent opens the pull request inside nvoi, then a person ships it (merges into
+  // On a repository hz hosts the agent opens the pull request inside hz, then a person ships it (merges into
   // main); on GitHub it is merged, open or none.
   const pullRequest: PullRequest = ship
     ? pr?.state === "merged" ? { kind: "shipped" } : pr?.state === "open" ? { kind: "ship" } : { kind: "create" }

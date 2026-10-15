@@ -244,7 +244,7 @@ export function CredentialForm({ credential: original, provider: given = agentsS
             </Field>
           ))}
           {connected && (
-            <Field label="ChatGPT account" help="You approve it in your browser with a code. nvoi gets a login of its own: your own ChatGPT sessions are not shared or signed out.">
+            <Field label="ChatGPT account" help="You approve it in your browser with a code. hz gets a login of its own: your own ChatGPT sessions are not shared or signed out.">
               <div className="flex items-center gap-3">
                 {!isNew && <Pill text={credential.settings.account ? `Connected as ${credential.settings.account}` : "Connected"} tone="green" />}
                 <Button kind={isNew ? "primary" : "secondary"} size="small" glyph="link" disabled={isNew && !credential.label.trim()} onClick={() => actions.connect?.(credential)}>
