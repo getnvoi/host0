@@ -737,6 +737,11 @@ type ClientInterface interface {
 	// Corresponds with GET /agents (the `AgentLs` operationId).
 	AgentLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AgentRm Remove the agent; sessions that ran as it keep its name
+	//
+	// Corresponds with DELETE /agents/{name} (the `AgentRm` operationId).
+	AgentRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// AgentShow The agent and the tools it is granted
 	//
 	// Corresponds with GET /agents/{name} (the `AgentShow` operationId).
@@ -1177,6 +1182,21 @@ type ClientInterface interface {
 // Corresponds with GET /agents (the `AgentLs` operationId).
 func (c *Client) AgentLs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAgentLsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// AgentRm Remove the agent; sessions that ran as it keep its name
+//
+// Corresponds with DELETE /agents/{name} (the `AgentRm` operationId).
+func (c *Client) AgentRm(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentRmRequest(c.Server, name)
 	if err != nil {
 		return nil, err
 	}
@@ -2381,6 +2401,40 @@ func NewAgentLsRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentRmRequest constructs an http.Request for the AgentRm method
+func NewAgentRmRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/agents/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -4749,6 +4803,13 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /agents (the `AgentLs` operationId).
 	AgentLsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*AgentLsResponse, error)
 
+	// AgentRmWithResponse Remove the agent; sessions that ran as it keep its name
+	//
+	// Returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with DELETE /agents/{name} (the `AgentRm` operationId).
+	AgentRmWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentRmResponse, error)
+
 	// AgentShowWithResponse The agent and the tools it is granted
 	//
 	// Returns a wrapper object for the known response body format(s).
@@ -5310,6 +5371,47 @@ func (r AgentLsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r AgentLsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type AgentRmResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// ApplicationproblemJSONDefault the response for an HTTP default `application/problem+json` response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// GetApplicationproblemJSONDefault returns the response for an HTTP default `application/problem+json` response
+func (r AgentRmResponse) GetApplicationproblemJSONDefault() *ErrorModel {
+	return r.ApplicationproblemJSONDefault
+}
+
+// GetBody returns the raw response body bytes
+func (r AgentRmResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentRmResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentRmResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r AgentRmResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -7995,6 +8097,19 @@ func (c *ClientWithResponses) AgentLsWithResponse(ctx context.Context, reqEditor
 	return ParseAgentLsResponse(rsp)
 }
 
+// AgentRmWithResponse Remove the agent; sessions that ran as it keep its name
+//
+// Returns a wrapper object for the known response body format(s).
+//
+// Corresponds with DELETE /agents/{name} (the `AgentRm` operationId).
+func (c *ClientWithResponses) AgentRmWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*AgentRmResponse, error) {
+	rsp, err := c.AgentRm(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentRmResponse(rsp)
+}
+
 // AgentShowWithResponse The agent and the tools it is granted
 //
 // Returns a wrapper object for the known response body format(s).
@@ -8977,6 +9092,35 @@ func ParseAgentLsResponse(rsp *http.Response) (*AgentLsResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentRmResponse parses an HTTP response from a AgentRmWithResponse call
+func ParseAgentRmResponse(rsp *http.Response) (*AgentRmResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentRmResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel

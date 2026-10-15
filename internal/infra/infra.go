@@ -29,8 +29,8 @@ type Config struct {
 	WorkerIdle time.Duration
 	// An idle actor is paused after Pause and suspended after Suspend.
 	Actors sandbox.Rest
-	Tiers      []sandbox.Tier
-	Zone       string
+	Tiers  []sandbox.Tier
+	Zone   string
 	// Previews are <name>-<cluster><PreviewSuffix>.<Zone>.
 	PreviewSuffix string
 	// The nodes' GOARCH, which ko builds for.

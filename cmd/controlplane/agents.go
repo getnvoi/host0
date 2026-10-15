@@ -41,6 +41,10 @@ func (p *plane) agents(a huma.API) {
 		}) (*body[workspace.Agent], error) {
 			return answer(ws.PutAgent(in.Name, in.Body))
 		})
+	huma.Register(a, op("agent.rm", "DELETE", "/agents/{name}", "Remove the agent; sessions that ran as it keep its name", set),
+		func(_ context.Context, in *agentName) (*struct{}, error) {
+			return nil, problem(ws.RemoveAgent(in.Name))
+		})
 	huma.Register(a, op("agent.tool.set", "PUT", "/agents/{name}/tools/{tool}", "Grant the agent a tool, or change the level it has it at", set),
 		func(_ context.Context, in *struct {
 			Name string `path:"name" doc:"The agent's name"`

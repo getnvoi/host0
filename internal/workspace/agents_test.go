@@ -128,6 +128,15 @@ func TestPutAgent(t *testing.T) {
 			t.Errorf("%s %+v: %v", bad.name, bad.in, err)
 		}
 	}
+	if err := p.RemoveAgent("ops"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Agent("ops"); !errors.As(err, new(NotFound)) {
+		t.Fatalf("removed agent: %v", err)
+	}
+	if err := p.RemoveAgent(agentName); !errors.As(err, new(Invalid)) {
+		t.Fatalf("removed the workspace's own agent: %v", err)
+	}
 	if _, err := p.Start("web", "nobody", "hi", "cli"); !errors.As(err, new(NotFound)) {
 		t.Fatalf("start as no agent: %v", err)
 	}

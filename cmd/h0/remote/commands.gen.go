@@ -37,6 +37,17 @@ var operations = []operation{
 		},
 	},
 	{
+		ID:     "agent.rm",
+		Short:  "Remove the agent; sessions that ran as it keep its name",
+		Method: "DELETE",
+		Route:  "/agents/{name}",
+		H0:     h0{Output: "table", Columns: []string{"tool", "level"}, Field: "tools"},
+		Args:   []string{"name"},
+		Call: func(ctx context.Context, c *client.Client, args []string, body io.Reader, edit client.RequestEditorFn) (*http.Response, error) {
+			return c.AgentRm(ctx, args[0], edit)
+		},
+	},
+	{
 		ID:     "agent.show",
 		Short:  "The agent and the tools it is granted",
 		Method: "GET",

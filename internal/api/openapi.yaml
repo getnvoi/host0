@@ -1266,6 +1266,33 @@ paths:
           - description
         output: table
   /agents/{name}:
+    delete:
+      operationId: agent.rm
+      parameters:
+        - description: The agent's name
+          in: path
+          name: name
+          required: true
+          schema:
+            description: The agent's name
+            type: string
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Remove the agent; sessions that ran as it keep its name
+      x-h0:
+        columns:
+          - tool
+          - level
+        field: tools
+        noTool: true
+        output: table
     get:
       operationId: agent.show
       parameters:

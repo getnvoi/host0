@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -58,7 +59,7 @@ func agentRow(tx *gorm.DB, name string) (db.Agent, error) {
 	if name == agentName {
 		err = tx.Where(&a).FirstOrCreate(&a).Error
 	} else {
-		err = tx.Where(&a).First(&a).Error
+		err = tx.Where(&a).Where("archived_at IS NULL").First(&a).Error
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return a, NotFound{fmt.Errorf("no agent %s", name)}
@@ -174,6 +175,24 @@ func (ws *Workspace) Grant(agent, name, level string) (Agent, error) {
 		return Agent{}, err
 	}
 	return ws.Agent(agent)
+}
+
+// Archives the agent and takes its tools; a session that ran as it keeps its name. The workspace's own agent stays.
+func (ws *Workspace) RemoveAgent(name string) error {
+	if name == agentName {
+		return Invalid{fmt.Errorf("agent %s is the workspace's own: sessions run as it when they name none", name)}
+	}
+	row, err := agentRow(ws.DB, name)
+	if err != nil {
+		return err
+	}
+	return ws.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("agent_id = ?", row.ID).Delete(&db.ToolPolicy{}).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		return tx.Model(&row).Update("archived_at", &now).Error
+	})
 }
 
 // Takes the tool from the agent; one it does not have is no error.
